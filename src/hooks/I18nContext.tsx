@@ -134,6 +134,7 @@ const dict = {
     "settings.profile": "Profile",
     "settings.coupleInfo": "Couple",
     "settings.inviteCode": "Invite code",
+    "settings.clearCache": "Clear cache & reload",
     "settings.signOut": "Sign out",
 
     "common.you": "You",
@@ -264,6 +265,7 @@ const dict = {
     "settings.profile": "Hồ sơ",
     "settings.coupleInfo": "Couple",
     "settings.inviteCode": "Mã mời",
+    "settings.clearCache": "Xóa cache & tải lại",
     "settings.signOut": "Đăng xuất",
 
     "common.you": "Bạn",
