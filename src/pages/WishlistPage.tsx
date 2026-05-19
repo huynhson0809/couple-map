@@ -1,0 +1,249 @@
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Plus, Trash2, MapPin, Search, Check } from 'lucide-react'
+import { useAuth } from '../hooks/useAuth'
+import { useCoupleCtx } from '../hooks/CoupleContext'
+import { useBucket } from '../hooks/useBucket'
+import { useI18n } from '../hooks/I18nContext'
+import { Button } from '../components/ui/Button'
+import { BottomSheet } from '../components/ui/BottomSheet'
+
+interface PlaceResult {
+  display_name: string
+  lat: string
+  lon: string
+}
+
+export function WishlistPage() {
+  const { user } = useAuth()
+  const { couple } = useCoupleCtx()
+  const { items, addItem, removeItem, markDone } = useBucket(couple?.id, user?.id)
+  const { t } = useI18n()
+  const navigate = useNavigate()
+
+  const [adding, setAdding] = useState(false)
+  const [title, setTitle] = useState('')
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<PlaceResult[]>([])
+  const [searching, setSearching] = useState(false)
+  const [selected, setSelected] = useState<PlaceResult | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const debounceRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!query.trim()) {
+      setResults([])
+      return
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = window.setTimeout(async () => {
+      setSearching(true)
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&limit=6&q=${encodeURIComponent(query)}`,
+        )
+        const data = await res.json()
+        setResults(data)
+      } catch {
+        setResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 400)
+  }, [query])
+
+  function resetForm() {
+    setTitle('')
+    setQuery('')
+    setResults([])
+    setSelected(null)
+    setError(null)
+  }
+
+  function openAdd() {
+    resetForm()
+    setAdding(true)
+  }
+
+  function closeAdd() {
+    setAdding(false)
+    resetForm()
+  }
+
+  async function handleSave() {
+    if (!selected) {
+      setError(t('wish.pickFirst'))
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const lat = parseFloat(selected.lat)
+      const lng = parseFloat(selected.lon)
+      await addItem({
+        title: title.trim() || selected.display_name.split(',')[0],
+        lat,
+        lng,
+      })
+      closeAdd()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const dreams = items.filter((b) => b.status === 'dream')
+  const done = items.filter((b) => b.status === 'done')
+
+  return (
+    <div className="page page-wishlist">
+      <header className="page-header">
+        <h1>{t('wish.title')}</h1>
+        <p className="muted">{t('wish.subtitle')}</p>
+      </header>
+
+      <Button onClick={openAdd} style={{ width: '100%' }}>
+        <Plus size={18} /> {t('wish.add')}
+      </Button>
+
+      {dreams.length === 0 && done.length === 0 ? (
+        <div className="empty-state" style={{ marginTop: 32 }}>
+          <div className="empty-emoji">🌍</div>
+          <p className="muted">{t('wish.empty')}</p>
+        </div>
+      ) : (
+        <>
+          {dreams.length > 0 && (
+            <section className="wish-section">
+              <h3>{t('wish.dreaming')} ({dreams.length})</h3>
+              <div className="stack">
+                {dreams.map((b) => (
+                  <div key={b.id} className="wish-card">
+                    <div className="wish-icon">★</div>
+                    <div className="wish-body">
+                      <div className="wish-title">{b.title}</div>
+                      <button
+                        className="link-btn small"
+                        onClick={() =>
+                          navigate('/', { state: { flyTo: { lat: b.lat, lng: b.lng } } })
+                        }
+                      >
+                        <MapPin size={12} /> {t('wish.showOnMap')}
+                      </button>
+                    </div>
+                    <div className="wish-actions">
+                      <button
+                        className="icon-btn done-btn"
+                        onClick={() => markDone(b.id)}
+                        title="Mark as visited"
+                      >
+                        <Check size={18} />
+                      </button>
+                      <button className="icon-btn" onClick={() => removeItem(b.id)}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {done.length > 0 && (
+            <section className="wish-section">
+              <h3>{t('wish.visited')} ({done.length})</h3>
+              <div className="stack">
+                {done.map((b) => (
+                  <div key={b.id} className="wish-card done">
+                    <div className="wish-icon">
+                      <Check size={18} />
+                    </div>
+                    <div className="wish-body">
+                      <div className="wish-title">{b.title}</div>
+                    </div>
+                    <button className="icon-btn" onClick={() => removeItem(b.id)}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </>
+      )}
+
+      <BottomSheet open={adding} onClose={closeAdd} title={t('wish.adding')}>
+        <div className="wish-form">
+          <div>
+            <div className="field-label">{t('wish.search')}</div>
+            <div className="search-input">
+              <Search size={16} className="search-icon" />
+              <input
+                type="text"
+                placeholder={t('wish.searchPlaceholder')}
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value)
+                  setSelected(null)
+                }}
+                autoFocus
+              />
+            </div>
+            {searching && <div className="muted small" style={{ marginTop: 6 }}>{t('wish.searching')}</div>}
+            {!selected && results.length > 0 && (
+              <div className="search-results">
+                {results.map((r, i) => (
+                  <button
+                    key={`${r.lat}-${r.lon}-${i}`}
+                    type="button"
+                    className="search-result"
+                    onClick={() => {
+                      setSelected(r)
+                      setQuery(r.display_name.split(',')[0])
+                    }}
+                  >
+                    <MapPin size={14} />
+                    <span>{r.display_name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {selected && (
+            <div className="selected-place">
+              <MapPin size={16} />
+              <div>
+                <div className="selected-name">{selected.display_name.split(',')[0]}</div>
+                <div className="muted small">{selected.display_name}</div>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <div className="field-label">{t('wish.nickname')}</div>
+            <input
+              type="text"
+              placeholder={t('wish.nicknamePh')}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+
+          {error && <p className="error">{error}</p>}
+
+          <div className="row">
+            <Button type="button" variant="secondary" onClick={closeAdd} disabled={busy}>
+              {t('common.cancel')}
+            </Button>
+            <Button type="button" onClick={handleSave} disabled={busy || !selected} style={{ flex: 1 }}>
+              {busy ? t('wish.saving') : t('wish.addToList')}
+            </Button>
+          </div>
+        </div>
+      </BottomSheet>
+    </div>
+  )
+}

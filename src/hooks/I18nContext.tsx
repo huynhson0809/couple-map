@@ -1,0 +1,270 @@
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+
+export type Lang = "en" | "vi";
+
+const KEY = "couple-map.lang";
+
+const dict = {
+  en: {
+    "nav.map": "Map",
+    "nav.timeline": "Timeline",
+    "nav.wishlist": "Wishlist",
+    "nav.stats": "Stats",
+    "nav.settings": "Settings",
+
+    "auth.welcome": "Welcome back",
+    "auth.signin": "Sign in",
+    "auth.signup": "Sign up",
+    "auth.signingIn": "Signing in…",
+    "auth.creating": "Creating…",
+    "auth.email": "Email",
+    "auth.password": "Password",
+    "auth.name": "Your name",
+    "auth.signout": "Sign out",
+    "auth.noAccount": "No account?",
+    "auth.haveAccount": "Already have one?",
+    "auth.createAccount": "Create account",
+    "auth.startMapping": "Start mapping your memories",
+
+    "pair.title": "Pair with your partner",
+    "pair.create": "Create a new couple",
+    "pair.creating": "Creating…",
+    "pair.or": "or",
+    "pair.orJoin": "or join a different couple",
+    "pair.code": "ENTER INVITE CODE",
+    "pair.join": "Join with code",
+    "pair.joining": "Joining…",
+    "pair.share": "Your invite code — share it with your partner:",
+    "pair.copied": "✓ Copied!",
+    "pair.tapCopy": "Tap to copy. Waiting for your partner…",
+
+    "map.heatmap": "Heatmap",
+    "map.heatmapHint": "Shows which areas have the most memories",
+
+    "pin.title": "Memory title (e.g. First date 🌸)",
+    "pin.category": "Category",
+    "pin.note": "Add a note about this memory…",
+    "pin.photos": "Photos",
+    "pin.takePhoto": "Take photo",
+    "pin.fromLibrary": "From library",
+    "pin.uploading": "Uploading",
+    "pin.save": "Save memory",
+    "pin.saving": "Saving…",
+    "pin.cancel": "Cancel",
+    "pin.openMaps": "Open in Maps",
+    "pin.share": "Share",
+    "pin.delete": "Delete",
+    "pin.deleting": "Deleting…",
+    "pin.deleteConfirm": "Delete this memory?",
+    "pin.newMemory": "New memory",
+    "pin.memory": "Memory",
+    "pin.required": "Title is required",
+    "pin.marker": "Marker style",
+    "pin.markerCustom": "Custom emoji",
+    "pin.markerUpload": "Upload image",
+    "pin.markerClear": "Use category default",
+
+    "timeline.title": "Timeline",
+    "timeline.memoriesShared": "memories shared",
+    "timeline.empty": "No memories yet",
+    "timeline.emptyHint":
+      "Long-press the map or tap + to add your first memory.",
+
+    "stats.title": "Our journey",
+    "stats.memories": "Memories",
+    "stats.cities": "Cities",
+    "stats.countries": "Countries",
+    "stats.daysTogether": "Days together",
+    "stats.farthest": "Farthest apart",
+    "stats.firstMemory": "First memory",
+    "stats.placesBeen": "Places we've been",
+
+    "wish.title": "Wishlist",
+    "wish.subtitle": "Places we want to go someday 💫",
+    "wish.add": "Add a dream place",
+    "wish.adding": "Add a dream place",
+    "wish.empty": "No dreams yet — add somewhere you both want to visit.",
+    "wish.dreaming": "Dreaming of",
+    "wish.visited": "Visited",
+    "wish.showOnMap": "Show on map",
+    "wish.search": "Search a place",
+    "wish.searchPlaceholder": "Paris, Bali, Da Lat…",
+    "wish.searching": "Searching…",
+    "wish.nickname": "Nickname (optional)",
+    "wish.nicknamePh": "e.g. Honeymoon trip 🌺",
+    "wish.addToList": "✨ Add to wishlist",
+    "wish.pickFirst": "Pick a place first",
+    "wish.saving": "Saving…",
+
+    "settings.title": "Settings",
+    "settings.appearance": "Appearance",
+    "settings.theme": "Theme",
+    "settings.themeLight": "Light",
+    "settings.themeDark": "Dark",
+    "settings.language": "Language",
+    "settings.langEn": "English",
+    "settings.langVi": "Tiếng Việt",
+    "settings.account": "Account",
+    "settings.profile": "Profile",
+    "settings.coupleInfo": "Couple",
+    "settings.inviteCode": "Invite code",
+    "settings.signOut": "Sign out",
+
+    "common.you": "You",
+    "common.partner": "Partner",
+    "common.them": "them",
+    "common.cancel": "Cancel",
+    "common.something": "Something went wrong",
+  },
+  vi: {
+    "nav.map": "Bản đồ",
+    "nav.timeline": "Dòng thời gian",
+    "nav.wishlist": "Mơ ước",
+    "nav.stats": "Thống kê",
+    "nav.settings": "Cài đặt",
+
+    "auth.welcome": "Chào mừng quay lại",
+    "auth.signin": "Đăng nhập",
+    "auth.signup": "Đăng ký",
+    "auth.signingIn": "Đang đăng nhập…",
+    "auth.creating": "Đang tạo…",
+    "auth.email": "Email",
+    "auth.password": "Mật khẩu",
+    "auth.name": "Tên của bạn",
+    "auth.signout": "Đăng xuất",
+    "auth.noAccount": "Chưa có tài khoản?",
+    "auth.haveAccount": "Đã có tài khoản?",
+    "auth.createAccount": "Tạo tài khoản",
+    "auth.startMapping": "Bắt đầu ghi lại kỷ niệm",
+
+    "pair.title": "Kết nối với người ấy",
+    "pair.create": "Tạo couple mới",
+    "pair.creating": "Đang tạo…",
+    "pair.or": "hoặc",
+    "pair.orJoin": "hoặc tham gia couple khác",
+    "pair.code": "NHẬP MÃ MỜI",
+    "pair.join": "Tham gia",
+    "pair.joining": "Đang vào…",
+    "pair.share": "Mã của bạn — gửi cho người ấy:",
+    "pair.copied": "✓ Đã copy!",
+    "pair.tapCopy": "Bấm để copy. Đang chờ bạn ấy…",
+
+    "map.heatmap": "Heatmap",
+    "map.heatmapHint": "Hiện khu vực có nhiều kỷ niệm nhất",
+
+    "pin.title": "Tên kỷ niệm (e.g. Hẹn hò đầu tiên 🌸)",
+    "pin.category": "Loại kỷ niệm",
+    "pin.note": "Ghi chú thêm về kỷ niệm này…",
+    "pin.photos": "Ảnh",
+    "pin.takePhoto": "Chụp ảnh",
+    "pin.fromLibrary": "Từ thư viện",
+    "pin.uploading": "Đang upload",
+    "pin.save": "Lưu kỷ niệm",
+    "pin.saving": "Đang lưu…",
+    "pin.cancel": "Hủy",
+    "pin.openMaps": "Mở trong Maps",
+    "pin.share": "Chia sẻ",
+    "pin.delete": "Xóa",
+    "pin.deleting": "Đang xóa…",
+    "pin.deleteConfirm": "Xóa kỷ niệm này?",
+    "pin.newMemory": "Kỷ niệm mới",
+    "pin.memory": "Kỷ niệm",
+    "pin.required": "Cần nhập tiêu đề",
+    "pin.marker": "Kiểu marker",
+    "pin.markerCustom": "Emoji tùy chỉnh",
+    "pin.markerUpload": "Tải ảnh marker",
+    "pin.markerClear": "Dùng emoji mặc định",
+
+    "timeline.title": "Dòng thời gian",
+    "timeline.memoriesShared": "kỷ niệm",
+    "timeline.empty": "Chưa có kỷ niệm nào",
+    "timeline.emptyHint": "Giữ map hoặc bấm + để tạo kỷ niệm đầu tiên.",
+
+    "stats.title": "Hành trình của tụi mình",
+    "stats.memories": "Kỷ niệm",
+    "stats.cities": "Thành phố",
+    "stats.countries": "Quốc gia",
+    "stats.daysTogether": "Ngày bên nhau",
+    "stats.farthest": "Xa nhất",
+    "stats.firstMemory": "Lần đầu",
+    "stats.placesBeen": "Những nơi đã qua",
+
+    "wish.title": "Mơ ước",
+    "wish.subtitle": "Những nơi tụi mình muốn đi 💫",
+    "wish.add": "Thêm địa điểm mơ ước",
+    "wish.adding": "Thêm địa điểm mơ ước",
+    "wish.empty": "Chưa có ước mơ — thêm 1 nơi 2 đứa muốn đến.",
+    "wish.dreaming": "Đang mơ",
+    "wish.visited": "Đã đi",
+    "wish.showOnMap": "Hiện trên map",
+    "wish.search": "Tìm địa điểm",
+    "wish.searchPlaceholder": "Paris, Bali, Đà Lạt…",
+    "wish.searching": "Đang tìm…",
+    "wish.nickname": "Tên gọi (tùy chọn)",
+    "wish.nicknamePh": "e.g. Honeymoon trip 🌺",
+    "wish.addToList": "✨ Thêm vào wishlist",
+    "wish.pickFirst": "Chọn 1 địa điểm trước",
+    "wish.saving": "Đang lưu…",
+
+    "settings.title": "Cài đặt",
+    "settings.appearance": "Giao diện",
+    "settings.theme": "Theme",
+    "settings.themeLight": "Sáng",
+    "settings.themeDark": "Tối",
+    "settings.language": "Ngôn ngữ",
+    "settings.langEn": "English",
+    "settings.langVi": "Tiếng Việt",
+    "settings.account": "Tài khoản",
+    "settings.profile": "Hồ sơ",
+    "settings.coupleInfo": "Couple",
+    "settings.inviteCode": "Mã mời",
+    "settings.signOut": "Đăng xuất",
+
+    "common.you": "Bạn",
+    "common.partner": "Người ấy",
+    "common.them": "người ấy",
+    "common.cancel": "Hủy",
+    "common.something": "Có gì đó không ổn",
+  },
+} as const;
+
+type Keys = keyof (typeof dict)["en"];
+
+interface Ctx {
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  t: (k: Keys) => string;
+}
+
+const I18nCtx = createContext<Ctx | null>(null);
+
+export function I18nProvider({ children }: { children: ReactNode }) {
+  const [lang, setLangState] = useState<Lang>(() => {
+    const stored = localStorage.getItem(KEY);
+    if (stored === "en" || stored === "vi") return stored;
+    return navigator.language.startsWith("vi") ? "vi" : "en";
+  });
+  useEffect(() => {
+    localStorage.setItem(KEY, lang);
+    document.documentElement.lang = lang;
+  }, [lang]);
+
+  const t = (k: Keys) => dict[lang][k] ?? k;
+  return (
+    <I18nCtx.Provider value={{ lang, setLang: setLangState, t }}>
+      {children}
+    </I18nCtx.Provider>
+  );
+}
+
+export function useI18n() {
+  const v = useContext(I18nCtx);
+  if (!v) throw new Error("useI18n must be inside I18nProvider");
+  return v;
+}
