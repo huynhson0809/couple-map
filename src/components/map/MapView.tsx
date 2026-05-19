@@ -206,8 +206,16 @@ export function MapView({
     )
 
     function startLongPress(e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) {
+      // Ignore multi-touch (pinch/zoom) and right-click
+      const native = e.originalEvent as TouchEvent | MouseEvent
+      if ('touches' in native && native.touches.length > 1) {
+        cancelLongPress()
+        return
+      }
+      if ('button' in native && (native as MouseEvent).button !== 0) return
       const lngLat =
         'lngLat' in e ? e.lngLat : (e as unknown as { lngLat: maplibregl.LngLat }).lngLat
+      cancelLongPress()
       longPressTimer.current = window.setTimeout(() => {
         onLongPress({ lat: lngLat.lat, lng: lngLat.lng })
       }, 500)
@@ -221,10 +229,14 @@ export function MapView({
     map.on('touchstart', startLongPress)
     map.on('touchend', cancelLongPress)
     map.on('touchmove', cancelLongPress)
+    map.on('touchcancel', cancelLongPress)
     map.on('mousedown', startLongPress)
     map.on('mouseup', cancelLongPress)
     map.on('mousemove', cancelLongPress)
     map.on('dragstart', cancelLongPress)
+    map.on('zoomstart', cancelLongPress)
+    map.on('rotatestart', cancelLongPress)
+    map.on('pitchstart', cancelLongPress)
 
     map.on('load', () => {
       styleLoadedRef.current = true
