@@ -1,26 +1,70 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { LoginPage } from './components/auth/LoginPage'
-import { RegisterPage } from './components/auth/RegisterPage'
-import { CoupleSetup } from './components/auth/CoupleSetup'
-import { MapPage } from './pages/MapPage'
-import { TimelinePage } from './pages/TimelinePage'
-import { StatsPage } from './pages/StatsPage'
-import { WishlistPage } from './pages/WishlistPage'
-import { SettingsPage } from './pages/SettingsPage'
-import { BottomNav } from './components/ui/BottomNav'
-import { useAuth } from './hooks/useAuth'
-import { CoupleProvider, useCoupleCtx } from './hooks/CoupleContext'
-import { PinsProvider } from './hooks/PinsContext'
-import { ThemeProvider } from './hooks/ThemeContext'
-import { I18nProvider } from './hooks/I18nContext'
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
+import { LoginPage } from "./components/auth/LoginPage";
+import { RegisterPage } from "./components/auth/RegisterPage";
+import { CoupleSetup } from "./components/auth/CoupleSetup";
+import { MapPage } from "./pages/MapPage";
+import { TimelinePage } from "./pages/TimelinePage";
+import { StatsPage } from "./pages/StatsPage";
+import { WishlistPage } from "./pages/WishlistPage";
+import { SettingsPage } from "./pages/SettingsPage";
+import { BottomNav } from "./components/ui/BottomNav";
+import { UpdatePrompt } from "./components/ui/UpdatePrompt";
+import { AnniversaryPrompt } from "./components/onboard/AnniversaryPrompt";
+import { NotificationToast } from "./components/ui/NotificationToast";
+import { getImageUrl } from "./lib/cloudinary";
+import { useAuth } from "./hooks/useAuth";
+import { CoupleProvider, useCoupleCtx } from "./hooks/CoupleContext";
+import { PinsProvider } from "./hooks/PinsContext";
+import { ThemeProvider } from "./hooks/ThemeContext";
+import { I18nProvider } from "./hooks/I18nContext";
+import { usePushSubscription } from "./hooks/usePushSubscription";
+import { useEffect } from "react";
 
 function PairedShell() {
-  const { couple, profile } = useCoupleCtx()
-  const location = useLocation()
-  const isMap = location.pathname === '/'
+  const { couple, profile } = useCoupleCtx();
+  const location = useLocation();
+  const isMap = location.pathname === "/";
+  const bgUrl = couple?.background_image_url;
+  const push = usePushSubscription(profile?.id);
+
+  // Auto-subscribe to push if permission already granted
+  useEffect(() => {
+    if (
+      profile?.id &&
+      !push.subscribed &&
+      !push.loading &&
+      typeof Notification !== "undefined" &&
+      Notification.permission === "granted" &&
+      "PushManager" in window
+    ) {
+      push.subscribe();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, push.subscribed]);
+  const shellStyle =
+    bgUrl && !isMap
+      ? ({
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.78), rgba(255,255,255,0.92)), url(${getImageUrl(
+            bgUrl,
+            1200,
+          )})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundAttachment: "fixed",
+        } as React.CSSProperties)
+      : undefined;
   return (
     <PinsProvider coupleId={couple?.id} userId={profile?.id}>
-      <div className={`app-shell ${isMap ? 'shell-map' : 'shell-page'}`}>
+      <div
+        className={`app-shell ${isMap ? "shell-map" : "shell-page"} ${bgUrl ? "has-bg" : ""}`}
+        style={shellStyle}
+      >
         <Routes>
           <Route path="/" element={<MapPage />} />
           <Route path="/timeline" element={<TimelinePage />} />
@@ -30,50 +74,53 @@ function PairedShell() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <BottomNav />
+        <AnniversaryPrompt />
+        <NotificationToast />
       </div>
     </PinsProvider>
-  )
+  );
 }
 
 function RoutedShell() {
-  const { couple, loading, error } = useCoupleCtx()
+  const { couple, loading, error } = useCoupleCtx();
 
-  if (loading) return <div className="full-center muted">Loading…</div>
+  if (loading) return <div className="full-center muted">Loading…</div>;
 
   if (error) {
     return (
       <div
         className="full-center"
-        style={{ flexDirection: 'column', padding: 24, textAlign: 'center' }}
+        style={{ flexDirection: "column", padding: 24, textAlign: "center" }}
       >
         <h2>Something went wrong</h2>
         <p className="muted" style={{ maxWidth: 420 }}>
           {error}
         </p>
         <p className="muted small">
-          Đã chạy <code>supabase/schema.sql</code> trong Supabase SQL Editor chưa?
+          Đã chạy <code>supabase/schema.sql</code> trong Supabase SQL Editor
+          chưa?
         </p>
       </div>
-    )
+    );
   }
 
-  const paired = !!couple && !!couple.user_b
+  const paired = !!couple && !!couple.user_b;
   if (!paired) {
     return (
       <Routes>
         <Route path="/setup" element={<CoupleSetup />} />
         <Route path="*" element={<Navigate to="/setup" replace />} />
       </Routes>
-    )
+    );
   }
 
-  return <PairedShell />
+  return <PairedShell />;
 }
 
 function AppRoutes() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading } = useAuth();
 
-  if (authLoading) return <div className="full-center muted">Loading…</div>
+  if (authLoading) return <div className="full-center muted">Loading…</div>;
 
   if (!user) {
     return (
@@ -82,14 +129,14 @@ function AppRoutes() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
-    )
+    );
   }
 
   return (
     <CoupleProvider userId={user.id}>
       <RoutedShell />
     </CoupleProvider>
-  )
+  );
 }
 
 export default function App() {
@@ -98,8 +145,9 @@ export default function App() {
       <I18nProvider>
         <BrowserRouter>
           <AppRoutes />
+          <UpdatePrompt />
         </BrowserRouter>
       </I18nProvider>
     </ThemeProvider>
-  )
+  );
 }

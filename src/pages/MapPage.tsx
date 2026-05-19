@@ -107,10 +107,14 @@ export function MapPage() {
       <BottomSheet open={!!selectedPin} onClose={() => setSelectedPin(null)} title={t('pin.memory')}>
         {selectedPin && (
           <PinDetail
-            pin={selectedPin}
+            pin={pins.find((p) => p.id === selectedPin.id) ?? selectedPin}
             currentUserId={user.id}
             onDelete={async (id) => {
               await deletePin(id)
+              setSelectedPin(null)
+            }}
+            onUpdated={() => {
+              // pins state already updated via usePinsCtx setPins; close sheet
               setSelectedPin(null)
             }}
           />

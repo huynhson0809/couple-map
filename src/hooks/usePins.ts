@@ -107,7 +107,10 @@ export function usePins(coupleId: string | null | undefined, userId: string | un
   }, [])
 
   const updatePin = useCallback(
-    async (id: string, patch: Partial<Pick<Pin, 'title' | 'note'>>) => {
+    async (
+      id: string,
+      patch: Partial<Pick<Pin, 'title' | 'note' | 'category' | 'marker_emoji' | 'marker_image_url'>>,
+    ) => {
       const { data, error } = await supabase
         .from('pins')
         .update(patch)

@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Trash2, MapPin, ExternalLink } from 'lucide-react'
+import { Trash2, MapPin, ExternalLink, Pencil, Share2 } from 'lucide-react'
 import type { Pin } from '../../types'
 import { getImageUrl } from '../../lib/cloudinary'
 import { Button } from '../ui/Button'
 import { ImageLightbox } from '../ui/ImageLightbox'
+import { EditPinForm } from './EditPinForm'
 import { getCategory } from '../../lib/categories'
 import { useI18n } from '../../hooks/I18nContext'
 
@@ -11,13 +12,21 @@ interface Props {
   pin: Pin
   currentUserId: string | undefined
   onDelete: (id: string) => Promise<void>
+  onUpdated?: () => void
 }
 
-export function PinDetail({ pin, currentUserId, onDelete }: Props) {
+const EDIT_WINDOW_MS = 60 * 60 * 1000
+
+export function PinDetail({ pin, currentUserId, onDelete, onUpdated }: Props) {
   const { t, lang } = useI18n()
   const [deleting, setDeleting] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
-  const canEdit = pin.created_by === currentUserId
+  const [editing, setEditing] = useState(false)
+
+  const isMine = pin.created_by === currentUserId
+  const ageMs = Date.now() - new Date(pin.created_at).getTime()
+  const withinEditWindow = ageMs < EDIT_WINDOW_MS
+  const canEdit = isMine && withinEditWindow
   const images = pin.images ?? []
 
   async function handleDelete() {
@@ -46,6 +55,19 @@ export function PinDetail({ pin, currentUserId, onDelete }: Props) {
     } else {
       navigator.clipboard?.writeText(text)
     }
+  }
+
+  if (editing) {
+    return (
+      <EditPinForm
+        pin={pin}
+        onSaved={() => {
+          setEditing(false)
+          onUpdated?.()
+        }}
+        onCancel={() => setEditing(false)}
+      />
+    )
   }
 
   return (
@@ -105,15 +127,25 @@ export function PinDetail({ pin, currentUserId, onDelete }: Props) {
         <Button variant="secondary" onClick={openInMaps}>
           <ExternalLink size={16} /> {t('pin.openMaps')}
         </Button>
-        <Button variant="ghost" onClick={share}>
-          {t('pin.share')}
+        <Button variant="secondary" onClick={share}>
+          <Share2 size={16} /> {t('pin.share')}
         </Button>
         {canEdit && (
+          <Button variant="secondary" onClick={() => setEditing(true)}>
+            <Pencil size={16} /> {t('pin.edit')}
+          </Button>
+        )}
+        {isMine && (
           <Button variant="danger" onClick={handleDelete} disabled={deleting}>
             <Trash2 size={16} /> {deleting ? t('pin.deleting') : t('pin.delete')}
           </Button>
         )}
       </div>
+      {isMine && !withinEditWindow && (
+        <p className="muted small" style={{ marginTop: 6 }} title={t('pin.editExpired')}>
+          🔒 {t('pin.editExpired')}
+        </p>
+      )}
     </div>
   )
 }

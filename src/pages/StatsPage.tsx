@@ -1,4 +1,4 @@
-import { MapPin, Globe2, Sparkles, CalendarHeart, Plane, Star } from 'lucide-react'
+import { MapPin, Globe2, Sparkles, CalendarHeart, Plane } from 'lucide-react'
 import { useCoupleCtx } from '../hooks/CoupleContext'
 import { usePinsCtx } from '../hooks/PinsContext'
 import { useStats } from '../hooks/useStats'
@@ -7,7 +7,7 @@ import { useI18n } from '../hooks/I18nContext'
 export function StatsPage() {
   const { couple, partner, profile } = useCoupleCtx()
   const { pins } = usePinsCtx()
-  const { t, lang } = useI18n()
+  const { t } = useI18n()
   const s = useStats(pins, couple)
 
   return (
@@ -34,16 +34,6 @@ export function StatsPage() {
           value={`${s.farthestKm} km`}
           label={t('stats.farthest')}
           color="#f59e0b"
-        />
-        <StatCard
-          icon={<Star />}
-          value={
-            s.firstPin
-              ? new Date(s.firstPin.created_at).toLocaleDateString(lang === 'vi' ? 'vi-VN' : undefined)
-              : '—'
-          }
-          label={t('stats.firstMemory')}
-          color="#10b981"
         />
       </div>
 

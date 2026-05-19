@@ -13,6 +13,7 @@ export interface Couple {
   user_a: string
   user_b: string | null
   anniversary_date: string | null
+  background_image_url: string | null
   created_at: string
 }
 

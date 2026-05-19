@@ -87,5 +87,21 @@ export function useCouple(userId: string | undefined) {
     [userId, refresh],
   )
 
-  return { profile, couple, partner, loading, error, refresh, createCouple, joinCouple }
+  const updateCouple = useCallback(
+    async (patch: Partial<Pick<Couple, 'anniversary_date'>> & { background_image_url?: string | null }) => {
+      if (!couple) throw new Error('No couple')
+      const { data, error } = await supabase
+        .from('couples')
+        .update(patch)
+        .eq('id', couple.id)
+        .select()
+        .single()
+      if (error) throw error
+      setCouple(data as Couple)
+      return data as Couple
+    },
+    [couple],
+  )
+
+  return { profile, couple, partner, loading, error, refresh, createCouple, joinCouple, updateCouple }
 }

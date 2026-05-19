@@ -10,6 +10,7 @@ create table public.couples (
   user_a uuid,
   user_b uuid,
   anniversary_date date,
+  background_image_url text,
   created_at timestamptz default now()
 );
 
