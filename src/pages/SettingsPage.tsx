@@ -286,29 +286,31 @@ export function SettingsPage() {
         )}
       </section>
 
-      <Button
-        variant="ghost"
-        onClick={async () => {
-          if ('caches' in window) {
-            const names = await caches.keys()
-            await Promise.all(names.map((n) => caches.delete(n)))
-          }
-          const regs = await navigator.serviceWorker?.getRegistrations()
-          if (regs) await Promise.all(regs.map((r) => r.unregister()))
-          window.location.reload()
-        }}
-        style={{ width: "100%" }}
-      >
-        <RefreshCw size={16} /> {t("settings.clearCache")}
-      </Button>
+      <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "8px", paddingBottom: "20px" }}>
+        <Button
+          variant="ghost"
+          onClick={async () => {
+            if ('caches' in window) {
+              const names = await caches.keys()
+              await Promise.all(names.map((n) => caches.delete(n)))
+            }
+            const regs = await navigator.serviceWorker?.getRegistrations()
+            if (regs) await Promise.all(regs.map((r) => r.unregister()))
+            window.location.reload()
+          }}
+          style={{ width: "100%" }}
+        >
+          <RefreshCw size={16} /> {t("settings.clearCache")}
+        </Button>
 
-      <Button
-        variant="danger"
-        onClick={() => signOut()}
-        style={{ width: "100%" }}
-      >
-        <LogOut size={16} /> {t("settings.signOut")}
-      </Button>
+        <Button
+          variant="danger"
+          onClick={() => signOut()}
+          style={{ width: "100%" }}
+        >
+          <LogOut size={16} /> {t("settings.signOut")}
+        </Button>
+      </div>
     </div>
   );
 }
