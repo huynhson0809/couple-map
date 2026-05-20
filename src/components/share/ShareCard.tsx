@@ -61,10 +61,34 @@ function wrapText(
   return y + lineHeight;
 }
 
+const RADIUS = 48;
+const INFO_H = 280; // white info section height
+const PHOTO_H = CARD_H - INFO_H;
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
 async function drawCardWithPhoto(
   coverDataUrl: string,
   title: string,
-  categoryLabel: string | null,
   location: string,
   dateStr: string,
   coupleNames: string,
@@ -74,62 +98,82 @@ async function drawCardWithPhoto(
   canvas.height = CARD_H;
   const ctx = canvas.getContext("2d")!;
 
-  // Draw cover image (fill entire card)
+  // White card background with rounded corners
+  ctx.fillStyle = "#ffffff";
+  roundRect(ctx, 0, 0, CARD_W, CARD_H, RADIUS);
+  ctx.fill();
+
+  // Clip to rounded card shape
+  ctx.save();
+  roundRect(ctx, 0, 0, CARD_W, CARD_H, RADIUS);
+  ctx.clip();
+
+  // Draw cover image in top portion (clipped to PHOTO_H)
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, CARD_W, PHOTO_H);
+  ctx.clip();
   try {
     const img = await loadImage(coverDataUrl);
-    const scale = Math.max(CARD_W / img.width, CARD_H / img.height);
+    const scale = Math.max(CARD_W / img.width, PHOTO_H / img.height);
     const w = img.width * scale;
     const h = img.height * scale;
-    ctx.drawImage(img, (CARD_W - w) / 2, (CARD_H - h) / 2, w, h);
+    ctx.drawImage(img, (CARD_W - w) / 2, (PHOTO_H - h) / 2, w, h);
   } catch {
-    // If image fails, fill with gradient
-    const grad = ctx.createLinearGradient(0, 0, CARD_W, CARD_H);
+    const grad = ctx.createLinearGradient(0, 0, CARD_W, PHOTO_H);
     grad.addColorStop(0, "#667eea");
     grad.addColorStop(1, "#764ba2");
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, CARD_W, CARD_H);
+    ctx.fillRect(0, 0, CARD_W, PHOTO_H);
   }
+  ctx.restore();
 
-  // Dark gradient overlay at bottom
-  const grad = ctx.createLinearGradient(0, CARD_H * 0.4, 0, CARD_H);
+  // Gradient overlay at bottom of photo for title readability
+  const grad = ctx.createLinearGradient(0, PHOTO_H * 0.5, 0, PHOTO_H);
   grad.addColorStop(0, "rgba(0,0,0,0)");
-  grad.addColorStop(0.5, "rgba(0,0,0,0.4)");
-  grad.addColorStop(1, "rgba(0,0,0,0.85)");
+  grad.addColorStop(1, "rgba(0,0,0,0.7)");
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, CARD_W, CARD_H);
+  ctx.fillRect(0, PHOTO_H * 0.5, CARD_W, PHOTO_H * 0.5);
 
-  // Category chip
-  let textY = CARD_H - 320;
-  if (categoryLabel) {
-    ctx.font = "500 32px -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.fillText(categoryLabel, PAD, textY);
-    textY += 50;
-  }
-
-  // Title
-  ctx.font = "bold 56px -apple-system, BlinkMacSystemFont, sans-serif";
+  // Title on photo (bottom of photo area)
+  ctx.font = "bold 52px -apple-system, BlinkMacSystemFont, sans-serif";
   ctx.fillStyle = "#ffffff";
-  textY = wrapText(ctx, title, PAD, textY, CARD_W - PAD * 2, 68, 3);
-  textY += 16;
+  wrapText(ctx, title, PAD, PHOTO_H - 80, CARD_W - PAD * 2, 62, 2);
+
+  // --- White info section (painted over any image overflow) ---
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, PHOTO_H, CARD_W, INFO_H);
+
+  const infoY = PHOTO_H + 50;
 
   // Location
-  ctx.font = "400 30px -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.8)";
-  ctx.fillText("📍 " + location, PAD, textY);
-  textY += 44;
+  ctx.font = "400 32px -apple-system, BlinkMacSystemFont, sans-serif";
+  ctx.fillStyle = "#333333";
+  ctx.fillText("📍 " + location, PAD, infoY);
 
   // Date
-  ctx.fillText("📅 " + dateStr, PAD, textY);
-  textY += 60;
+  ctx.fillText("📅 " + dateStr, PAD, infoY + 50);
 
-  // Footer
-  ctx.font = "500 28px -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.7)";
-  ctx.fillText(coupleNames, PAD, CARD_H - PAD);
-  ctx.textAlign = "right";
-  ctx.fillText("Mapmate", CARD_W - PAD, CARD_H - PAD);
+  // Divider line
+  ctx.strokeStyle = "#eee";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(PAD, infoY + 90);
+  ctx.lineTo(CARD_W - PAD, infoY + 90);
+  ctx.stroke();
+
+  // Footer: couple names left, Mapmate right
+  const footerY = infoY + 140;
+  ctx.font = "500 30px -apple-system, BlinkMacSystemFont, sans-serif";
+  ctx.fillStyle = "#555555";
   ctx.textAlign = "left";
+  ctx.fillText(coupleNames, PAD, footerY);
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#e8685a";
+  ctx.fillText("Mapmate", CARD_W - PAD, footerY);
+  ctx.textAlign = "left";
+
+  ctx.restore(); // restore outer rounded clip
 
   return canvas.toDataURL("image/png");
 }
@@ -146,38 +190,58 @@ async function drawCardNoPhoto(
   canvas.height = CARD_H;
   const ctx = canvas.getContext("2d")!;
 
-  // Gradient background
-  const grad = ctx.createLinearGradient(0, 0, CARD_W, CARD_H);
+  // White card background with rounded corners
+  ctx.fillStyle = "#ffffff";
+  roundRect(ctx, 0, 0, CARD_W, CARD_H, RADIUS);
+  ctx.fill();
+  ctx.clip();
+
+  // Gradient background in top portion
+  const grad = ctx.createLinearGradient(0, 0, CARD_W, PHOTO_H);
   grad.addColorStop(0, "#667eea");
   grad.addColorStop(1, "#764ba2");
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, CARD_W, CARD_H);
+  ctx.fillRect(0, 0, CARD_W, PHOTO_H);
 
   // Emoji
   ctx.font = "120px -apple-system, BlinkMacSystemFont, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(emoji, CARD_W / 2, CARD_H / 2 - 140);
+  ctx.fillText(emoji, CARD_W / 2, PHOTO_H / 2 - 40);
 
-  // Title
-  ctx.font = "bold 56px -apple-system, BlinkMacSystemFont, sans-serif";
+  // Title on gradient area
+  ctx.font = "bold 52px -apple-system, BlinkMacSystemFont, sans-serif";
   ctx.fillStyle = "#ffffff";
-  wrapText(ctx, title, CARD_W / 2, CARD_H / 2 - 20, CARD_W - PAD * 2, 68, 3);
+  wrapText(ctx, title, CARD_W / 2, PHOTO_H / 2 + 60, CARD_W - PAD * 2, 62, 2);
+  ctx.textAlign = "left";
 
-  // Location
-  ctx.font = "400 30px -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.8)";
-  ctx.fillText("📍 " + location, CARD_W / 2, CARD_H / 2 + 120);
+  // --- White info section (explicit paint) ---
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, PHOTO_H, CARD_W, INFO_H);
 
-  // Date
-  ctx.fillText("📅 " + dateStr, CARD_W / 2, CARD_H / 2 + 170);
+  const infoY = PHOTO_H + 50;
+
+  ctx.font = "400 32px -apple-system, BlinkMacSystemFont, sans-serif";
+  ctx.fillStyle = "#333333";
+  ctx.fillText("📍 " + location, PAD, infoY);
+  ctx.fillText("📅 " + dateStr, PAD, infoY + 50);
+
+  // Divider
+  ctx.strokeStyle = "#eee";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(PAD, infoY + 90);
+  ctx.lineTo(CARD_W - PAD, infoY + 90);
+  ctx.stroke();
 
   // Footer
-  ctx.font = "500 28px -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.7)";
+  const footerY = infoY + 140;
+  ctx.font = "500 30px -apple-system, BlinkMacSystemFont, sans-serif";
+  ctx.fillStyle = "#555555";
   ctx.textAlign = "left";
-  ctx.fillText(coupleNames, PAD, CARD_H - PAD);
+  ctx.fillText(coupleNames, PAD, footerY);
   ctx.textAlign = "right";
-  ctx.fillText("Mapmate", CARD_W - PAD, CARD_H - PAD);
+  ctx.fillStyle = "#e8685a";
+  ctx.fillText("Mapmate", CARD_W - PAD, footerY);
 
   return canvas.toDataURL("image/png");
 }
@@ -234,7 +298,6 @@ export function ShareCard({ pin, onClose }: Props) {
         return await drawCardWithPhoto(
           coverDataUrl,
           pin.title,
-          category ? `${category.emoji} ${category.label}` : null,
           location,
           dateStr,
           coupleNames,
