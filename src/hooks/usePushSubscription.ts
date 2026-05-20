@@ -36,12 +36,12 @@ export function usePushSubscription(userId: string | undefined) {
 
   const subscribe = useCallback(async () => {
     if (!userId || !VAPID_PUBLIC_KEY) {
-      console.warn('[Push] Missing userId or VAPID_PUBLIC_KEY')
-      return false
+      console.warn("[Push] Missing userId or VAPID_PUBLIC_KEY");
+      return false;
     }
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      console.warn('[Push] PushManager not supported')
-      return false
+      console.warn("[Push] PushManager not supported");
+      return false;
     }
 
     setLoading(true);

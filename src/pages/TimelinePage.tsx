@@ -5,7 +5,7 @@ import { usePinsCtx } from '../hooks/PinsContext'
 import { useCoupleCtx } from '../hooks/CoupleContext'
 import { useI18n } from '../hooks/I18nContext'
 import { getImageUrl } from '../lib/cloudinary'
-import { CATEGORIES, getCategory } from '../lib/categories'
+import { getCategory, getAllCategories } from '../lib/categories'
 import type { Pin } from '../types'
 
 function monthKey(d: string, lang: string) {
@@ -32,7 +32,7 @@ export function TimelinePage() {
   const usedCategories = useMemo(() => {
     const ids = new Set<string>()
     pins.forEach((p) => p.category && ids.add(p.category))
-    return CATEGORIES.filter((c) => ids.has(c.id))
+    return getAllCategories().filter((c) => ids.has(c.id))
   }, [pins])
 
   const grouped = useMemo(() => {

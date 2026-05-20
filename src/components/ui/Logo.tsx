@@ -1,12 +1,16 @@
 interface Props {
-  size?: number
-  withWordmark?: boolean
-  className?: string
+  size?: number;
+  withWordmark?: boolean;
+  className?: string;
 }
 
-export function Logo({ size = 56, withWordmark = false, className = '' }: Props) {
+export function Logo({
+  size = 56,
+  withWordmark = false,
+  className = "",
+}: Props) {
   return (
-    <div className={`logo ${withWordmark ? 'with-text' : ''} ${className}`}>
+    <div className={`logo ${withWordmark ? "with-text" : ""} ${className}`}>
       <svg
         width={size}
         height={size}
@@ -50,5 +54,5 @@ export function Logo({ size = 56, withWordmark = false, className = '' }: Props)
         </span>
       )}
     </div>
-  )
+  );
 }

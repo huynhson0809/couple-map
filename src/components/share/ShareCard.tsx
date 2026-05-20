@@ -13,20 +13,44 @@ interface Props {
   onClose: () => void;
 }
 
-/** Convert an external URL to a data URL to bypass CORS in html-to-image */
+/** Convert an external URL to a data URL to bypass CORS in html-to-image.
+ *  Uses Image+Canvas approach which is more reliable on iOS Safari/PWA. */
 async function toDataUrl(url: string): Promise<string> {
-  try {
-    const resp = await fetch(url);
-    const blob = await resp.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return url;
-  }
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { resolve(url); return; }
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL("image/jpeg", 0.92));
+      } catch {
+        resolve(url);
+      }
+    };
+    img.onerror = () => {
+      // Fallback: try fetch-based approach
+      fetch(url, { mode: "cors" })
+        .then((r) => r.blob())
+        .then(
+          (blob) =>
+            new Promise<string>((res, rej) => {
+              const reader = new FileReader();
+              reader.onloadend = () => res(reader.result as string);
+              reader.onerror = rej;
+              reader.readAsDataURL(blob);
+            }),
+        )
+        .then(resolve)
+        .catch(() => resolve(url));
+    };
+    // Add cache-buster to avoid cached opaque response
+    img.src = url + (url.includes("?") ? "&" : "?") + "cb=" + Date.now();
+  });
 }
 
 export function ShareCard({ pin, onClose }: Props) {
@@ -60,10 +84,14 @@ export function ShareCard({ pin, onClose }: Props) {
     if (!cardRef.current) return null;
     setGenerating(true);
     try {
+      // Wait a tick for images to fully paint in DOM
+      await new Promise((r) => setTimeout(r, 100));
       const dataUrl = await toPng(cardRef.current, {
         pixelRatio: 3,
         cacheBust: true,
         skipFonts: true,
+        fetchRequestInit: { mode: "cors", cache: "no-cache" },
+        includeQueryParams: true,
       });
       return dataUrl;
     } catch (err) {
@@ -108,7 +136,7 @@ export function ShareCard({ pin, onClose }: Props) {
     }
   }
 
-  const hasPhoto = !!coverDataUrl;
+  const hasPhoto = !!coverDataUrl && coverDataUrl.startsWith("data:");
 
   return (
     <div className="share-card-overlay" onClick={onClose}>

@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
-import { ImageUp, Eraser } from 'lucide-react'
+import { ImageUp, Eraser, Plus } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { usePinsCtx } from '../../hooks/PinsContext'
-import { CATEGORIES, getCategory } from '../../lib/categories'
+import { getCategory, getAllCategories, saveCustomCategory, type Category } from '../../lib/categories'
 import { useI18n } from '../../hooks/I18nContext'
 import { compressImage } from '../../lib/imageCompress'
 import { uploadToCloudinary, getImageUrl } from '../../lib/cloudinary'
@@ -27,6 +27,10 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   const [markerUploading, setMarkerUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [customEmojiInput, setCustomEmojiInput] = useState('')
+  const [showCustomTag, setShowCustomTag] = useState(false)
+  const [customTagName, setCustomTagName] = useState('')
+  const [customTagEmoji, setCustomTagEmoji] = useState('')
   const markerInput = useRef<HTMLInputElement | null>(null)
 
   async function handleMarkerUpload(file: File | undefined) {
@@ -42,6 +46,31 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     } finally {
       setMarkerUploading(false)
     }
+  }
+
+  function handleCustomEmojiCommit() {
+    const trimmed = customEmojiInput.trim()
+    if (trimmed) {
+      setMarkerEmoji(trimmed)
+      setMarkerImageUrl(null)
+    }
+    setCustomEmojiInput('')
+  }
+
+  function handleAddCustomTag() {
+    if (!customTagName.trim()) return
+    const id = `custom_${Date.now()}`
+    const newCat: Category = {
+      id,
+      label: customTagName.trim(),
+      emoji: customTagEmoji.trim() || '🏷️',
+      color: '#6b7280',
+    }
+    saveCustomCategory(newCat)
+    setCategory(id)
+    setShowCustomTag(false)
+    setCustomTagName('')
+    setCustomTagEmoji('')
   }
 
   function previewIcon() {
@@ -78,6 +107,8 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     }
   }
 
+  const allCategories = getAllCategories()
+
   return (
     <form onSubmit={handleSubmit} className="pin-form">
       <input
@@ -92,7 +123,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
       <div>
         <div className="field-label">{t('pin.category')}</div>
         <div className="category-grid">
-          {CATEGORIES.map((c) => {
+          {allCategories.map((c) => {
             const active = category === c.id
             return (
               <button
@@ -107,7 +138,38 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
               </button>
             )
           })}
+          <button
+            type="button"
+            className="category-chip"
+            onClick={() => setShowCustomTag(true)}
+          >
+            <span className="emoji"><Plus size={14} /></span>
+            <span>{t('pin.addTag')}</span>
+          </button>
         </div>
+        {showCustomTag && (
+          <div className="custom-tag-form">
+            <input
+              type="text"
+              placeholder={t('pin.tagEmoji')}
+              value={customTagEmoji}
+              onChange={(e) => setCustomTagEmoji(e.target.value)}
+              maxLength={4}
+              className="custom-tag-emoji-input"
+            />
+            <input
+              type="text"
+              placeholder={t('pin.tagName')}
+              value={customTagName}
+              onChange={(e) => setCustomTagName(e.target.value)}
+              maxLength={30}
+              className="custom-tag-name-input"
+            />
+            <Button type="button" onClick={handleAddCustomTag} disabled={!customTagName.trim()}>
+              {t('pin.save')}
+            </Button>
+          </div>
+        )}
       </div>
 
       <div>
@@ -129,6 +191,18 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
                   {e}
                 </button>
               ))}
+            </div>
+            <div className="marker-keyboard-row">
+              <input
+                type="text"
+                className="emoji-keyboard-input"
+                placeholder={t('pin.emojiKeyboard')}
+                value={customEmojiInput}
+                onChange={(e) => setCustomEmojiInput(e.target.value)}
+                onBlur={handleCustomEmojiCommit}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCustomEmojiCommit() } }}
+                maxLength={8}
+              />
             </div>
             <div className="row">
               <button

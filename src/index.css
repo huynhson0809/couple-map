@@ -1062,6 +1062,59 @@ body { -webkit-tap-highlight-color: transparent; }
   gap: 2px;
 }
 .setting-section-title + .setting-row { border-top: none; }
+
+.map-style-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 10px;
+  padding: 12px 16px;
+}
+.map-style-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px 8px;
+  border-radius: 12px;
+  border: 2px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.map-style-card:active { transform: scale(0.95); }
+.map-style-card.active {
+  border-color: var(--primary, #E24B4A);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary, #E24B4A) 25%, transparent);
+}
+.map-style-swatch {
+  display: flex;
+  width: 54px;
+  height: 32px;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.map-style-swatch span {
+  flex: 1;
+}
+.map-style-label {
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+[data-theme="dark"] .map-style-card {
+  background: rgba(30, 30, 30, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+[data-theme="dark"] .map-style-card.active {
+  border-color: var(--primary, #E24B4A);
+}
+
 .seg {
   display: inline-flex;
   background: rgba(245, 245, 245, 0.6);
@@ -1430,6 +1483,49 @@ body { -webkit-tap-highlight-color: transparent; }
   background: var(--coral);
   border-color: var(--coral);
   transform: scale(1.1);
+}
+.marker-keyboard-row {
+  display: flex; gap: 6px;
+}
+.emoji-keyboard-input {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  font-size: 18px;
+  min-width: 0;
+}
+.emoji-keyboard-input::placeholder {
+  font-size: 12px;
+}
+.custom-tag-form {
+  display: flex; gap: 6px; margin-top: 8px; align-items: center;
+}
+.custom-tag-emoji-input {
+  width: 48px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  font-size: 18px;
+  text-align: center;
+}
+.custom-tag-name-input {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  font-size: 13px;
+  min-width: 0;
+}
+.video-item {
+  pointer-events: auto;
+}
+.photo-preview video {
+  width: 100%; height: 100%;
+  object-fit: cover; border-radius: 8px;
 }
 .photo-btn.small {
   padding: 8px 12px;

@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react'
-import { Camera, ImagePlus, X, ImageUp, Eraser } from 'lucide-react'
+import { Camera, ImagePlus, X, ImageUp, Eraser, Video, Plus } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useImageUpload } from '../../hooks/useImageUpload'
 import { usePins } from '../../hooks/usePins'
-import { CATEGORIES, getCategory } from '../../lib/categories'
+import { getCategory, getAllCategories, saveCustomCategory, type Category } from '../../lib/categories'
 import { useI18n } from '../../hooks/I18nContext'
 import { compressImage } from '../../lib/imageCompress'
-import { uploadToCloudinary, getImageUrl } from '../../lib/cloudinary'
+import { uploadToCloudinary, getImageUrl, MAX_VIDEO_BYTES } from '../../lib/cloudinary'
 
 interface Props {
   coupleId: string
@@ -31,14 +31,26 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
   const [files, setFiles] = useState<File[]>([])
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [customEmojiInput, setCustomEmojiInput] = useState('')
+  const [showCustomTag, setShowCustomTag] = useState(false)
+  const [customTagName, setCustomTagName] = useState('')
+  const [customTagEmoji, setCustomTagEmoji] = useState('')
 
   const cameraInput = useRef<HTMLInputElement | null>(null)
   const libraryInput = useRef<HTMLInputElement | null>(null)
+  const videoInput = useRef<HTMLInputElement | null>(null)
   const markerInput = useRef<HTMLInputElement | null>(null)
 
   function addFiles(list: FileList | null) {
     if (!list) return
     const incoming = Array.from(list)
+    // Validate video size
+    for (const f of incoming) {
+      if (f.type.startsWith('video/') && f.size > MAX_VIDEO_BYTES) {
+        setError(`Video quá lớn (max ${MAX_VIDEO_BYTES / 1024 / 1024}MB)`)
+        return
+      }
+    }
     setFiles((prev) => [...prev, ...incoming].slice(0, 5))
   }
 
@@ -59,6 +71,31 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
     } finally {
       setMarkerUploading(false)
     }
+  }
+
+  function handleCustomEmojiCommit() {
+    const trimmed = customEmojiInput.trim()
+    if (trimmed) {
+      setMarkerEmoji(trimmed)
+      setMarkerImageUrl(null)
+    }
+    setCustomEmojiInput('')
+  }
+
+  function handleAddCustomTag() {
+    if (!customTagName.trim()) return
+    const id = `custom_${Date.now()}`
+    const newCat: Category = {
+      id,
+      label: customTagName.trim(),
+      emoji: customTagEmoji.trim() || '🏷️',
+      color: '#6b7280',
+    }
+    saveCustomCategory(newCat)
+    setCategory(id)
+    setShowCustomTag(false)
+    setCustomTagName('')
+    setCustomTagEmoji('')
   }
 
   function previewIcon() {
@@ -99,6 +136,8 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
     }
   }
 
+  const allCategories = getAllCategories()
+
   return (
     <form onSubmit={handleSubmit} className="pin-form">
       <input
@@ -113,7 +152,7 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
       <div>
         <div className="field-label">{t('pin.category')}</div>
         <div className="category-grid">
-          {CATEGORIES.map((c) => {
+          {allCategories.map((c) => {
             const active = category === c.id
             return (
               <button
@@ -128,7 +167,38 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
               </button>
             )
           })}
+          <button
+            type="button"
+            className="category-chip"
+            onClick={() => setShowCustomTag(true)}
+          >
+            <span className="emoji"><Plus size={14} /></span>
+            <span>{t('pin.addTag')}</span>
+          </button>
         </div>
+        {showCustomTag && (
+          <div className="custom-tag-form">
+            <input
+              type="text"
+              placeholder={t('pin.tagEmoji')}
+              value={customTagEmoji}
+              onChange={(e) => setCustomTagEmoji(e.target.value)}
+              maxLength={4}
+              className="custom-tag-emoji-input"
+            />
+            <input
+              type="text"
+              placeholder={t('pin.tagName')}
+              value={customTagName}
+              onChange={(e) => setCustomTagName(e.target.value)}
+              maxLength={30}
+              className="custom-tag-name-input"
+            />
+            <Button type="button" onClick={handleAddCustomTag} disabled={!customTagName.trim()}>
+              {t('pin.save')}
+            </Button>
+          </div>
+        )}
       </div>
 
       <div>
@@ -150,6 +220,18 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
                   {e}
                 </button>
               ))}
+            </div>
+            <div className="marker-keyboard-row">
+              <input
+                type="text"
+                className="emoji-keyboard-input"
+                placeholder={t('pin.emojiKeyboard')}
+                value={customEmojiInput}
+                onChange={(e) => setCustomEmojiInput(e.target.value)}
+                onBlur={handleCustomEmojiCommit}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCustomEmojiCommit() } }}
+                maxLength={8}
+              />
             </div>
             <div className="row">
               <button
@@ -195,7 +277,7 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
       />
 
       <div>
-        <div className="field-label">{t('pin.photos')} ({files.length}/5)</div>
+        <div className="field-label">{t('pin.media')} ({files.length}/5)</div>
         <div className="photo-buttons">
           <button
             type="button"
@@ -212,6 +294,14 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
             disabled={files.length >= 5}
           >
             <ImagePlus size={20} /> {t('pin.fromLibrary')}
+          </button>
+          <button
+            type="button"
+            className="photo-btn"
+            onClick={() => videoInput.current?.click()}
+            disabled={files.length >= 5}
+          >
+            <Video size={20} /> {t('pin.addVideo')}
           </button>
         </div>
         <input
@@ -236,11 +326,25 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
           }}
           style={{ display: 'none' }}
         />
+        <input
+          ref={videoInput}
+          type="file"
+          accept="video/*"
+          onChange={(e) => {
+            addFiles(e.target.files)
+            e.target.value = ''
+          }}
+          style={{ display: 'none' }}
+        />
         {files.length > 0 && (
           <div className="photo-previews">
             {files.map((f, i) => (
               <div key={`${f.name}-${i}`} className="photo-preview">
-                <img src={URL.createObjectURL(f)} alt="" />
+                {f.type.startsWith('video/') ? (
+                  <video src={URL.createObjectURL(f)} muted />
+                ) : (
+                  <img src={URL.createObjectURL(f)} alt="" />
+                )}
                 <button type="button" onClick={() => removeFile(i)} aria-label="Remove">
                   <X size={14} />
                 </button>
@@ -248,6 +352,7 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
             ))}
           </div>
         )}
+        <p className="muted small" style={{ marginTop: 4 }}>{t('pin.videoHint')}</p>
       </div>
 
       <div className="muted small">

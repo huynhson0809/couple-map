@@ -1,45 +1,61 @@
-import { MapPin, Globe2, Sparkles, CalendarHeart, Plane } from 'lucide-react'
-import { useCoupleCtx } from '../hooks/CoupleContext'
-import { usePinsCtx } from '../hooks/PinsContext'
-import { useStats } from '../hooks/useStats'
-import { useI18n } from '../hooks/I18nContext'
+import { MapPin, Globe2, Sparkles, CalendarHeart, Plane } from "lucide-react";
+import { useCoupleCtx } from "../hooks/CoupleContext";
+import { usePinsCtx } from "../hooks/PinsContext";
+import { useStats } from "../hooks/useStats";
+import { useI18n } from "../hooks/I18nContext";
 
 export function StatsPage() {
-  const { couple, partner, profile } = useCoupleCtx()
-  const { pins } = usePinsCtx()
-  const { t } = useI18n()
-  const s = useStats(pins, couple)
+  const { couple, partner, profile } = useCoupleCtx();
+  const { pins } = usePinsCtx();
+  const { t } = useI18n();
+  const s = useStats(pins, couple);
 
   return (
     <div className="page page-stats">
       <header className="page-header">
-        <h1>{t('stats.title')}</h1>
+        <h1>{t("stats.title")}</h1>
         <p className="muted">
-          {profile?.display_name ?? t('common.you')} & {partner?.display_name ?? t('common.them')}
+          {profile?.display_name ?? t("common.you")} &{" "}
+          {partner?.display_name ?? t("common.them")}
         </p>
       </header>
 
       <div className="stat-grid">
-        <StatCard icon={<Sparkles />} value={s.totalPins} label={t('stats.memories')} color="#e24b4a" />
-        <StatCard icon={<MapPin />} value={s.cities} label={t('stats.cities')} color="#378add" />
-        <StatCard icon={<Globe2 />} value={s.countries} label={t('stats.countries')} color="#9333ea" />
+        <StatCard
+          icon={<Sparkles />}
+          value={s.totalPins}
+          label={t("stats.memories")}
+          color="#e24b4a"
+        />
+        <StatCard
+          icon={<MapPin />}
+          value={s.cities}
+          label={t("stats.cities")}
+          color="#378add"
+        />
+        <StatCard
+          icon={<Globe2 />}
+          value={s.countries}
+          label={t("stats.countries")}
+          color="#9333ea"
+        />
         <StatCard
           icon={<CalendarHeart />}
-          value={s.daysTogether ?? '—'}
-          label={t('stats.daysTogether')}
+          value={s.daysTogether ?? "—"}
+          label={t("stats.daysTogether")}
           color="#ec4899"
         />
         <StatCard
           icon={<Plane />}
           value={`${s.farthestKm} km`}
-          label={t('stats.farthest')}
+          label={t("stats.farthest")}
           color="#f59e0b"
         />
       </div>
 
       {s.cityList.length > 0 && (
         <section className="stat-section">
-          <h3>{t('stats.placesBeen')}</h3>
+          <h3>{t("stats.placesBeen")}</h3>
           <div className="chip-row">
             {s.cityList.map((c) => (
               <span key={c} className="chip">
@@ -50,7 +66,7 @@ export function StatsPage() {
         </section>
       )}
     </div>
-  )
+  );
 }
 
 function StatCard({
@@ -59,10 +75,10 @@ function StatCard({
   label,
   color,
 }: {
-  icon: React.ReactNode
-  value: React.ReactNode
-  label: string
-  color: string
+  icon: React.ReactNode;
+  value: React.ReactNode;
+  label: string;
+  color: string;
 }) {
   return (
     <div className="stat-card">
@@ -72,5 +88,5 @@ function StatCard({
       <div className="stat-value">{value}</div>
       <div className="stat-label">{label}</div>
     </div>
-  )
+  );
 }

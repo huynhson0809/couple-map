@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { compressImage } from '../lib/imageCompress'
-import { uploadToCloudinary, type CloudinaryUploadResult } from '../lib/cloudinary'
+import { uploadToCloudinary, MAX_VIDEO_BYTES, type CloudinaryUploadResult } from '../lib/cloudinary'
 
 export function useImageUpload() {
   const [uploading, setUploading] = useState(false)
@@ -12,8 +12,19 @@ export function useImageUpload() {
     try {
       const results: CloudinaryUploadResult[] = []
       for (let i = 0; i < files.length; i++) {
-        const compressed = await compressImage(files[i])
-        const res = await uploadToCloudinary(compressed)
+        const file = files[i]
+        let toUpload: File
+
+        if (file.type.startsWith('video/')) {
+          if (file.size > MAX_VIDEO_BYTES) {
+            throw new Error(`Video quá lớn (max ${MAX_VIDEO_BYTES / 1024 / 1024}MB)`)
+          }
+          toUpload = file
+        } else {
+          toUpload = await compressImage(file)
+        }
+
+        const res = await uploadToCloudinary(toUpload)
         results.push(res)
         setProgress(Math.round(((i + 1) / files.length) * 100))
       }

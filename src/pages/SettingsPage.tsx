@@ -20,6 +20,7 @@ import { isDarkModeEnabled, useTheme } from "../hooks/ThemeContext";
 import { useI18n } from "../hooks/I18nContext";
 import { useNotifications } from "../hooks/useNotifications";
 import { usePushSubscription } from "../hooks/usePushSubscription";
+import { useMapStyle, MAP_STYLES } from "../hooks/useMapStyle";
 import { Button } from "../components/ui/Button";
 import { compressImage } from "../lib/imageCompress";
 import { uploadToCloudinary, getImageUrl } from "../lib/cloudinary";
@@ -31,6 +32,7 @@ export function SettingsPage() {
   const { lang, setLang, t } = useI18n();
   const notif = useNotifications();
   const push = usePushSubscription(user?.id);
+  const { styleId, setStyleId } = useMapStyle();
   const [copied, setCopied] = useState(false);
   const [annivDate, setAnnivDate] = useState(couple?.anniversary_date ?? "");
   const [annivSaving, setAnnivSaving] = useState(false);
@@ -143,6 +145,28 @@ export function SettingsPage() {
       </section>
 
       <section className="setting-section">
+        <div className="setting-section-title">{t("settings.mapStyle")}</div>
+        <div className="map-style-grid">
+          {MAP_STYLES.map((s) => (
+            <button
+              key={s.id}
+              className={`map-style-card ${styleId === s.id ? "active" : ""}`}
+              onClick={() => setStyleId(s.id)}
+            >
+              <div className="map-style-swatch">
+                <span style={{ background: s.colors[0] }} />
+                <span style={{ background: s.colors[1] }} />
+                <span style={{ background: s.colors[2] }} />
+              </div>
+              <div className="map-style-label">
+                {lang === "vi" ? s.labelVi : s.labelEn}
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="setting-section">
         <div className="setting-section-title">
           <Bell
             size={12}
@@ -176,10 +200,7 @@ export function SettingsPage() {
               <button
                 className="seg-btn"
                 onClick={push.subscribe}
-                disabled={
-                  push.loading ||
-                  notif.permission === "denied"
-                }
+                disabled={push.loading || notif.permission === "denied"}
               >
                 <Bell size={14} /> {push.loading ? "…" : "ON"}
               </button>
@@ -286,17 +307,25 @@ export function SettingsPage() {
         )}
       </section>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "8px", paddingBottom: "20px" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "12px",
+          marginTop: "8px",
+          paddingBottom: "20px",
+        }}
+      >
         <Button
           variant="ghost"
           onClick={async () => {
-            if ('caches' in window) {
-              const names = await caches.keys()
-              await Promise.all(names.map((n) => caches.delete(n)))
+            if ("caches" in window) {
+              const names = await caches.keys();
+              await Promise.all(names.map((n) => caches.delete(n)));
             }
-            const regs = await navigator.serviceWorker?.getRegistrations()
-            if (regs) await Promise.all(regs.map((r) => r.unregister()))
-            window.location.reload()
+            const regs = await navigator.serviceWorker?.getRegistrations();
+            if (regs) await Promise.all(regs.map((r) => r.unregister()));
+            window.location.reload();
           }}
           style={{ width: "100%" }}
         >

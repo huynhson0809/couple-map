@@ -23,7 +23,33 @@ export const CATEGORIES: Category[] = [
   { id: 'other',      label: 'Khác',       emoji: '📍', color: '#6b7280' },
 ]
 
+const CUSTOM_CATEGORIES_KEY = 'mapmate.custom-categories'
+
+export function getCustomCategories(): Category[] {
+  try {
+    const stored = localStorage.getItem(CUSTOM_CATEGORIES_KEY)
+    return stored ? JSON.parse(stored) : []
+  } catch { return [] }
+}
+
+export function saveCustomCategory(cat: Category): void {
+  const existing = getCustomCategories()
+  const idx = existing.findIndex((c) => c.id === cat.id)
+  if (idx >= 0) existing[idx] = cat
+  else existing.push(cat)
+  localStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(existing))
+}
+
+export function deleteCustomCategory(id: string): void {
+  const existing = getCustomCategories().filter((c) => c.id !== id)
+  localStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(existing))
+}
+
+export function getAllCategories(): Category[] {
+  return [...CATEGORIES, ...getCustomCategories()]
+}
+
 export function getCategory(id: string | null | undefined): Category | undefined {
   if (!id) return undefined
-  return CATEGORIES.find((c) => c.id === id)
+  return getAllCategories().find((c) => c.id === id)
 }
