@@ -1,5 +1,5 @@
 {
-  "name": "couple-map",
+  "name": "mapmate",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -12,6 +12,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.106.0",
     "browser-image-compression": "^2.0.2",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^1.16.0",
     "maplibre-gl": "^5.24.0",
     "react": "^19.2.6",

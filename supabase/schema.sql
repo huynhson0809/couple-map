@@ -1,4 +1,4 @@
--- Couple Map — full schema. Run in Supabase SQL Editor.
+-- Mapmate — full schema. Run in Supabase SQL Editor.
 
 -- ============================================
 -- 1. TABLES

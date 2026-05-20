@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Trash2, MapPin, ExternalLink, Pencil, Share2 } from 'lucide-react'
+import { Trash2, MapPin, ExternalLink, Pencil, Share2, Image } from 'lucide-react'
 import type { Pin } from '../../types'
 import { getImageUrl } from '../../lib/cloudinary'
 import { Button } from '../ui/Button'
 import { ImageLightbox } from '../ui/ImageLightbox'
 import { EditPinForm } from './EditPinForm'
+import { ShareCard } from '../share/ShareCard'
 import { getCategory } from '../../lib/categories'
 import { useI18n } from '../../hooks/I18nContext'
 
@@ -22,6 +23,7 @@ export function PinDetail({ pin, currentUserId, onDelete, onUpdated }: Props) {
   const [deleting, setDeleting] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const [editing, setEditing] = useState(false)
+  const [showShareCard, setShowShareCard] = useState(false)
 
   const isMine = pin.created_by === currentUserId
   const ageMs = Date.now() - new Date(pin.created_at).getTime()
@@ -127,6 +129,9 @@ export function PinDetail({ pin, currentUserId, onDelete, onUpdated }: Props) {
         <Button variant="secondary" onClick={openInMaps}>
           <ExternalLink size={16} /> {t('pin.openMaps')}
         </Button>
+        <Button variant="secondary" onClick={() => setShowShareCard(true)}>
+          <Image size={16} /> {t('share.card')}
+        </Button>
         <Button variant="secondary" onClick={share}>
           <Share2 size={16} /> {t('pin.share')}
         </Button>
@@ -141,6 +146,7 @@ export function PinDetail({ pin, currentUserId, onDelete, onUpdated }: Props) {
           </Button>
         )}
       </div>
+      {showShareCard && <ShareCard pin={pin} onClose={() => setShowShareCard(false)} />}
       {isMine && !withinEditWindow && (
         <p className="muted small" style={{ marginTop: 6 }} title={t('pin.editExpired')}>
           🔒 {t('pin.editExpired')}

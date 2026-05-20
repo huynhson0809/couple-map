@@ -8,7 +8,7 @@ import {
 
 export type Lang = "en" | "vi";
 
-const KEY = "couple-map.lang";
+const KEY = "mapmate.lang";
 
 const dict = {
   en: {
@@ -89,6 +89,9 @@ const dict = {
     "notif.pushHint": "Get notified when your partner pins a memory",
     "notif.newMemory": "added a new memory",
     "notif.viewOnMap": "View on map",
+
+    "share.card": "Card",
+    "share.download": "Download",
 
     "timeline.title": "Timeline",
     "timeline.memoriesShared": "memories shared",
@@ -221,6 +224,9 @@ const dict = {
     "notif.pushHint": "Nhận thông báo khi người ấy ghim kỷ niệm mới",
     "notif.newMemory": "vừa thêm 1 kỷ niệm",
     "notif.viewOnMap": "Xem trên map",
+
+    "share.card": "Card",
+    "share.download": "Tải về",
 
     "timeline.title": "Dòng thời gian",
     "timeline.memoriesShared": "kỷ niệm",

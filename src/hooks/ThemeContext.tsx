@@ -9,7 +9,7 @@ interface Ctx {
 }
 
 const ThemeCtx = createContext<Ctx | null>(null)
-const KEY = 'couple-map.theme'
+const KEY = 'mapmate.theme'
 
 // Dark mode temporarily disabled — force light until polished.
 const DARK_MODE_ENABLED = false

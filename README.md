@@ -1,4 +1,4 @@
-# Couple Map
+# Mapmate
 
 Bản đồ kỷ niệm của 2 người. React + Vite + TypeScript + MapLibre GL JS + OpenFreeMap + Supabase + Cloudinary. PWA-ready.
 
@@ -6,7 +6,7 @@ Bản đồ kỷ niệm của 2 người. React + Vite + TypeScript + MapLibre G
 
 1. `npm install`
 2. Create a Supabase project (free tier). Open the SQL editor and run [supabase/schema.sql](supabase/schema.sql).
-3. Create a Cloudinary account. Settings → Upload → add an **unsigned** upload preset (folder `couple-map`).
+3. Create a Cloudinary account. Settings → Upload → add an **unsigned** upload preset (folder `mapmate`).
 4. Copy `.env.example` → `.env.local` and fill in:
    ```
    VITE_SUPABASE_URL=

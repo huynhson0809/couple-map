@@ -12,8 +12,8 @@ export default defineConfig({
       filename: "sw-push.ts",
       includeAssets: ["favicon.ico", "icons/*.png"],
       manifest: {
-        name: "Couple Map",
-        short_name: "CoupleMap",
+        name: "Mapmate",
+        short_name: "Mapmate",
         description: "Bản đồ kỷ niệm của chúng mình",
         theme_color: "#1a1a2e",
         background_color: "#1a1a2e",

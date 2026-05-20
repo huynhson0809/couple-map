@@ -32,7 +32,7 @@ export function LoginPage() {
       </div>
       <div className="auth-brand">
         <Logo size={72} />
-        <h1>Couple Map</h1>
+        <h1>Mapmate</h1>
       </div>
       <p className="muted">{t('auth.welcome')}</p>
       <form onSubmit={handleSubmit} className="auth-form">

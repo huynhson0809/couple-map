@@ -80,16 +80,16 @@ self.addEventListener("push", (event) => {
   try {
     payload = event.data.json();
   } catch {
-    payload = { title: "Couple Map", body: event.data.text() };
+    payload = { title: "Mapmate", body: event.data.text() };
   }
 
-  const title = payload.title || "Couple Map";
+  const title = payload.title || "Mapmate";
   const options: NotificationOptions = {
     body: payload.body || "",
     icon: payload.icon || "/icons/icon-192.png",
     badge: payload.badge || "/icons/icon-192.png",
     data: payload.data || { url: "/" },
-    tag: "couple-map-pin",
+    tag: "mapmate-pin",
   };
 
   event.waitUntil(self.registration.showNotification(title, options));

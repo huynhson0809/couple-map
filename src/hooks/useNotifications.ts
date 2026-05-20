@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-const PREF_KEY = 'couple-map.notif-enabled'
+const PREF_KEY = 'mapmate.notif-enabled'
 
 type Perm = 'default' | 'granted' | 'denied' | 'unsupported'
 

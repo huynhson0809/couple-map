@@ -53,7 +53,7 @@ export function ImageLightbox({ images, startIndex, onClose }: Props) {
       const blob = await res.blob()
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
-      a.download = `couple-map-${current.id}.jpg`
+      a.download = `mapmate-${current.id}.jpg`
       document.body.appendChild(a)
       a.click()
       a.remove()
