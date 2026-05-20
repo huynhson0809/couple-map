@@ -65,6 +65,60 @@ const RADIUS = 48;
 const INFO_H = 280; // white info section height
 const PHOTO_H = CARD_H - INFO_H;
 
+/** Draw the Mapmate pin logo at (x, y) with given size */
+function drawLogo(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+  const s = size / 44; // original path fits in ~44px box
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(s, s);
+
+  // Back pin (faded)
+  ctx.globalAlpha = 0.55;
+  const g1 = ctx.createLinearGradient(0, 0, 32, 44);
+  g1.addColorStop(0, "#fb7185");
+  g1.addColorStop(1, "#f43f5e");
+  ctx.fillStyle = g1;
+  ctx.beginPath();
+  ctx.moveTo(16, 0);
+  ctx.bezierCurveTo(7, 0, 0, 7, 0, 16);
+  ctx.bezierCurveTo(0, 26, 16, 44, 16, 44);
+  ctx.bezierCurveTo(16, 44, 32, 26, 32, 16);
+  ctx.bezierCurveTo(32, 7, 25, 0, 16, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  // Front pin
+  ctx.globalAlpha = 1;
+  const g2 = ctx.createLinearGradient(10, 4, 44, 44);
+  g2.addColorStop(0, "#ff6b6b");
+  g2.addColorStop(0.55, "#ec4899");
+  g2.addColorStop(1, "#a855f7");
+  ctx.fillStyle = g2;
+  ctx.beginPath();
+  ctx.moveTo(30, 8);
+  ctx.bezierCurveTo(21, 8, 14, 15, 14, 24);
+  ctx.bezierCurveTo(14, 34, 30, 52, 30, 52);
+  ctx.bezierCurveTo(30, 52, 46, 34, 46, 24);
+  ctx.bezierCurveTo(46, 15, 39, 8, 30, 8);
+  ctx.closePath();
+  ctx.fill();
+
+  // Heart
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.moveTo(30, 32);
+  ctx.bezierCurveTo(30, 32, 23, 27, 23, 22);
+  ctx.bezierCurveTo(23, 19.5, 25, 18, 27, 18);
+  ctx.bezierCurveTo(28.5, 18, 30, 19, 30, 19);
+  ctx.bezierCurveTo(30, 19, 31.5, 18, 33, 18);
+  ctx.bezierCurveTo(35, 18, 37, 19.5, 37, 22);
+  ctx.bezierCurveTo(37, 27, 30, 32, 30, 32);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
 function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -89,6 +143,7 @@ function roundRect(
 async function drawCardWithPhoto(
   coverDataUrl: string,
   title: string,
+  categoryLabel: string | null,
   location: string,
   dateStr: string,
   coupleNames: string,
@@ -135,6 +190,18 @@ async function drawCardWithPhoto(
   ctx.fillStyle = grad;
   ctx.fillRect(0, PHOTO_H * 0.5, CARD_W, PHOTO_H * 0.5);
 
+  // Category tag chip (top-left of photo)
+  if (categoryLabel) {
+    ctx.font = "500 28px -apple-system, BlinkMacSystemFont, sans-serif";
+    const chipW = ctx.measureText(categoryLabel).width + 32;
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    roundRect(ctx, PAD, 30, chipW, 44, 22);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "left";
+    ctx.fillText(categoryLabel, PAD + 16, 60);
+  }
+
   // Title on photo (bottom of photo area)
   ctx.font = "bold 52px -apple-system, BlinkMacSystemFont, sans-serif";
   ctx.fillStyle = "#ffffff";
@@ -162,7 +229,7 @@ async function drawCardWithPhoto(
   ctx.lineTo(CARD_W - PAD, infoY + 90);
   ctx.stroke();
 
-  // Footer: couple names left, Mapmate right
+  // Footer: couple names left, logo + Mapmate right
   const footerY = infoY + 140;
   ctx.font = "500 30px -apple-system, BlinkMacSystemFont, sans-serif";
   ctx.fillStyle = "#555555";
@@ -170,7 +237,9 @@ async function drawCardWithPhoto(
   ctx.fillText(coupleNames, PAD, footerY);
   ctx.textAlign = "right";
   ctx.fillStyle = "#e8685a";
+  const mapmateW = ctx.measureText("Mapmate").width;
   ctx.fillText("Mapmate", CARD_W - PAD, footerY);
+  drawLogo(ctx, CARD_W - PAD - mapmateW - 40, footerY - 28, 32);
   ctx.textAlign = "left";
 
   ctx.restore(); // restore outer rounded clip
@@ -181,6 +250,7 @@ async function drawCardWithPhoto(
 async function drawCardNoPhoto(
   emoji: string,
   title: string,
+  categoryLabel: string | null,
   location: string,
   dateStr: string,
   coupleNames: string,
@@ -202,6 +272,18 @@ async function drawCardNoPhoto(
   grad.addColorStop(1, "#764ba2");
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, CARD_W, PHOTO_H);
+
+  // Category tag chip (top-left)
+  if (categoryLabel) {
+    ctx.font = "500 28px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.textAlign = "left";
+    const chipW = ctx.measureText(categoryLabel).width + 32;
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
+    roundRect(ctx, PAD, 30, chipW, 44, 22);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(categoryLabel, PAD + 16, 60);
+  }
 
   // Emoji
   ctx.font = "120px -apple-system, BlinkMacSystemFont, sans-serif";
@@ -241,7 +323,9 @@ async function drawCardNoPhoto(
   ctx.fillText(coupleNames, PAD, footerY);
   ctx.textAlign = "right";
   ctx.fillStyle = "#e8685a";
+  const mapmateW = ctx.measureText("Mapmate").width;
   ctx.fillText("Mapmate", CARD_W - PAD, footerY);
+  drawLogo(ctx, CARD_W - PAD - mapmateW - 40, footerY - 28, 32);
 
   return canvas.toDataURL("image/png");
 }
@@ -298,6 +382,7 @@ export function ShareCard({ pin, onClose }: Props) {
         return await drawCardWithPhoto(
           coverDataUrl,
           pin.title,
+          category ? `${category.emoji} ${category.label}` : null,
           location,
           dateStr,
           coupleNames,
@@ -306,6 +391,7 @@ export function ShareCard({ pin, onClose }: Props) {
         return await drawCardNoPhoto(
           category?.emoji || "📍",
           pin.title,
+          category ? `${category.emoji} ${category.label}` : null,
           location,
           dateStr,
           coupleNames,

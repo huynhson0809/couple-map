@@ -1,12 +1,13 @@
 import { useRef, useState } from 'react'
-import { ImageUp, Eraser, Plus } from 'lucide-react'
+import { ImageUp, Eraser, Plus, Trash2, Video } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { usePinsCtx } from '../../hooks/PinsContext'
 import { getCategory, getAllCategories, saveCustomCategory, type Category } from '../../lib/categories'
 import { useI18n } from '../../hooks/I18nContext'
 import { compressImage } from '../../lib/imageCompress'
-import { uploadToCloudinary, getImageUrl } from '../../lib/cloudinary'
-import type { Pin } from '../../types'
+import { uploadToCloudinary, getImageUrl, isVideoUrl, getVideoUrl, MAX_VIDEO_BYTES } from '../../lib/cloudinary'
+import { supabase } from '../../lib/supabase'
+import type { Pin, PinImage } from '../../types'
 
 interface Props {
   pin: Pin
@@ -32,6 +33,14 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   const [customTagName, setCustomTagName] = useState('')
   const [customTagEmoji, setCustomTagEmoji] = useState('')
   const markerInput = useRef<HTMLInputElement | null>(null)
+
+  // --- Media management ---
+  const [existingImages, setExistingImages] = useState<PinImage[]>(pin.images ?? [])
+  const [removedImageIds, setRemovedImageIds] = useState<string[]>([])
+  const [newFiles, setNewFiles] = useState<File[]>([])
+  const [mediaUploading, setMediaUploading] = useState(false)
+  const mediaInput = useRef<HTMLInputElement | null>(null)
+  const videoInput = useRef<HTMLInputElement | null>(null)
 
   async function handleMarkerUpload(file: File | undefined) {
     if (!file) return
@@ -73,6 +82,28 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     setCustomTagEmoji('')
   }
 
+  // --- Media helpers ---
+  function handleRemoveExisting(img: PinImage) {
+    setRemovedImageIds((prev) => [...prev, img.id])
+    setExistingImages((prev) => prev.filter((i) => i.id !== img.id))
+  }
+
+  function handleAddMedia(files: FileList | null) {
+    if (!files) return
+    const arr = Array.from(files)
+    for (const f of arr) {
+      if (f.type.startsWith('video/') && f.size > MAX_VIDEO_BYTES) {
+        setError(`Video quá lớn (tối đa ${MAX_VIDEO_BYTES / 1024 / 1024}MB)`)
+        return
+      }
+    }
+    setNewFiles((prev) => [...prev, ...arr])
+  }
+
+  function handleRemoveNewFile(idx: number) {
+    setNewFiles((prev) => prev.filter((_, i) => i !== idx))
+  }
+
   function previewIcon() {
     if (markerImageUrl) {
       return <img src={getImageUrl(markerImageUrl, 80)} alt="" className="marker-preview-img" />
@@ -92,6 +123,40 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     setSaving(true)
     setError(null)
     try {
+      // 1. Delete removed images from DB (Cloudinary cleanup is best-effort)
+      if (removedImageIds.length > 0) {
+        const { error: delErr } = await supabase
+          .from('pin_images')
+          .delete()
+          .in('id', removedImageIds)
+        if (delErr) throw delErr
+      }
+
+      // 2. Upload new files
+      if (newFiles.length > 0) {
+        setMediaUploading(true)
+        const uploads = await Promise.all(
+          newFiles.map(async (file) => {
+            const isVideo = file.type.startsWith('video/')
+            const toUpload = isVideo ? file : await compressImage(file)
+            return uploadToCloudinary(toUpload)
+          }),
+        )
+        const startOrder = existingImages.length
+        const rows = uploads.map((img, i) => ({
+          pin_id: pin.id,
+          cloudinary_url: img.url,
+          cloudinary_public_id: img.publicId,
+          width: img.width,
+          height: img.height,
+          sort_order: startOrder + i,
+        }))
+        const { error: imgErr } = await supabase.from('pin_images').insert(rows)
+        if (imgErr) throw imgErr
+        setMediaUploading(false)
+      }
+
+      // 3. Update pin fields
       await updatePin(pin.id, {
         title: title.trim(),
         note: note.trim() || null,
@@ -104,6 +169,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setSaving(false)
+      setMediaUploading(false)
     }
   }
 
@@ -240,6 +306,60 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         </div>
       </div>
 
+      {/* --- Media section --- */}
+      <div>
+        <div className="field-label">{t('pin.media')}</div>
+        <div className="photo-previews">
+          {existingImages.map((img) => (
+            <div key={img.id} className={`photo-preview ${isVideoUrl(img.cloudinary_url) ? 'video-item' : ''}`}>
+              {isVideoUrl(img.cloudinary_url) ? (
+                <video src={getVideoUrl(img.cloudinary_url, 200)} muted playsInline preload="metadata" />
+              ) : (
+                <img src={getImageUrl(img.cloudinary_url, 200)} alt="" />
+              )}
+              <button type="button" onClick={() => handleRemoveExisting(img)}>
+                <Trash2 size={12} />
+              </button>
+            </div>
+          ))}
+          {newFiles.map((f, i) => (
+            <div key={i} className={`photo-preview ${f.type.startsWith('video/') ? 'video-item' : ''}`}>
+              {f.type.startsWith('video/') ? (
+                <video src={URL.createObjectURL(f)} muted playsInline preload="metadata" />
+              ) : (
+                <img src={URL.createObjectURL(f)} alt="" />
+              )}
+              <button type="button" onClick={() => handleRemoveNewFile(i)}>
+                <Trash2 size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="row" style={{ marginTop: 8 }}>
+          <button type="button" className="photo-btn small" onClick={() => mediaInput.current?.click()}>
+            <ImageUp size={16} /> {t('pin.addPhoto')}
+          </button>
+          <button type="button" className="photo-btn small" onClick={() => videoInput.current?.click()}>
+            <Video size={16} /> {t('pin.addVideo')}
+          </button>
+        </div>
+        <input
+          ref={mediaInput}
+          type="file"
+          accept="image/*"
+          multiple
+          style={{ display: 'none' }}
+          onChange={(e) => { handleAddMedia(e.target.files); e.target.value = '' }}
+        />
+        <input
+          ref={videoInput}
+          type="file"
+          accept="video/*"
+          style={{ display: 'none' }}
+          onChange={(e) => { handleAddMedia(e.target.files); e.target.value = '' }}
+        />
+      </div>
+
       <textarea
         placeholder={t('pin.note')}
         value={note}
@@ -253,8 +373,8 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         <Button type="button" variant="secondary" onClick={onCancel} disabled={saving}>
           {t('pin.cancel')}
         </Button>
-        <Button type="submit" disabled={saving} style={{ flex: 1 }}>
-          {saving ? t('pin.saving') : t('pin.save')}
+        <Button type="submit" disabled={saving || mediaUploading} style={{ flex: 1 }}>
+          {mediaUploading ? '⬆️ ...' : saving ? t('pin.saving') : t('pin.save')}
         </Button>
       </div>
     </form>
