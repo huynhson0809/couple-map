@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Download, Share2, X, MapPin, Calendar } from "lucide-react";
 import type { Pin } from "../../types";
 import { getImageUrl } from "../../lib/cloudinary";
@@ -6,6 +6,7 @@ import { getCategory } from "../../lib/categories";
 import { useI18n } from "../../hooks/I18nContext";
 import { useCoupleCtx } from "../../hooks/CoupleContext";
 import { Button } from "../ui/Button";
+import { Logo } from "../ui/Logo";
 
 interface Props {
   pin: Pin;
@@ -64,6 +65,15 @@ function wrapText(
 const RADIUS = 48;
 const INFO_H = 280; // white info section height
 const PHOTO_H = CARD_H - INFO_H;
+const PHOTO_TITLE_Y = PHOTO_H - 80;
+const PHOTO_TITLE_FONT_SIZE = 48;
+const SHARE_TAG_H = 44;
+const SHARE_TAG_GAP = 20;
+
+interface ShareTag {
+  label: string;
+  emoji: string;
+}
 
 /** Draw the Mapmate pin logo at (x, y) with given size */
 function drawLogo(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
@@ -119,6 +129,90 @@ function drawLogo(ctx: CanvasRenderingContext2D, x: number, y: number, size: num
   ctx.restore();
 }
 
+function drawMapPinIcon(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  color: string,
+) {
+  const s = size / 24;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(s, s);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(20, 10);
+  ctx.bezierCurveTo(20, 16, 12, 22, 12, 22);
+  ctx.bezierCurveTo(12, 22, 4, 16, 4, 10);
+  ctx.bezierCurveTo(4, 5.58, 7.58, 2, 12, 2);
+  ctx.bezierCurveTo(16.42, 2, 20, 5.58, 20, 10);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(12, 10, 3, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawCalendarIcon(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  color: string,
+) {
+  const s = size / 24;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(s, s);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.rect(3, 4, 18, 18);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(16, 2);
+  ctx.lineTo(16, 6);
+  ctx.moveTo(8, 2);
+  ctx.lineTo(8, 6);
+  ctx.moveTo(3, 10);
+  ctx.lineTo(21, 10);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawShareTagChip(
+  ctx: CanvasRenderingContext2D,
+  tag: ShareTag,
+  x: number,
+  y: number,
+  options: { background: string; color: string },
+) {
+  const text = `${tag.emoji} ${tag.label}`;
+  ctx.font = "600 28px -apple-system, BlinkMacSystemFont, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+
+  const padX = 24;
+  const chipH = SHARE_TAG_H;
+  const textW = ctx.measureText(text).width;
+  const chipW = padX * 2 + textW;
+
+  ctx.fillStyle = options.background;
+  roundRect(ctx, x, y, chipW, chipH, chipH / 2);
+  ctx.fill();
+
+  ctx.fillStyle = options.color;
+  ctx.fillText(text, x + padX, y + chipH / 2);
+  ctx.textBaseline = "alphabetic";
+}
+
 function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -141,9 +235,9 @@ function roundRect(
 }
 
 async function drawCardWithPhoto(
-  coverDataUrl: string,
+  coverUrl: string,
   title: string,
-  categoryLabel: string | null,
+  tag: ShareTag | null,
   location: string,
   dateStr: string,
   coupleNames: string,
@@ -169,7 +263,7 @@ async function drawCardWithPhoto(
   ctx.rect(0, 0, CARD_W, PHOTO_H);
   ctx.clip();
   try {
-    const img = await loadImage(coverDataUrl);
+    const img = await loadImage(coverUrl);
     const scale = Math.max(CARD_W / img.width, PHOTO_H / img.height);
     const w = img.width * scale;
     const h = img.height * scale;
@@ -191,21 +285,23 @@ async function drawCardWithPhoto(
   ctx.fillRect(0, PHOTO_H * 0.5, CARD_W, PHOTO_H * 0.5);
 
   // Category tag chip (top-left of photo)
-  if (categoryLabel) {
-    ctx.font = "500 28px -apple-system, BlinkMacSystemFont, sans-serif";
-    const chipW = ctx.measureText(categoryLabel).width + 32;
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    roundRect(ctx, PAD, 30, chipW, 44, 22);
-    ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.textAlign = "left";
-    ctx.fillText(categoryLabel, PAD + 16, 60);
+  if (tag) {
+    drawShareTagChip(
+      ctx,
+      tag,
+      PAD,
+      PHOTO_TITLE_Y - PHOTO_TITLE_FONT_SIZE - SHARE_TAG_GAP - SHARE_TAG_H + 8,
+      {
+        background: "rgba(255,255,255,0.2)",
+        color: "#ffffff",
+      },
+    );
   }
 
   // Title on photo (bottom of photo area)
-  ctx.font = "bold 52px -apple-system, BlinkMacSystemFont, sans-serif";
+  ctx.font = `bold ${PHOTO_TITLE_FONT_SIZE}px -apple-system, BlinkMacSystemFont, sans-serif`;
   ctx.fillStyle = "#ffffff";
-  wrapText(ctx, title, PAD, PHOTO_H - 80, CARD_W - PAD * 2, 62, 2);
+  wrapText(ctx, title, PAD, PHOTO_TITLE_Y, CARD_W - PAD * 2, 58, 2);
 
   // --- White info section (painted over any image overflow) ---
   ctx.fillStyle = "#ffffff";
@@ -216,10 +312,12 @@ async function drawCardWithPhoto(
   // Location
   ctx.font = "400 32px -apple-system, BlinkMacSystemFont, sans-serif";
   ctx.fillStyle = "#333333";
-  ctx.fillText("📍 " + location, PAD, infoY);
+  drawMapPinIcon(ctx, PAD, infoY - 25, 30, "#4b5563");
+  ctx.fillText(location, PAD + 42, infoY);
 
   // Date
-  ctx.fillText("📅 " + dateStr, PAD, infoY + 50);
+  drawCalendarIcon(ctx, PAD, infoY + 25, 30, "#4b5563");
+  ctx.fillText(dateStr, PAD + 42, infoY + 50);
 
   // Divider line
   ctx.strokeStyle = "#eee";
@@ -249,8 +347,9 @@ async function drawCardWithPhoto(
 
 async function drawCardNoPhoto(
   emoji: string,
+  markerImageUrl: string | null,
   title: string,
-  categoryLabel: string | null,
+  tag: ShareTag | null,
   location: string,
   dateStr: string,
   coupleNames: string,
@@ -274,21 +373,35 @@ async function drawCardNoPhoto(
   ctx.fillRect(0, 0, CARD_W, PHOTO_H);
 
   // Category tag chip (top-left)
-  if (categoryLabel) {
-    ctx.font = "500 28px -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.textAlign = "left";
-    const chipW = ctx.measureText(categoryLabel).width + 32;
-    ctx.fillStyle = "rgba(255,255,255,0.25)";
-    roundRect(ctx, PAD, 30, chipW, 44, 22);
-    ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(categoryLabel, PAD + 16, 60);
+  if (tag) {
+    drawShareTagChip(ctx, tag, PAD, 30, {
+      background: "rgba(0,0,0,0.55)",
+      color: "#ffffff",
+    });
   }
 
-  // Emoji
-  ctx.font = "120px -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(emoji, CARD_W / 2, PHOTO_H / 2 - 40);
+  // Marker icon
+  if (markerImageUrl) {
+    try {
+      const img = await loadImage(getImageUrl(markerImageUrl, 240));
+      const size = 180;
+      const x = (CARD_W - size) / 2;
+      const y = PHOTO_H / 2 - 180;
+      ctx.save();
+      roundRect(ctx, x, y, size, size, size / 2);
+      ctx.clip();
+      ctx.drawImage(img, x, y, size, size);
+      ctx.restore();
+    } catch {
+      ctx.font = "120px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(emoji, CARD_W / 2, PHOTO_H / 2 - 40);
+    }
+  } else {
+    ctx.font = "120px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(emoji, CARD_W / 2, PHOTO_H / 2 - 40);
+  }
 
   // Title on gradient area
   ctx.font = "bold 52px -apple-system, BlinkMacSystemFont, sans-serif";
@@ -304,8 +417,10 @@ async function drawCardNoPhoto(
 
   ctx.font = "400 32px -apple-system, BlinkMacSystemFont, sans-serif";
   ctx.fillStyle = "#333333";
-  ctx.fillText("📍 " + location, PAD, infoY);
-  ctx.fillText("📅 " + dateStr, PAD, infoY + 50);
+  drawMapPinIcon(ctx, PAD, infoY - 25, 30, "#4b5563");
+  ctx.fillText(location, PAD + 42, infoY);
+  drawCalendarIcon(ctx, PAD, infoY + 25, 30, "#4b5563");
+  ctx.fillText(dateStr, PAD + 42, infoY + 50);
 
   // Divider
   ctx.strokeStyle = "#eee";
@@ -336,11 +451,18 @@ export function ShareCard({ pin, onClose }: Props) {
   const { lang, t } = useI18n();
   const { profile, partner } = useCoupleCtx();
   const [generating, setGenerating] = useState(false);
-  const [coverDataUrl, setCoverDataUrl] = useState<string | null>(null);
 
   const images = pin.images ?? [];
   const coverImage = images[0];
+  const coverUrl = coverImage?.cloudinary_url ?? null;
   const category = getCategory(pin.category);
+  const tag: ShareTag | null = category
+    ? {
+        label: category.label,
+        emoji: category.emoji,
+      }
+    : null;
+  const markerEmoji = pin.marker_emoji ?? category?.emoji ?? "📍";
   const dateStr = new Date(pin.created_at).toLocaleDateString(
     lang === "vi" ? "vi-VN" : undefined,
     { year: "numeric", month: "long", day: "numeric" },
@@ -351,47 +473,24 @@ export function ShareCard({ pin, onClose }: Props) {
   const location =
     pin.city || pin.address || `${pin.lat.toFixed(3)}, ${pin.lng.toFixed(3)}`;
 
-  // Pre-fetch cover image as data URL
-  useEffect(() => {
-    if (coverImage) {
-      const url = getImageUrl(coverImage.cloudinary_url, 1080);
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        try {
-          const c = document.createElement("canvas");
-          c.width = img.naturalWidth;
-          c.height = img.naturalHeight;
-          const cx = c.getContext("2d");
-          if (!cx) return;
-          cx.drawImage(img, 0, 0);
-          setCoverDataUrl(c.toDataURL("image/jpeg", 0.92));
-        } catch {
-          setCoverDataUrl(null);
-        }
-      };
-      img.onerror = () => setCoverDataUrl(null);
-      img.src = url;
-    }
-  }, [coverImage]);
-
   async function generateImage(): Promise<string | null> {
     setGenerating(true);
     try {
-      if (coverDataUrl) {
+      if (coverUrl) {
         return await drawCardWithPhoto(
-          coverDataUrl,
+          coverUrl,
           pin.title,
-          category ? `${category.emoji} ${category.label}` : null,
+          tag,
           location,
           dateStr,
           coupleNames,
         );
       } else {
         return await drawCardNoPhoto(
-          category?.emoji || "📍",
+          markerEmoji,
+          pin.marker_image_url,
           pin.title,
-          category ? `${category.emoji} ${category.label}` : null,
+          tag,
           location,
           dateStr,
           coupleNames,
@@ -462,7 +561,7 @@ export function ShareCard({ pin, onClose }: Props) {
     handleDownload();
   }
 
-  const hasPhoto = !!coverDataUrl;
+  const hasPhoto = !!coverUrl;
 
   return (
     <div className="share-card-overlay" onClick={onClose}>
@@ -477,7 +576,7 @@ export function ShareCard({ pin, onClose }: Props) {
             // Photo card layout
             <>
               <div className="share-card-hero">
-                <img src={coverDataUrl} alt="" />
+                <img src={coverUrl} alt="" />
                 <div className="share-card-hero-overlay" />
                 <div className="share-card-hero-content">
                   {category && (
@@ -502,7 +601,10 @@ export function ShareCard({ pin, onClose }: Props) {
                 </div>
                 <div className="share-card-footer">
                   <span className="share-card-couple">{coupleNames}</span>
-                  <span className="share-card-brand">Mapmate</span>
+                  <span className="share-card-brand">
+                    <Logo size={16} className="share-card-brand-logo" />
+                    Mapmate
+                  </span>
                 </div>
               </div>
             </>
@@ -512,7 +614,11 @@ export function ShareCard({ pin, onClose }: Props) {
               <div className="share-card-gradient">
                 <div className="share-card-gradient-content">
                   <div className="share-card-emoji">
-                    {category?.emoji || "📍"}
+                    {pin.marker_image_url ? (
+                      <img src={getImageUrl(pin.marker_image_url, 160)} alt="" />
+                    ) : (
+                      markerEmoji
+                    )}
                   </div>
                   <h3 className="share-card-title-lg">{pin.title}</h3>
                   <div className="share-card-meta-light">
@@ -531,7 +637,10 @@ export function ShareCard({ pin, onClose }: Props) {
               <div className="share-card-info">
                 <div className="share-card-footer">
                   <span className="share-card-couple">{coupleNames}</span>
-                  <span className="share-card-brand">Mapmate</span>
+                  <span className="share-card-brand">
+                    <Logo size={16} className="share-card-brand-logo" />
+                    Mapmate
+                  </span>
                 </div>
               </div>
             </>

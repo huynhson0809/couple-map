@@ -11,6 +11,11 @@ interface Props {
   partnerUserId: string | null | undefined;
   onLongPress: (coords: { lat: number; lng: number }) => void;
   onPinClick: (pin: Pin) => void;
+  onUserLocation?: (coords: {
+    lat: number;
+    lng: number;
+    accuracy?: number | null;
+  }) => void;
   flyTo?: { lat: number; lng: number; key: number } | null;
   showHeatmap?: boolean;
   bucketItems?: { id: string; lat: number; lng: number }[];
@@ -35,6 +40,7 @@ export function MapView({
   partnerUserId,
   onLongPress,
   onPinClick,
+  onUserLocation,
   flyTo,
   showHeatmap = false,
   bucketItems = [],
@@ -50,11 +56,16 @@ export function MapView({
   const styleLoadedRef = useRef(false);
   const didInitialFitRef = useRef<boolean>(false);
   const pinsRef = useRef<Pin[]>([]);
-  pinsRef.current = pins;
   const onPinClickRef = useRef(onPinClick);
-  onPinClickRef.current = onPinClick;
+  const onUserLocationRef = useRef(onUserLocation);
   const newestPinIdRef = useRef(newestPinId);
-  newestPinIdRef.current = newestPinId;
+
+  useEffect(() => {
+    pinsRef.current = pins;
+    onPinClickRef.current = onPinClick;
+    onUserLocationRef.current = onUserLocation;
+    newestPinIdRef.current = newestPinId;
+  }, [pins, onPinClick, onUserLocation, newestPinId]);
 
   function pinColor(p: Pin) {
     if (p.created_by === currentUserId) return COLOR_USER_A;
@@ -215,13 +226,21 @@ export function MapView({
       new maplibregl.NavigationControl({ showCompass: false }),
       "top-right",
     );
-    map.addControl(
-      new maplibregl.GeolocateControl({
+    const geolocateControl = new maplibregl.GeolocateControl({
         positionOptions: { enableHighAccuracy: true },
         trackUserLocation: true,
-      }),
-      "top-right",
-    );
+      })
+    geolocateControl.on("geolocate", (event) => {
+      const position = event as GeolocationPosition;
+      onUserLocationRef.current?.({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        accuracy: Number.isFinite(position.coords.accuracy)
+          ? position.coords.accuracy
+          : null,
+      });
+    });
+    map.addControl(geolocateControl, "top-right");
 
     function startLongPress(
       e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent,

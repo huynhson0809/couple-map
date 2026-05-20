@@ -25,11 +25,14 @@ export function PinsProvider({
   const value = usePins(coupleId, userId)
   const { fetchPins, setPins } = value
   const fetchRef = useRef(fetchPins)
-  fetchRef.current = fetchPins
   const setPinsRef = useRef(setPins)
-  setPinsRef.current = setPins
   const userIdRef = useRef(userId)
-  userIdRef.current = userId
+
+  useEffect(() => {
+    fetchRef.current = fetchPins
+    setPinsRef.current = setPins
+    userIdRef.current = userId
+  }, [fetchPins, setPins, userId])
 
   const [latestPartnerPin, setLatestPartnerPin] = useState<Pin | null>(null)
   const clearLatestPartnerPin = useCallback(() => setLatestPartnerPin(null), [])
@@ -69,6 +72,7 @@ export function PinsProvider({
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function usePinsCtx() {
   const v = useContext(PinsCtx)
   if (!v) throw new Error('usePinsCtx must be used within PinsProvider')

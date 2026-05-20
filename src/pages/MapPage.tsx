@@ -38,12 +38,19 @@ export function MapPage() {
   const [newPinCoords, setNewPinCoords] = useState<{
     lat: number;
     lng: number;
+    accuracy?: number | null;
   } | null>(null);
   const [selectedPin, setSelectedPin] = useState<Pin | null>(null);
   const [flyTo, setFlyTo] = useState<{
     lat: number;
     lng: number;
     key: number;
+  } | null>(null);
+  const [lastUserLocation, setLastUserLocation] = useState<{
+    lat: number;
+    lng: number;
+    accuracy?: number | null;
+    receivedAt: number;
   } | null>(null);
   const flyKey = useRef(0);
 
@@ -69,8 +76,18 @@ export function MapPage() {
   }, []);
 
   async function handleFabClick() {
+    if (lastUserLocation && Date.now() - lastUserLocation.receivedAt < 60_000) {
+      setNewPinCoords({
+        lat: lastUserLocation.lat,
+        lng: lastUserLocation.lng,
+        accuracy: lastUserLocation.accuracy,
+      });
+      return;
+    }
+
     try {
       const c = await getCurrentPosition();
+      setLastUserLocation({ ...c, receivedAt: Date.now() });
       setNewPinCoords(c);
     } catch {
       /* ignore */
@@ -88,6 +105,9 @@ export function MapPage() {
         partnerUserId={partner?.id ?? null}
         onLongPress={handleLongPress}
         onPinClick={handlePinClick}
+        onUserLocation={(coords) =>
+          setLastUserLocation({ ...coords, receivedAt: Date.now() })
+        }
         flyTo={flyTo}
         bucketItems={bucketItems
           .filter((b) => b.status === "dream")

@@ -1,12 +1,13 @@
 import { useRef, useState } from 'react'
-import { ImageUp, Eraser, Plus, Trash2, Video } from 'lucide-react'
+import { ImageUp, Eraser, Plus, Trash2, Video, Pencil } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { usePinsCtx } from '../../hooks/PinsContext'
-import { getCategory, getAllCategories, saveCustomCategory, type Category } from '../../lib/categories'
+import { CATEGORIES, deleteCustomCategory, getCategory, getAllCategories, saveCustomCategory, type Category } from '../../lib/categories'
 import { useI18n } from '../../hooks/I18nContext'
 import { compressImage } from '../../lib/imageCompress'
 import { uploadToCloudinary, getImageUrl, isVideoUrl, getVideoUrl, MAX_VIDEO_BYTES } from '../../lib/cloudinary'
 import { supabase } from '../../lib/supabase'
+import { deletePinMedia, type CloudinaryDeleteAsset } from '../../lib/cloudinary-delete'
 import type { Pin, PinImage } from '../../types'
 
 interface Props {
@@ -30,13 +31,15 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   const [saving, setSaving] = useState(false)
   const [customEmojiInput, setCustomEmojiInput] = useState('')
   const [showCustomTag, setShowCustomTag] = useState(false)
+  const [editingTagId, setEditingTagId] = useState<string | null>(null)
   const [customTagName, setCustomTagName] = useState('')
   const [customTagEmoji, setCustomTagEmoji] = useState('')
+  const [allCategories, setAllCategories] = useState(() => getAllCategories())
   const markerInput = useRef<HTMLInputElement | null>(null)
 
   // --- Media management ---
   const [existingImages, setExistingImages] = useState<PinImage[]>(pin.images ?? [])
-  const [removedImageIds, setRemovedImageIds] = useState<string[]>([])
+  const [removedImages, setRemovedImages] = useState<CloudinaryDeleteAsset[]>([])
   const [newFiles, setNewFiles] = useState<File[]>([])
   const [mediaUploading, setMediaUploading] = useState(false)
   const mediaInput = useRef<HTMLInputElement | null>(null)
@@ -66,9 +69,23 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     setCustomEmojiInput('')
   }
 
-  function handleAddCustomTag() {
+  function openCreateCustomTag() {
+    setEditingTagId(null)
+    setCustomTagName('')
+    setCustomTagEmoji('')
+    setShowCustomTag(true)
+  }
+
+  function openEditCustomTag(cat: Category) {
+    setEditingTagId(cat.id)
+    setCustomTagName(cat.label)
+    setCustomTagEmoji(cat.emoji)
+    setShowCustomTag(true)
+  }
+
+  function handleSaveCustomTag() {
     if (!customTagName.trim()) return
-    const id = `custom_${Date.now()}`
+    const id = editingTagId ?? `custom_${Date.now()}`
     const newCat: Category = {
       id,
       label: customTagName.trim(),
@@ -76,15 +93,36 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
       color: '#6b7280',
     }
     saveCustomCategory(newCat)
+    setAllCategories(getAllCategories())
     setCategory(id)
     setShowCustomTag(false)
+    setEditingTagId(null)
     setCustomTagName('')
     setCustomTagEmoji('')
   }
 
+  function handleDeleteCustomTag(id: string) {
+    deleteCustomCategory(id)
+    setAllCategories(getAllCategories())
+    if (category === id) setCategory(null)
+    if (editingTagId === id) {
+      setShowCustomTag(false)
+      setEditingTagId(null)
+      setCustomTagName('')
+      setCustomTagEmoji('')
+    }
+  }
+
   // --- Media helpers ---
   function handleRemoveExisting(img: PinImage) {
-    setRemovedImageIds((prev) => [...prev, img.id])
+    setRemovedImages((prev) => [
+      ...prev,
+      {
+        id: img.id,
+        publicId: img.cloudinary_public_id ?? '',
+        resourceType: isVideoUrl(img.cloudinary_url) ? 'video' : 'image',
+      },
+    ])
     setExistingImages((prev) => prev.filter((i) => i.id !== img.id))
   }
 
@@ -123,13 +161,9 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     setSaving(true)
     setError(null)
     try {
-      // 1. Delete removed images from DB (Cloudinary cleanup is best-effort)
-      if (removedImageIds.length > 0) {
-        const { error: delErr } = await supabase
-          .from('pin_images')
-          .delete()
-          .in('id', removedImageIds)
-        if (delErr) throw delErr
+      // 1. Delete removed media from Cloudinary and DB after the user confirms Save.
+      if (removedImages.length > 0) {
+        await deletePinMedia(removedImages)
       }
 
       // 2. Upload new files
@@ -173,8 +207,6 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     }
   }
 
-  const allCategories = getAllCategories()
-
   return (
     <form onSubmit={handleSubmit} className="pin-form">
       <input
@@ -191,23 +223,45 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         <div className="category-grid">
           {allCategories.map((c) => {
             const active = category === c.id
+            const custom = !CATEGORIES.some((base) => base.id === c.id)
             return (
-              <button
-                key={c.id}
-                type="button"
-                className={`category-chip ${active ? 'active' : ''}`}
-                style={active ? { background: c.color, borderColor: c.color, color: 'white' } : undefined}
-                onClick={() => setCategory(active ? null : c.id)}
-              >
-                <span className="emoji">{c.emoji}</span>
-                <span>{c.label}</span>
-              </button>
+              <div key={c.id} className="category-chip-wrap">
+                <button
+                  type="button"
+                  className={`category-chip ${active ? 'active' : ''}`}
+                  style={active ? { background: c.color, borderColor: c.color, color: 'white' } : undefined}
+                  onClick={() => setCategory(active ? null : c.id)}
+                >
+                  <span className="emoji">{c.emoji}</span>
+                  <span>{c.label}</span>
+                </button>
+                {custom && (
+                  <>
+                    <button
+                      type="button"
+                      className="category-edit-btn"
+                      onClick={() => openEditCustomTag(c)}
+                      aria-label="Edit tag"
+                    >
+                      <Pencil size={10} />
+                    </button>
+                    <button
+                      type="button"
+                      className="category-delete-btn"
+                      onClick={() => handleDeleteCustomTag(c.id)}
+                      aria-label="Delete tag"
+                    >
+                      <Trash2 size={10} />
+                    </button>
+                  </>
+                )}
+              </div>
             )
           })}
           <button
             type="button"
             className="category-chip"
-            onClick={() => setShowCustomTag(true)}
+            onClick={openCreateCustomTag}
           >
             <span className="emoji"><Plus size={14} /></span>
             <span>{t('pin.addTag')}</span>
@@ -231,8 +285,8 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
               maxLength={30}
               className="custom-tag-name-input"
             />
-            <Button type="button" onClick={handleAddCustomTag} disabled={!customTagName.trim()}>
-              {t('pin.save')}
+            <Button type="button" onClick={handleSaveCustomTag} disabled={!customTagName.trim()}>
+              {t('pin.saveTag')}
             </Button>
           </div>
         )}

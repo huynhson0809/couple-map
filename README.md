@@ -13,6 +13,7 @@ Bản đồ kỷ niệm của 2 người. React + Vite + TypeScript + MapLibre G
    VITE_SUPABASE_ANON_KEY=
    VITE_CLOUDINARY_CLOUD_NAME=
    VITE_CLOUDINARY_UPLOAD_PRESET=
+   VITE_MAPBOX_ACCESS_TOKEN=
    ```
 5. Drop two PWA icons into `public/icons/` — `icon-192.png` and `icon-512.png`.
 
@@ -30,11 +31,12 @@ npm run build && npm run preview
 
 ## Deploy
 
-Push to GitHub → import into Vercel (framework: Vite) → set the 4 env vars → deploy.
+Push to GitHub → import into Vercel (framework: Vite) → set the env vars → deploy.
 
 ## Stack notes
 
 - **MapLibre GL JS** + **OpenFreeMap** tiles — free forever, no API key, no usage cap.
+- **Mapbox Geocoding** address search — set `VITE_MAPBOX_ACCESS_TOKEN` to search streets/addresses with coordinate results. If the token is missing or Mapbox returns nothing, the app falls back to Nominatim.
 - **Nominatim** reverse geocoding — free; we omit a custom User-Agent (browsers forbid setting it from `fetch`), so requests inherit the browser UA. For heavy traffic, switch to a self-hosted Nominatim or a paid provider.
 - **Supabase RLS** — every pin/image row is gated by `get_my_couple_id()` so each couple only sees their own data.
 - **Cloudinary** — unsigned upload preset, on-the-fly transforms via `w_<n>,q_auto,f_auto`.

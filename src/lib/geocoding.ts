@@ -4,6 +4,17 @@ export interface GeocodingResult {
   country: string | null
 }
 
+interface MapboxFeature {
+  properties?: {
+    name?: string
+    full_address?: string
+    place_formatted?: string
+    context?: Record<string, { name?: string }>
+  }
+}
+
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string | undefined
+
 // Detect a postal code segment (digits, optionally with letters/dashes)
 function looksLikePostalCode(s: string): boolean {
   const t = s.trim()
@@ -33,10 +44,50 @@ function pickMajorCityFromDisplayName(displayName: string | undefined): string |
   return null
 }
 
-export async function reverseGeocode(lat: number, lng: number): Promise<GeocodingResult> {
+export async function reverseGeocode(lat: number, lng: number, language = 'vi'): Promise<GeocodingResult> {
+  if (MAPBOX_TOKEN) {
+    const mapboxResult = await reverseGeocodeMapbox(lat, lng, language)
+    if (mapboxResult.address) return mapboxResult
+  }
+
+  return reverseGeocodeNominatim(lat, lng, language)
+}
+
+async function reverseGeocodeMapbox(lat: number, lng: number, language: string): Promise<GeocodingResult> {
+  try {
+    const params = new URLSearchParams({
+      latitude: String(lat),
+      longitude: String(lng),
+      access_token: MAPBOX_TOKEN ?? '',
+      language,
+      limit: '1',
+      types: 'address,street,place,locality,neighborhood',
+    })
+    const res = await fetch(`https://api.mapbox.com/search/geocode/v6/reverse?${params.toString()}`)
+    if (!res.ok) return { address: '', city: null, country: null }
+
+    const data = await res.json()
+    const feature: MapboxFeature | undefined = Array.isArray(data.features) ? data.features[0] : undefined
+    const props = feature?.properties
+    if (!props) return { address: '', city: null, country: null }
+
+    const context = props.context ?? {}
+    const address = props.full_address ?? [props.name, props.place_formatted].filter(Boolean).join(', ')
+
+    return {
+      address,
+      city: context.place?.name ?? context.locality?.name ?? context.district?.name ?? context.region?.name ?? null,
+      country: context.country?.name ?? null,
+    }
+  } catch {
+    return { address: '', city: null, country: null }
+  }
+}
+
+async function reverseGeocodeNominatim(lat: number, lng: number, language: string): Promise<GeocodingResult> {
   const res = await fetch(
-    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=en`,
-    { headers: { 'Accept-Language': 'en' } },
+    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=${encodeURIComponent(language)}`,
+    { headers: { 'Accept-Language': language } },
   )
 
   if (!res.ok) {

@@ -1,17 +1,19 @@
-import { useRef, useState } from 'react'
-import { Camera, ImagePlus, X, ImageUp, Eraser, Video, Plus } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Camera, ImagePlus, X, ImageUp, Eraser, Video, Plus, MapPin, Trash2, Pencil } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useImageUpload } from '../../hooks/useImageUpload'
 import { usePins } from '../../hooks/usePins'
-import { getCategory, getAllCategories, saveCustomCategory, type Category } from '../../lib/categories'
+import { CATEGORIES, deleteCustomCategory, getCategory, getAllCategories, saveCustomCategory, type Category } from '../../lib/categories'
 import { useI18n } from '../../hooks/I18nContext'
 import { compressImage } from '../../lib/imageCompress'
 import { uploadToCloudinary, getImageUrl, MAX_VIDEO_BYTES } from '../../lib/cloudinary'
+import { reverseGeocode } from '../../lib/geocoding'
+import { searchPlaces, type PlaceSearchResult } from '../../lib/placeSearch'
 
 interface Props {
   coupleId: string
   userId: string
-  coords: { lat: number; lng: number }
+  coords: { lat: number; lng: number; accuracy?: number | null }
   onCreated: () => void
   onCancel: () => void
 }
@@ -33,13 +35,71 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
   const [saving, setSaving] = useState(false)
   const [customEmojiInput, setCustomEmojiInput] = useState('')
   const [showCustomTag, setShowCustomTag] = useState(false)
+  const [editingTagId, setEditingTagId] = useState<string | null>(null)
   const [customTagName, setCustomTagName] = useState('')
   const [customTagEmoji, setCustomTagEmoji] = useState('')
+  const [allCategories, setAllCategories] = useState(() => getAllCategories())
+  const [address, setAddress] = useState('')
+  const [city, setCity] = useState<string | null>(null)
+  const [country, setCountry] = useState<string | null>(null)
+  const [addressLoading, setAddressLoading] = useState(true)
+  const [addressResults, setAddressResults] = useState<PlaceSearchResult[]>([])
+  const [addressSearching, setAddressSearching] = useState(false)
+  const [addressEdited, setAddressEdited] = useState(false)
+  const [pinCoords, setPinCoords] = useState(coords)
 
   const cameraInput = useRef<HTMLInputElement | null>(null)
   const libraryInput = useRef<HTMLInputElement | null>(null)
   const videoInput = useRef<HTMLInputElement | null>(null)
   const markerInput = useRef<HTMLInputElement | null>(null)
+  const addressDebounce = useRef<number | null>(null)
+  const skipReverseGeocode = useRef(false)
+
+  useEffect(() => {
+    let cancelled = false
+    if (skipReverseGeocode.current) {
+      skipReverseGeocode.current = false
+      return () => {
+        cancelled = true
+      }
+    }
+    reverseGeocode(pinCoords.lat, pinCoords.lng, navigator.language || 'vi')
+      .then((geo) => {
+        if (cancelled) return
+        setAddress(geo.address)
+        setCity(geo.city)
+        setCountry(geo.country)
+      })
+      .catch(() => {
+        if (!cancelled) setAddress('')
+      })
+      .finally(() => {
+        if (!cancelled) setAddressLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [pinCoords.lat, pinCoords.lng])
+
+  useEffect(() => {
+    if (!addressEdited || address.trim().length < 3) {
+      return
+    }
+    if (addressDebounce.current) clearTimeout(addressDebounce.current)
+    addressDebounce.current = window.setTimeout(async () => {
+      setAddressSearching(true)
+      try {
+        const language = navigator.language || 'vi'
+        const proximity = { lat: pinCoords.lat, lng: pinCoords.lng }
+        const results = await searchPlaces(address, { language, proximity })
+        setAddressResults(results)
+      } catch {
+        setAddressResults([])
+      } finally {
+        setAddressSearching(false)
+      }
+    }, 400)
+  }, [address, addressEdited, pinCoords.lat, pinCoords.lng])
 
   function addFiles(list: FileList | null) {
     if (!list) return
@@ -82,9 +142,23 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
     setCustomEmojiInput('')
   }
 
-  function handleAddCustomTag() {
+  function openCreateCustomTag() {
+    setEditingTagId(null)
+    setCustomTagName('')
+    setCustomTagEmoji('')
+    setShowCustomTag(true)
+  }
+
+  function openEditCustomTag(cat: Category) {
+    setEditingTagId(cat.id)
+    setCustomTagName(cat.label)
+    setCustomTagEmoji(cat.emoji)
+    setShowCustomTag(true)
+  }
+
+  function handleSaveCustomTag() {
     if (!customTagName.trim()) return
-    const id = `custom_${Date.now()}`
+    const id = editingTagId ?? `custom_${Date.now()}`
     const newCat: Category = {
       id,
       label: customTagName.trim(),
@@ -92,10 +166,37 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
       color: '#6b7280',
     }
     saveCustomCategory(newCat)
+    setAllCategories(getAllCategories())
     setCategory(id)
     setShowCustomTag(false)
+    setEditingTagId(null)
     setCustomTagName('')
     setCustomTagEmoji('')
+  }
+
+  function handleDeleteCustomTag(id: string) {
+    deleteCustomCategory(id)
+    setAllCategories(getAllCategories())
+    if (category === id) setCategory(null)
+  }
+
+  function pickCity(place: PlaceSearchResult): string | null {
+    const a = place.address
+    return a?.city ?? a?.state ?? a?.province ?? a?.county ?? a?.town ?? a?.village ?? null
+  }
+
+  function selectAddressResult(place: PlaceSearchResult) {
+    setAddress(place.display_name)
+    setAddressResults([])
+    setAddressEdited(false)
+    skipReverseGeocode.current = true
+    setPinCoords({
+      lat: parseFloat(place.lat),
+      lng: parseFloat(place.lon),
+      accuracy: null,
+    })
+    setCity(pickCity(place))
+    setCountry(place.address?.country ?? null)
   }
 
   function previewIcon() {
@@ -124,8 +225,11 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
         category: category ?? undefined,
         marker_emoji: markerEmoji,
         marker_image_url: markerImageUrl,
-        lat: coords.lat,
-        lng: coords.lng,
+        lat: pinCoords.lat,
+        lng: pinCoords.lng,
+        address: address.trim() || null,
+        city,
+        country,
         images,
       })
       onCreated()
@@ -136,10 +240,8 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
     }
   }
 
-  const allCategories = getAllCategories()
-
   return (
-    <form onSubmit={handleSubmit} className="pin-form">
+    <form onSubmit={handleSubmit} className="pin-form create-pin-form">
       <input
         type="text"
         placeholder={t('pin.title')}
@@ -154,23 +256,45 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
         <div className="category-grid">
           {allCategories.map((c) => {
             const active = category === c.id
+            const custom = !CATEGORIES.some((base) => base.id === c.id)
             return (
-              <button
-                key={c.id}
-                type="button"
-                className={`category-chip ${active ? 'active' : ''}`}
-                style={active ? { background: c.color, borderColor: c.color, color: 'white' } : undefined}
-                onClick={() => setCategory(active ? null : c.id)}
-              >
-                <span className="emoji">{c.emoji}</span>
-                <span>{c.label}</span>
-              </button>
+              <div key={c.id} className="category-chip-wrap">
+                <button
+                  type="button"
+                  className={`category-chip ${active ? 'active' : ''}`}
+                  style={active ? { background: c.color, borderColor: c.color, color: 'white' } : undefined}
+                  onClick={() => setCategory(active ? null : c.id)}
+                >
+                  <span className="emoji">{c.emoji}</span>
+                  <span>{c.label}</span>
+                </button>
+                {custom && (
+                  <>
+                    <button
+                      type="button"
+                      className="category-delete-btn"
+                      onClick={() => handleDeleteCustomTag(c.id)}
+                      aria-label="Delete tag"
+                    >
+                      <Trash2 size={10} />
+                    </button>
+                    <button
+                      type="button"
+                      className="category-edit-btn"
+                      onClick={() => openEditCustomTag(c)}
+                      aria-label="Edit tag"
+                    >
+                      <Pencil size={10} />
+                    </button>
+                  </>
+                )}
+              </div>
             )
           })}
           <button
             type="button"
             className="category-chip"
-            onClick={() => setShowCustomTag(true)}
+            onClick={openCreateCustomTag}
           >
             <span className="emoji"><Plus size={14} /></span>
             <span>{t('pin.addTag')}</span>
@@ -194,8 +318,8 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
               maxLength={30}
               className="custom-tag-name-input"
             />
-            <Button type="button" onClick={handleAddCustomTag} disabled={!customTagName.trim()}>
-              {t('pin.save')}
+            <Button type="button" onClick={handleSaveCustomTag} disabled={!customTagName.trim()}>
+              {t('pin.saveTag')}
             </Button>
           </div>
         )}
@@ -273,8 +397,42 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
         placeholder={t('pin.note')}
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        rows={3}
+        rows={2}
       />
+
+      <div>
+        <div className="field-label">{t('pin.address')}</div>
+        <div className="address-input-wrap">
+          <MapPin size={15} />
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => {
+              const next = e.target.value
+              setAddress(next)
+              setAddressEdited(true)
+              if (next.trim().length < 3) setAddressResults([])
+            }}
+            placeholder={addressLoading ? t('pin.addressLoading') : t('pin.addressPlaceholder')}
+          />
+        </div>
+        {addressSearching && <div className="muted small address-status">{t('wish.searching')}</div>}
+        {addressResults.length > 0 && (
+          <div className="search-results address-results">
+            {addressResults.map((r, i) => (
+              <button
+                key={`${r.lat}-${r.lon}-${i}`}
+                type="button"
+                className="search-result"
+                onClick={() => selectAddressResult(r)}
+              >
+                <MapPin size={14} />
+                <span>{r.display_name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div>
         <div className="field-label">{t('pin.media')} ({files.length}/5)</div>
@@ -356,7 +514,8 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
       </div>
 
       <div className="muted small">
-        📍 {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
+        {pinCoords.lat.toFixed(5)}, {pinCoords.lng.toFixed(5)}
+        {pinCoords.accuracy ? ` · ±${Math.round(pinCoords.accuracy)}m` : ''}
       </div>
 
       {uploading && <div className="muted small">{t('pin.uploading')} {progress}%…</div>}

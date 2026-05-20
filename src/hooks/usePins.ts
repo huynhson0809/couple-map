@@ -12,6 +12,9 @@ export interface CreatePinInput {
   marker_image_url?: string | null
   lat: number
   lng: number
+  address?: string | null
+  city?: string | null
+  country?: string | null
   images: CloudinaryUploadResult[]
 }
 
@@ -38,7 +41,10 @@ export function usePins(coupleId: string | null | undefined, userId: string | un
   }, [coupleId])
 
   useEffect(() => {
-    fetchPins()
+    const timer = window.setTimeout(() => {
+      void fetchPins()
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [fetchPins])
 
   const createPin = useCallback(
@@ -47,13 +53,19 @@ export function usePins(coupleId: string | null | undefined, userId: string | un
       let address: string | null = null
       let city: string | null = null
       let country: string | null = null
-      try {
-        const geo = await reverseGeocode(input.lat, input.lng)
-        address = geo.address || null
-        city = geo.city
-        country = geo.country
-      } catch {
-        // best-effort
+      if (input.address !== undefined || input.city !== undefined || input.country !== undefined) {
+        address = input.address || null
+        city = input.city || null
+        country = input.country || null
+      } else {
+        try {
+          const geo = await reverseGeocode(input.lat, input.lng, navigator.language || 'vi')
+          address = geo.address || null
+          city = geo.city
+          country = geo.country
+        } catch {
+          // best-effort
+        }
       }
 
       const { data: pin, error: insErr } = await supabase

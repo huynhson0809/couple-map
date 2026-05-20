@@ -60,23 +60,31 @@ function PairedShell() {
         } as React.CSSProperties)
       : undefined;
   return (
+    <div
+      className={`app-shell ${isMap ? "shell-map" : "shell-page"} ${bgUrl ? "has-bg" : ""}`}
+      style={shellStyle}
+    >
+      <Routes>
+        <Route path="/" element={<MapPage />} />
+        <Route path="/timeline" element={<TimelinePage />} />
+        <Route path="/wishlist" element={<WishlistPage />} />
+        <Route path="/stats" element={<StatsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <BottomNav />
+      <AnniversaryPrompt />
+      <NotificationToast />
+    </div>
+  );
+}
+
+function PinsScope() {
+  const { couple, profile } = useCoupleCtx();
+
+  return (
     <PinsProvider coupleId={couple?.id} userId={profile?.id}>
-      <div
-        className={`app-shell ${isMap ? "shell-map" : "shell-page"} ${bgUrl ? "has-bg" : ""}`}
-        style={shellStyle}
-      >
-        <Routes>
-          <Route path="/" element={<MapPage />} />
-          <Route path="/timeline" element={<TimelinePage />} />
-          <Route path="/wishlist" element={<WishlistPage />} />
-          <Route path="/stats" element={<StatsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        <BottomNav />
-        <AnniversaryPrompt />
-        <NotificationToast />
-      </div>
+      <RoutedShell />
     </PinsProvider>
   );
 }
@@ -134,7 +142,7 @@ function AppRoutes() {
 
   return (
     <CoupleProvider userId={user.id}>
-      <RoutedShell />
+      <PinsScope />
     </CoupleProvider>
   );
 }

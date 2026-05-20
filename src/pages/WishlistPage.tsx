@@ -7,12 +7,7 @@ import { useBucket } from '../hooks/useBucket'
 import { useI18n } from '../hooks/I18nContext'
 import { Button } from '../components/ui/Button'
 import { BottomSheet } from '../components/ui/BottomSheet'
-
-interface PlaceResult {
-  display_name: string
-  lat: string
-  lon: string
-}
+import { searchPlaces, type PlaceSearchResult } from '../lib/placeSearch'
 
 export function WishlistPage() {
   const { user } = useAuth()
@@ -24,27 +19,24 @@ export function WishlistPage() {
   const [adding, setAdding] = useState(false)
   const [title, setTitle] = useState('')
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<PlaceResult[]>([])
+  const [results, setResults] = useState<PlaceSearchResult[]>([])
   const [searching, setSearching] = useState(false)
-  const [selected, setSelected] = useState<PlaceResult | null>(null)
+  const [selected, setSelected] = useState<PlaceSearchResult | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const debounceRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!query.trim()) {
-      setResults([])
       return
     }
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = window.setTimeout(async () => {
       setSearching(true)
       try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&limit=6&q=${encodeURIComponent(query)}`,
-        )
-        const data = await res.json()
-        setResults(data)
+        const language = navigator.language || 'vi'
+        const results = await searchPlaces(query, { language })
+        setResults(results.slice(0, 6))
       } catch {
         setResults([])
       } finally {
@@ -185,8 +177,10 @@ export function WishlistPage() {
                 placeholder={t('wish.searchPlaceholder')}
                 value={query}
                 onChange={(e) => {
-                  setQuery(e.target.value)
+                  const next = e.target.value
+                  setQuery(next)
                   setSelected(null)
+                  if (!next.trim()) setResults([])
                 }}
                 autoFocus
               />
@@ -238,7 +232,13 @@ export function WishlistPage() {
             <Button type="button" variant="secondary" onClick={closeAdd} disabled={busy}>
               {t('common.cancel')}
             </Button>
-            <Button type="button" onClick={handleSave} disabled={busy || !selected} style={{ flex: 1 }}>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={busy || !selected}
+              className="wish-submit-btn"
+              style={{ flex: 1 }}
+            >
               {busy ? t('wish.saving') : t('wish.addToList')}
             </Button>
           </div>
