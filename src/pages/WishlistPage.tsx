@@ -12,7 +12,7 @@ import { searchPlaces, type PlaceSearchResult } from '../lib/placeSearch'
 export function WishlistPage() {
   const { user } = useAuth()
   const { couple } = useCoupleCtx()
-  const { items, addItem, removeItem, markDone } = useBucket(couple?.id, user?.id)
+  const { items, addItem, removeItem, markDone, markDream } = useBucket(couple?.id, user?.id)
   const { t } = useI18n()
   const navigate = useNavigate()
 
@@ -129,11 +129,13 @@ export function WishlistPage() {
                       <button
                         className="icon-btn done-btn"
                         onClick={() => markDone(b.id)}
-                        title="Mark as visited"
+                        title={t('wish.markVisited')}
+                        aria-label={t('wish.markVisited')}
+                        aria-pressed={false}
                       >
                         <Check size={18} />
                       </button>
-                      <button className="icon-btn" onClick={() => removeItem(b.id)}>
+                      <button className="icon-btn" onClick={() => removeItem(b.id)} title={t('wish.delete')} aria-label={t('wish.delete')}>
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -155,9 +157,20 @@ export function WishlistPage() {
                     <div className="wish-body">
                       <div className="wish-title">{b.title}</div>
                     </div>
-                    <button className="icon-btn" onClick={() => removeItem(b.id)}>
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="wish-actions">
+                      <button
+                        className="icon-btn done-btn active"
+                        onClick={() => markDream(b.id)}
+                        title={t('wish.markDreaming')}
+                        aria-label={t('wish.markDreaming')}
+                        aria-pressed={true}
+                      >
+                        <Check size={18} />
+                      </button>
+                      <button className="icon-btn" onClick={() => removeItem(b.id)} title={t('wish.delete')} aria-label={t('wish.delete')}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

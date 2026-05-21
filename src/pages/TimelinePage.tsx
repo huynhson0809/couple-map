@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { List } from 'react-window'
-import { MapPin, Search, SlidersHorizontal, Star, X } from 'lucide-react'
+import { Check, ChevronDown, MapPin, Search, SlidersHorizontal, Star, X } from 'lucide-react'
 import { usePinsCtx } from '../hooks/PinsContext'
 import { useCoupleCtx } from '../hooks/CoupleContext'
 import { useI18n } from '../hooks/I18nContext'
@@ -34,6 +34,11 @@ function useDebouncedValue(value: string, delay = 350) {
 type TimelineRow =
   | { type: 'month'; id: string; label: string }
   | { type: 'pin'; id: string; pin: Pin }
+  | { type: 'footer'; id: string }
+
+const TIMELINE_MONTH_ROW_HEIGHT = 44
+const TIMELINE_PIN_ROW_HEIGHT = 118
+const TIMELINE_FOOTER_ROW_HEIGHT = 118
 
 interface TimelineRowProps {
   rows: TimelineRow[]
@@ -42,6 +47,8 @@ interface TimelineRowProps {
   profileName: string
   partnerName: string
   favoritesLabel: string
+  loadingMore: boolean
+  loadingMoreLabel: string
   getCategory: ReturnType<typeof useCategoriesCtx>['getCategory']
   openPinDetail: (pin: Pin) => void
 }
@@ -55,6 +62,8 @@ function TimelineRowItem({
   profileName,
   partnerName,
   favoritesLabel,
+  loadingMore,
+  loadingMoreLabel,
   getCategory,
   openPinDetail,
 }: TimelineRowProps & { index: number; style: CSSProperties }) {
@@ -65,6 +74,14 @@ function TimelineRowItem({
     return (
       <div style={style} className="timeline-virtual-row month-row">
         <h3 className="month-label">{row.label}</h3>
+      </div>
+    )
+  }
+
+  if (row.type === 'footer') {
+    return (
+      <div style={style} className="timeline-virtual-row footer-row" aria-hidden={!loadingMore}>
+        {loadingMore && <div className="timeline-loading-more">{loadingMoreLabel}</div>}
       </div>
     )
   }
@@ -140,7 +157,7 @@ export function TimelinePage() {
   const [draftAddressFilter, setDraftAddressFilter] = useState('')
   const [selectedPin, setSelectedPin] = useState<Pin | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const loadMoreRef = useRef<HTMLDivElement | null>(null)
+  const [creatorMenuOpen, setCreatorMenuOpen] = useState(false)
   const filterPopoverRef = useRef<HTMLDivElement | null>(null)
   const debouncedAddressFilter = useDebouncedValue(addressFilter)
 
@@ -182,13 +199,21 @@ export function TimelinePage() {
       const arr = groups[k] ?? (groups[k] = [])
       arr.push(p)
     })
-    return Object.entries(groups).flatMap<TimelineRow>(([month, items]) => [
+    const groupedRows = Object.entries(groups).flatMap<TimelineRow>(([month, items]) => [
       { type: 'month', id: `month-${month}`, label: month },
       ...items.map((pin) => ({ type: 'pin' as const, id: pin.id, pin })),
     ])
+    return groupedRows.length > 0
+      ? [...groupedRows, { type: 'footer' as const, id: 'timeline-footer' }]
+      : groupedRows
   }, [timelinePins, lang])
 
-  const listHeight = Math.max(1, rows.reduce((height, row) => height + (row.type === 'month' ? 44 : 112), 0))
+  const getTimelineRowHeight = useCallback((index: number, props: TimelineRowProps) => {
+    const row = props.rows[index]
+    if (row?.type === 'month') return TIMELINE_MONTH_ROW_HEIGHT
+    if (row?.type === 'footer') return TIMELINE_FOOTER_ROW_HEIGHT
+    return TIMELINE_PIN_ROW_HEIGHT
+  }, [])
 
   function flyToPin(p: Pin) {
     setSelectedPin(null)
@@ -248,7 +273,19 @@ export function TimelinePage() {
     setCreatorFilter(draftCreatorFilter)
     setAddressFilter(draftAddressFilter)
     setFiltersOpen(false)
+    setCreatorMenuOpen(false)
   }
+
+  const creatorOptions = useMemo(
+    () => [
+      { value: 'all', label: t('timeline.creatorAll') },
+      ...(profile ? [{ value: profile.id, label: profile.display_name ?? t('common.you') }] : []),
+      ...(partner ? [{ value: partner.id, label: partner.display_name ?? t('common.partner') }] : []),
+    ],
+    [partner, profile, t],
+  )
+  const selectedCreatorLabel =
+    creatorOptions.find((option) => option.value === draftCreatorFilter)?.label ?? t('timeline.creatorAll')
 
   const hasAdvancedFilters =
     categoryFilters.length > 0 ||
@@ -265,19 +302,16 @@ export function TimelinePage() {
     (creatorFilter !== 'all' ? 1 : 0) +
     (addressFilter.trim() ? 1 : 0)
 
-  useEffect(() => {
-    const node = loadMoreRef.current
-    if (!node || !hasMore || loading || loadingMore) return
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) loadMore()
-      },
-      { rootMargin: '360px 0px' },
-    )
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [hasMore, loadMore, loading, loadingMore, rows.length])
+  const handleRowsRendered = useCallback(
+    (
+      _visibleRows: { startIndex: number; stopIndex: number },
+      allRows: { startIndex: number; stopIndex: number },
+    ) => {
+      if (!hasMore || loading || loadingMore) return
+      if (allRows.stopIndex >= rows.length - 4) loadMore()
+    },
+    [hasMore, loadMore, loading, loadingMore, rows.length],
+  )
 
   useEffect(() => {
     if (!filtersOpen) return
@@ -286,6 +320,7 @@ export function TimelinePage() {
       const target = event.target as Node | null
       if (target && filterPopoverRef.current?.contains(target)) return
       setFiltersOpen(false)
+      setCreatorMenuOpen(false)
     }
 
     window.addEventListener('pointerdown', handlePointerDown)
@@ -392,7 +427,6 @@ export function TimelinePage() {
                     onChange={(e) => setDraftDateFrom(e.target.value)}
                     aria-label={t('timeline.fromDate')}
                   />
-                  {!draftDateFrom && <span className="timeline-date-placeholder">dd/mm/yyyy</span>}
                 </div>
               </div>
               <div className="timeline-filter-field">
@@ -404,24 +438,45 @@ export function TimelinePage() {
                     onChange={(e) => setDraftDateTo(e.target.value)}
                     aria-label={t('timeline.toDate')}
                   />
-                  {!draftDateTo && <span className="timeline-date-placeholder">dd/mm/yyyy</span>}
                 </div>
               </div>
               <div className="timeline-filter-field">
                 <label>{t('timeline.creator')}</label>
-                <select value={draftCreatorFilter} onChange={(e) => setDraftCreatorFilter(e.target.value)}>
-                  <option value="all">{t('timeline.creatorAll')}</option>
-                  {profile && (
-                    <option value={profile.id}>
-                      {profile.display_name ?? t('common.you')}
-                    </option>
+                <div className="timeline-creator-select">
+                  <button
+                    type="button"
+                    className="timeline-creator-trigger"
+                    onClick={() => setCreatorMenuOpen((open) => !open)}
+                    aria-haspopup="listbox"
+                    aria-expanded={creatorMenuOpen}
+                  >
+                    <span>{selectedCreatorLabel}</span>
+                    <ChevronDown size={16} />
+                  </button>
+                  {creatorMenuOpen && (
+                    <div className="timeline-creator-menu" role="listbox">
+                      {creatorOptions.map((option) => {
+                        const active = option.value === draftCreatorFilter
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            className={`timeline-creator-option ${active ? 'active' : ''}`}
+                            role="option"
+                            aria-selected={active}
+                            onClick={() => {
+                              setDraftCreatorFilter(option.value)
+                              setCreatorMenuOpen(false)
+                            }}
+                          >
+                            <span>{option.label}</span>
+                            {active && <Check size={14} />}
+                          </button>
+                        )
+                      })}
+                    </div>
                   )}
-                  {partner && (
-                    <option value={partner.id}>
-                      {partner.display_name ?? t('common.partner')}
-                    </option>
-                  )}
-                </select>
+                </div>
               </div>
               <div className="timeline-filter-field address">
                 <label>{t('timeline.address')}</label>
@@ -469,7 +524,7 @@ export function TimelinePage() {
           className="timeline-virtual-list"
           rowComponent={TimelineRowItem}
           rowCount={rows.length}
-          rowHeight={(index, props) => (props.rows[index]?.type === 'month' ? 44 : 112)}
+          rowHeight={getTimelineRowHeight}
           rowProps={{
             rows,
             lang,
@@ -477,20 +532,16 @@ export function TimelinePage() {
             profileName: profile?.display_name ?? t('common.you'),
             partnerName: partner?.display_name ?? t('common.partner'),
             favoritesLabel: t('timeline.favorites'),
+            loadingMore,
+            loadingMoreLabel: lang === 'vi' ? 'Đang tải thêm...' : 'Loading more...',
             getCategory,
             openPinDetail,
           }}
           overscanCount={6}
-          defaultHeight={listHeight}
-          style={{ height: listHeight, overflow: 'visible' }}
+          onRowsRendered={handleRowsRendered}
+          defaultHeight={620}
+          style={{ width: '100%' }}
         />
-      )}
-      {hasMore && <div ref={loadMoreRef} className="timeline-load-sentinel" aria-hidden="true" />}
-      <div className="timeline-bottom-spacer" aria-hidden="true" />
-      {loadingMore && (
-        <div className="timeline-loading-more">
-          {lang === 'vi' ? 'Đang tải thêm...' : 'Loading more...'}
-        </div>
       )}
       <BottomSheet
         open={!!selectedPin}

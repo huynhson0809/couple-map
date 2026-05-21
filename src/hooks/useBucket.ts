@@ -56,10 +56,10 @@ export function useBucket(coupleId: string | null | undefined, userId: string | 
     setItems((prev) => prev.filter((b) => b.id !== id))
   }, [])
 
-  const markDone = useCallback(async (id: string) => {
+  const setItemStatus = useCallback(async (id: string, status: BucketListItem['status']) => {
     const { data, error } = await supabase
       .from('bucket_list')
-      .update({ status: 'done' })
+      .update({ status })
       .eq('id', id)
       .select()
       .single()
@@ -67,5 +67,8 @@ export function useBucket(coupleId: string | null | undefined, userId: string | 
     setItems((prev) => prev.map((b) => (b.id === id ? (data as BucketListItem) : b)))
   }, [])
 
-  return { items, loading, fetchItems, addItem, removeItem, markDone }
+  const markDone = useCallback((id: string) => setItemStatus(id, 'done'), [setItemStatus])
+  const markDream = useCallback((id: string) => setItemStatus(id, 'dream'), [setItemStatus])
+
+  return { items, loading, fetchItems, addItem, removeItem, markDone, markDream }
 }

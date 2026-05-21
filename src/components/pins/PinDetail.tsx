@@ -9,6 +9,7 @@ import {
   Heart,
   Send,
   Star,
+  MoreHorizontal,
 } from "lucide-react";
 import type { Pin } from "../../types";
 import { getImageUrl, isVideoUrl, getVideoUrl } from "../../lib/cloudinary";
@@ -93,6 +94,8 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState("");
+  const [commentMenuOpenId, setCommentMenuOpenId] = useState<string | null>(null);
+  const [pinActionMenuOpen, setPinActionMenuOpen] = useState(false);
   const longPressTimer = useRef<number | null>(null);
   const reactionWrapRef = useRef<HTMLDivElement | null>(null);
   const {
@@ -128,8 +131,31 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     return () => window.removeEventListener("pointerdown", handleOutsidePointer);
   }, [reactionPickerOpen]);
 
+  useEffect(() => {
+    if (!commentMenuOpenId) return;
+    function handleOutsidePointer(event: PointerEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-comment-actions]")) return;
+      setCommentMenuOpenId(null);
+    }
+    window.addEventListener("pointerdown", handleOutsidePointer);
+    return () => window.removeEventListener("pointerdown", handleOutsidePointer);
+  }, [commentMenuOpenId]);
+
+  useEffect(() => {
+    if (!pinActionMenuOpen) return;
+    function handleOutsidePointer(event: PointerEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-pin-actions]")) return;
+      setPinActionMenuOpen(false);
+    }
+    window.addEventListener("pointerdown", handleOutsidePointer);
+    return () => window.removeEventListener("pointerdown", handleOutsidePointer);
+  }, [pinActionMenuOpen]);
+
   async function handleDelete() {
     if (!confirm(t("pin.deleteConfirm"))) return;
+    setPinActionMenuOpen(false);
     setDeleting(true);
     try {
       await onDelete(pin.id);
@@ -139,11 +165,13 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
   }
 
   function openInMaps() {
+    setPinActionMenuOpen(false);
     const url = `https://www.google.com/maps?q=${pin.lat},${pin.lng}`;
     window.open(url, "_blank");
   }
 
   async function share() {
+    setPinActionMenuOpen(false);
     const text = `${pin.title}${pin.address ? ` — ${pin.address}` : ""}`;
     if (navigator.share) {
       try {
@@ -217,6 +245,7 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
 
   async function handleDeleteComment(id: string) {
     setInteractionError(null);
+    setCommentMenuOpenId(null);
     try {
       await deleteComment(id);
     } catch (err) {
@@ -225,6 +254,7 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
   }
 
   function startEditComment(id: string, body: string) {
+    setCommentMenuOpenId(null);
     setEditingCommentId(id);
     setEditingCommentText(body);
   }
@@ -323,7 +353,50 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
             </span>
           );
         })()}
-        <h2 className="pin-title">{pin.title}</h2>
+        <div className="pin-heading-row">
+          <h2 className="pin-title">{pin.title}</h2>
+          <div className="pin-more-actions" data-pin-actions>
+            <button
+              type="button"
+              className="pin-more-action-button"
+              onClick={() => setPinActionMenuOpen((open) => !open)}
+              aria-label={t("pin.moreActions")}
+              aria-expanded={pinActionMenuOpen}
+            >
+              <MoreHorizontal size={18} />
+            </button>
+            {pinActionMenuOpen && (
+              <div className="pin-action-menu">
+                <button type="button" onClick={openInMaps}>
+                  <ExternalLink size={14} />
+                  <span>{t("pin.openMaps")}</span>
+                </button>
+                <button type="button" onClick={share}>
+                  <Share2 size={14} />
+                  <span>{t("pin.share")}</span>
+                </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPinActionMenuOpen(false);
+                      setEditing(true);
+                    }}
+                  >
+                    <Pencil size={14} />
+                    <span>{t("pin.edit")}</span>
+                  </button>
+                )}
+                {isMine && (
+                  <button type="button" className="danger" onClick={handleDelete} disabled={deleting}>
+                    <Trash2 size={14} />
+                    <span>{deleting ? t("pin.deleting") : t("pin.delete")}</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
         {pin.note && <p className="pin-note">{pin.note}</p>}
         <div className="pin-meta">
           <div className="meta-row">
@@ -366,7 +439,7 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
             <Button
               type="button"
               variant="secondary"
-              className={`heart-action ${myReaction ? "active" : ""}`}
+              className={`heart-action pin-core-action ${myReaction ? "active" : ""}`}
               onPointerDown={startReactionPress}
               onPointerUp={endReactionPress}
               onPointerCancel={() => {
@@ -397,45 +470,23 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
           </div>
           <Button
             variant="secondary"
-            className={`favorite-action ${displayedFavorite ? "active" : ""}`}
+            className={`favorite-action pin-core-action ${displayedFavorite ? "active" : ""}`}
             onClick={toggleFavorite}
             disabled={favoriteBusy}
           >
             <Star size={16} fill={displayedFavorite ? "currentColor" : "none"} />
             {displayedFavorite ? t("pin.favorited") : t("pin.favorite")}
           </Button>
-        </div>
-        <div className="pin-utility-actions">
-        {onShowOnMap && (
-          <Button variant="secondary" className="pin-tool-btn" onClick={() => onShowOnMap(pin)} title={t("pin.showOnMap")}>
-            <MapPin size={17} />
-            <span>{t("pin.showOnMap")}</span>
+          {onShowOnMap && (
+            <Button variant="secondary" className="pin-core-action" onClick={() => onShowOnMap(pin)} title={t("pin.showOnMap")}>
+              <MapPin size={17} />
+              <span>{t("pin.showOnMap")}</span>
+            </Button>
+          )}
+          <Button variant="secondary" className="pin-core-action" onClick={() => setShowShareCard(true)} title={t("share.card")}>
+            <Image size={17} />
+            <span>{t("share.card")}</span>
           </Button>
-        )}
-        <Button variant="secondary" className="pin-tool-btn" onClick={openInMaps} title={t("pin.openMaps")}>
-          <ExternalLink size={17} />
-          <span>{t("pin.openMaps")}</span>
-        </Button>
-        <Button variant="secondary" className="pin-tool-btn" onClick={() => setShowShareCard(true)} title={t("share.card")}>
-          <Image size={17} />
-          <span>{t("share.card")}</span>
-        </Button>
-        <Button variant="secondary" className="pin-tool-btn" onClick={share} title={t("pin.share")}>
-          <Share2 size={17} />
-          <span>{t("pin.share")}</span>
-        </Button>
-        {canEdit && (
-          <Button variant="secondary" className="pin-tool-btn" onClick={() => setEditing(true)} title={t("pin.edit")}>
-            <Pencil size={17} />
-            <span>{t("pin.edit")}</span>
-          </Button>
-        )}
-        {isMine && (
-          <Button variant="danger" className="pin-tool-btn danger" onClick={handleDelete} disabled={deleting} title={t("pin.delete")}>
-            <Trash2 size={17} />
-            <span>{deleting ? t("pin.deleting") : t("pin.delete")}</span>
-          </Button>
-        )}
         </div>
       </div>
       <div className="pin-interactions">
@@ -500,24 +551,40 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
                       <p>{comment.body}</p>
                     )}
                   </div>
-                  {mine && (
-                    <div className="pin-comment-tools">
+                  {mine && editingCommentId !== comment.id && (
+                    <div className="pin-comment-actions" data-comment-actions>
                       <button
                         type="button"
-                        className="pin-comment-icon-btn"
-                        onClick={() => startEditComment(comment.id, comment.body)}
-                        aria-label={t("pin.editComment")}
+                        className="pin-comment-menu-button"
+                        onClick={() =>
+                          setCommentMenuOpenId((openId) =>
+                            openId === comment.id ? null : comment.id,
+                          )
+                        }
+                        aria-label={t("pin.commentActions")}
+                        aria-expanded={commentMenuOpenId === comment.id}
                       >
-                        <Pencil size={13} />
+                        <MoreHorizontal size={16} />
                       </button>
-                      <button
-                        type="button"
-                        className="pin-comment-icon-btn"
-                        onClick={() => handleDeleteComment(comment.id)}
-                        aria-label={t("pin.deleteComment")}
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      {commentMenuOpenId === comment.id && (
+                        <div className="pin-comment-menu">
+                          <button
+                            type="button"
+                            onClick={() => startEditComment(comment.id, comment.body)}
+                          >
+                            <Pencil size={13} />
+                            <span>{t("pin.edit")}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="danger"
+                            onClick={() => handleDeleteComment(comment.id)}
+                          >
+                            <Trash2 size={13} />
+                            <span>{t("pin.delete")}</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
