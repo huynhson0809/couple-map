@@ -1,4 +1,13 @@
+import { supabase } from "./supabase";
+
 export interface Category {
+  id: string;
+  label: string;
+  emoji: string;
+  color: string;
+}
+
+interface CustomCategoryRow {
   id: string;
   label: string;
   emoji: string;
@@ -13,44 +22,82 @@ export const CATEGORIES: Category[] = [
   { id: "cafe", label: "Cafe", emoji: "☕", color: "#92400e" },
   { id: "movie", label: "Xem phim", emoji: "🎬", color: "#6366f1" },
   { id: "date", label: "Hẹn hò", emoji: "💝", color: "#e11d48" },
-  { id: "walk", label: "Đi dạo", emoji: "🚶", color: "#10b981" },
-  { id: "boardgame", label: "Board game", emoji: "🎲", color: "#8b5cf6" },
   { id: "shopping", label: "Mua sắm", emoji: "🛍️", color: "#db2777" },
-  { id: "event", label: "Sự kiện", emoji: "🎉", color: "#eab308" },
   { id: "travel", label: "Du lịch", emoji: "✈️", color: "#0ea5e9" },
 ];
 
-const CUSTOM_CATEGORIES_KEY = "mapmate.custom-categories";
-
-export function getCustomCategories(): Category[] {
-  try {
-    const stored = localStorage.getItem(CUSTOM_CATEGORIES_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
+export function isBuiltInCategory(id: string | null | undefined): boolean {
+  return !!id && CATEGORIES.some((c) => c.id === id);
 }
 
-export function saveCustomCategory(cat: Category): void {
-  const existing = getCustomCategories();
-  const idx = existing.findIndex((c) => c.id === cat.id);
-  if (idx >= 0) existing[idx] = cat;
-  else existing.push(cat);
-  localStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(existing));
-}
-
-export function deleteCustomCategory(id: string): void {
-  const existing = getCustomCategories().filter((c) => c.id !== id);
-  localStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(existing));
-}
-
-export function getAllCategories(): Category[] {
-  return [...CATEGORIES, ...getCustomCategories()];
+export function getAllCategories(
+  customCategories: Category[] = [],
+): Category[] {
+  return [...CATEGORIES, ...customCategories];
 }
 
 export function getCategory(
   id: string | null | undefined,
+  customCategories: Category[] = [],
 ): Category | undefined {
   if (!id) return undefined;
-  return getAllCategories().find((c) => c.id === id);
+  return getAllCategories(customCategories).find((c) => c.id === id);
+}
+
+export async function fetchCustomCategories(
+  coupleId: string,
+): Promise<Category[]> {
+  const { data, error } = await supabase
+    .from("custom_categories")
+    .select("id,label,emoji,color")
+    .eq("couple_id", coupleId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  return ((data ?? []) as CustomCategoryRow[]).map(rowToCategory);
+}
+
+export async function upsertCustomCategory(
+  coupleId: string,
+  userId: string,
+  cat: Category,
+): Promise<Category> {
+  const row = {
+    id: cat.id,
+    couple_id: coupleId,
+    created_by: userId,
+    label: cat.label.trim(),
+    emoji: cat.emoji.trim() || "🏷️",
+    color: cat.color || "#6b7280",
+  };
+  const { data, error } = await supabase
+    .from("custom_categories")
+    .upsert(row, { onConflict: "couple_id,id" })
+    .select("id,label,emoji,color")
+    .single();
+
+  if (error) throw error;
+  return rowToCategory(data as CustomCategoryRow);
+}
+
+export async function removeCustomCategory(
+  coupleId: string,
+  id: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("custom_categories")
+    .delete()
+    .eq("couple_id", coupleId)
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+function rowToCategory(row: CustomCategoryRow): Category {
+  return {
+    id: row.id,
+    label: row.label,
+    emoji: row.emoji,
+    color: row.color,
+  };
 }

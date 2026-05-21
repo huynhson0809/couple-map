@@ -21,6 +21,7 @@ import { getImageUrl } from "./lib/cloudinary";
 import { useAuth } from "./hooks/useAuth";
 import { CoupleProvider, useCoupleCtx } from "./hooks/CoupleContext";
 import { PinsProvider } from "./hooks/PinsContext";
+import { CategoriesProvider } from "./hooks/CategoriesContext";
 import { ThemeProvider } from "./hooks/ThemeContext";
 import { I18nProvider } from "./hooks/I18nContext";
 import { usePushSubscription } from "./hooks/usePushSubscription";
@@ -84,7 +85,9 @@ function PinsScope() {
 
   return (
     <PinsProvider coupleId={couple?.id} userId={profile?.id}>
-      <RoutedShell />
+      <CategoriesProvider coupleId={couple?.id} userId={profile?.id}>
+        <RoutedShell />
+      </CategoriesProvider>
     </PinsProvider>
   );
 }

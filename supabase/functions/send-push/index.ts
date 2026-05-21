@@ -28,7 +28,7 @@ serve(async (req) => {
     const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY")!;
     const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY")!;
     const VAPID_SUBJECT =
-      Deno.env.get("VAPID_SUBJECT") || "mailto:hello@mapmate.app";
+      Deno.env.get("VAPID_SUBJECT") || "mailto:hello@pinly.app";
 
     webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 

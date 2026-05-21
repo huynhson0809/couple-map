@@ -2,8 +2,8 @@ import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Pin } from "../../types";
-import { getCategory } from "../../lib/categories";
 import { getImageUrl } from "../../lib/cloudinary";
+import { useCategoriesCtx } from "../../hooks/CategoriesContext";
 
 interface Props {
   pins: Pin[];
@@ -16,6 +16,7 @@ interface Props {
     lng: number;
     accuracy?: number | null;
   }) => void;
+  onMapCenterChange?: (coords: { lat: number; lng: number }) => void;
   flyTo?: { lat: number; lng: number; key: number } | null;
   showHeatmap?: boolean;
   bucketItems?: { id: string; lat: number; lng: number }[];
@@ -41,6 +42,7 @@ export function MapView({
   onLongPress,
   onPinClick,
   onUserLocation,
+  onMapCenterChange,
   flyTo,
   showHeatmap = false,
   bucketItems = [],
@@ -48,6 +50,7 @@ export function MapView({
   newestPinId,
   mapStyleUrl = "https://tiles.openfreemap.org/styles/bright",
 }: Props) {
+  const { customCategories, getCategory } = useCategoriesCtx();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
@@ -58,14 +61,16 @@ export function MapView({
   const pinsRef = useRef<Pin[]>([]);
   const onPinClickRef = useRef(onPinClick);
   const onUserLocationRef = useRef(onUserLocation);
+  const onMapCenterChangeRef = useRef(onMapCenterChange);
   const newestPinIdRef = useRef(newestPinId);
 
   useEffect(() => {
     pinsRef.current = pins;
     onPinClickRef.current = onPinClick;
     onUserLocationRef.current = onUserLocation;
+    onMapCenterChangeRef.current = onMapCenterChange;
     newestPinIdRef.current = newestPinId;
-  }, [pins, onPinClick, onUserLocation, newestPinId]);
+  }, [pins, onPinClick, onUserLocation, onMapCenterChange, newestPinId]);
 
   function pinColor(p: Pin) {
     if (p.created_by === currentUserId) return COLOR_USER_A;
@@ -213,6 +218,11 @@ export function MapView({
     map.fitBounds(bounds, { padding: 80, maxZoom: 15, duration: 0 });
   }
 
+  function emitMapCenter(map: maplibregl.Map) {
+    const center = map.getCenter();
+    onMapCenterChangeRef.current?.({ lat: center.lat, lng: center.lng });
+  }
+
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
@@ -227,9 +237,9 @@ export function MapView({
       "top-right",
     );
     const geolocateControl = new maplibregl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: true,
-      })
+      positionOptions: { enableHighAccuracy: true, maximumAge: 60_000, timeout: 12_000 },
+      trackUserLocation: false,
+    });
     geolocateControl.on("geolocate", (event) => {
       const position = event as GeolocationPosition;
       onUserLocationRef.current?.({
@@ -239,6 +249,9 @@ export function MapView({
           ? position.coords.accuracy
           : null,
       });
+    });
+    geolocateControl.on("error", () => {
+      /* The browser may report POSITION_UNAVAILABLE while GPS is warming up. */
     });
     map.addControl(geolocateControl, "top-right");
 
@@ -282,10 +295,14 @@ export function MapView({
     map.on("load", () => {
       styleLoadedRef.current = true;
       fitToPinsOnce(map);
+      emitMapCenter(map);
       renderMarkers();
       requestAnimationFrame(() => map.resize());
     });
-    map.on("moveend", () => renderMarkers());
+    map.on("moveend", () => {
+      emitMapCenter(map);
+      renderMarkers();
+    });
     map.on("error", (e) => console.error("[MapLibre]", e?.error ?? e));
 
     const ro = new ResizeObserver(() => map.resize());
@@ -326,7 +343,7 @@ export function MapView({
       renderMarkers();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pins, currentUserId, partnerUserId, newestPinId]);
+  }, [pins, currentUserId, partnerUserId, newestPinId, customCategories]);
 
   // Bucket markers
   useEffect(() => {

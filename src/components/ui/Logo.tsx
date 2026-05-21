@@ -14,44 +14,36 @@ export function Logo({
       <svg
         width={size}
         height={size}
-        viewBox="0 0 64 64"
+        viewBox="0 0 72 72"
         xmlns="http://www.w3.org/2000/svg"
-        aria-label="Mapmate"
+        aria-label="Pinly"
       >
         <defs>
-          <linearGradient id="cm-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#ff6b6b" />
-            <stop offset="55%" stopColor="#ec4899" />
-            <stop offset="100%" stopColor="#a855f7" />
-          </linearGradient>
-          <linearGradient id="cm-grad-2" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#fb7185" />
-            <stop offset="100%" stopColor="#f43f5e" />
+          <linearGradient id="pinly-pin" x1="18" y1="8" x2="54" y2="64">
+            <stop offset="0%" stopColor="#ff676d" />
+            <stop offset="100%" stopColor="#ff4d57" />
           </linearGradient>
         </defs>
-        {/* Soft glow */}
-        <circle cx="32" cy="30" r="26" fill="url(#cm-grad)" opacity="0.12" />
-        {/* Map pin outline (back pin) */}
+        <ellipse cx="36" cy="58" rx="15" ry="5" fill="#1f1f1f" opacity="0.14" />
         <path
-          d="M22 6 C 13 6, 6 13, 6 22 C 6 32, 22 50, 22 50 C 22 50, 38 32, 38 22 C 38 13, 31 6, 22 6 Z"
-          fill="url(#cm-grad-2)"
-          opacity="0.55"
+          d="M36 62 L20 46 L36 37 L52 46 Z"
+          fill="#d84349"
+          opacity="0.62"
         />
-        {/* Front pin */}
         <path
-          d="M42 14 C 33 14, 26 21, 26 30 C 26 40, 42 58, 42 58 C 42 58, 58 40, 58 30 C 58 21, 51 14, 42 14 Z"
-          fill="url(#cm-grad)"
+          d="M36 6 C 20.5 6, 9 17.6, 9 32.5 C 9 47.8, 36 66, 36 66 C 36 66, 63 47.8, 63 32.5 C 63 17.6, 51.5 6, 36 6 Z"
+          fill="url(#pinly-pin)"
         />
-        {/* Heart in front pin */}
+        <circle cx="36" cy="31" r="14" fill="#fff7f7" />
+        <circle cx="36" cy="31" r="9" fill="#ffd1d4" />
         <path
-          d="M42 38 C 42 38, 35 33, 35 28 C 35 25.5, 37 24, 39 24 C 40.5 24, 42 25, 42 25 C 42 25, 43.5 24, 45 24 C 47 24, 49 25.5, 49 28 C 49 33, 42 38, 42 38 Z"
-          fill="white"
+          d="M36 62 L30 51 L36 47 L42 51 Z"
+          fill="#ff5a5f"
+          opacity="0.9"
         />
       </svg>
       {withWordmark && (
-        <span className="logo-wordmark">
-          Couple<span className="logo-amp">·</span>Map
-        </span>
+        <span className="logo-wordmark">Pinly</span>
       )}
     </div>
   );

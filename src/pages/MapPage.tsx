@@ -52,6 +52,7 @@ export function MapPage() {
     accuracy?: number | null;
     receivedAt: number;
   } | null>(null);
+  const [mapCenter, setMapCenter] = useState({ lat: 10.8231, lng: 106.6297 });
   const flyKey = useRef(0);
 
   useEffect(() => {
@@ -90,7 +91,7 @@ export function MapPage() {
       setLastUserLocation({ ...c, receivedAt: Date.now() });
       setNewPinCoords(c);
     } catch {
-      /* ignore */
+      setNewPinCoords({ ...mapCenter, accuracy: null });
     }
   }
 
@@ -108,6 +109,7 @@ export function MapPage() {
         onUserLocation={(coords) =>
           setLastUserLocation({ ...coords, receivedAt: Date.now() })
         }
+        onMapCenterChange={setMapCenter}
         flyTo={flyTo}
         bucketItems={bucketItems
           .filter((b) => b.status === "dream")

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-const PREF_KEY = "mapmate.notif-enabled";
+const PREF_KEY = "pinly.notif-enabled";
 
 type Perm = "default" | "granted" | "denied" | "unsupported";
 
@@ -41,8 +41,8 @@ export function useNotifications() {
       if (!document.hidden) return;
 
       const notifOpts: NotificationOptions = {
-        icon: "/icons/icon-192.png",
-        badge: "/icons/icon-192.png",
+        icon: "/favicon.svg",
+        badge: "/favicon.svg",
         ...opts,
       };
 

@@ -80,16 +80,16 @@ self.addEventListener("push", (event) => {
   try {
     payload = event.data.json();
   } catch {
-    payload = { title: "Mapmate", body: event.data.text() };
+    payload = { title: "Pinly", body: event.data.text() };
   }
 
-  const title = payload.title || "Mapmate";
+  const title = payload.title || "Pinly";
   const options: NotificationOptions = {
     body: payload.body || "",
-    icon: payload.icon || "/icons/icon-192.png",
-    badge: payload.badge || "/icons/icon-192.png",
+    icon: payload.icon || "/favicon.svg",
+    badge: payload.badge || "/favicon.svg",
     data: payload.data || { url: "/" },
-    tag: "mapmate-pin",
+    tag: "pinly-pin",
   };
 
   event.waitUntil(self.registration.showNotification(title, options));

@@ -12,6 +12,7 @@ export interface CloudinaryUploadResult {
 
 export async function uploadToCloudinary(
   file: File,
+  options: { folder?: string } = {},
 ): Promise<CloudinaryUploadResult> {
   const isVideo = file.type.startsWith("video/");
   const resourceType = isVideo ? "video" : "image";
@@ -19,7 +20,7 @@ export async function uploadToCloudinary(
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", UPLOAD_PRESET);
-  formData.append("folder", "mapmate");
+  formData.append("folder", sanitizeFolder(options.folder ?? "pinly"));
 
   const res = await fetch(
     `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`,
@@ -40,6 +41,14 @@ export async function uploadToCloudinary(
     mediaType: isVideo ? "video" : "image",
     duration: isVideo ? data.duration : undefined,
   };
+}
+
+function sanitizeFolder(folder: string): string {
+  return folder
+    .split("/")
+    .map((part) => part.trim().replace(/[^a-zA-Z0-9_-]/g, "-"))
+    .filter(Boolean)
+    .join("/") || "pinly";
 }
 
 export function getImageUrl(

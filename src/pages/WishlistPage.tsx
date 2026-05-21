@@ -34,7 +34,7 @@ export function WishlistPage() {
     debounceRef.current = window.setTimeout(async () => {
       setSearching(true)
       try {
-        const language = navigator.language || 'vi'
+        const language = 'vi'
         const results = await searchPlaces(query, { language })
         setResults(results.slice(0, 6))
       } catch {

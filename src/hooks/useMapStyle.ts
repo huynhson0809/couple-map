@@ -133,7 +133,7 @@ export const MAP_STYLES: MapStyleOption[] = [
   },
 ];
 
-const KEY = "mapmate.map-style";
+const KEY = "pinly.map-style";
 
 export function useMapStyle() {
   const [styleId, setStyleIdState] = useState<MapStyleId>(() => {

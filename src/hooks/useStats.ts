@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { Couple, Pin } from '../types'
+import { normalizeCityName } from '../lib/locationNames'
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const R = 6371
@@ -19,7 +20,8 @@ export function useStats(pins: Pin[], couple: Couple | null) {
     const cities = new Set<string>()
     const countries = new Set<string>()
     pins.forEach((p) => {
-      if (p.city) cities.add(p.city)
+      const city = normalizeCityName(p.city)
+      if (city) cities.add(city)
       if (p.country) countries.add(p.country)
     })
 
@@ -47,6 +49,7 @@ export function useStats(pins: Pin[], couple: Couple | null) {
         ? new Date(firstPin.created_at)
         : null
     const daysTogether = startDate
+      // eslint-disable-next-line react-hooks/purity
       ? Math.floor((Date.now() - startDate.getTime()) / 86_400_000)
       : null
 

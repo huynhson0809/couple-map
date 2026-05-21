@@ -8,7 +8,7 @@ import {
 
 export type Lang = "en" | "vi";
 
-const KEY = "mapmate.lang";
+const KEY = "pinly.lang";
 
 const dict = {
   en: {
@@ -338,6 +338,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useI18n() {
   const v = useContext(I18nCtx);
   if (!v) throw new Error("useI18n must be inside I18nProvider");

@@ -1,3 +1,5 @@
+import { normalizeAddress, normalizeCityName } from './locationNames'
+
 export interface PlaceSearchResult {
   display_name: string
   lat: string
@@ -87,12 +89,12 @@ async function searchMapbox(query: string, options: SearchOptions): Promise<Plac
       if (!displayName) return []
 
       return [{
-        display_name: displayName,
+        display_name: normalizeAddress(displayName),
         lat: String(lat),
         lon: String(lng),
         source: 'mapbox' as const,
         address: {
-          city: context.place?.name ?? context.locality?.name,
+          city: normalizeCityName(context.place?.name ?? context.locality?.name) ?? undefined,
           state: context.region?.name,
           county: context.district?.name,
           town: context.locality?.name,
@@ -131,11 +133,18 @@ async function searchNominatim(query: string, language = 'vi'): Promise<PlaceSea
   return data.flatMap((result: NominatimResult) => {
     if (!result.display_name || !result.lat || !result.lon) return []
     return [{
-      display_name: result.display_name,
+      display_name: normalizeAddress(result.display_name),
       lat: result.lat,
       lon: result.lon,
       source: 'nominatim' as const,
-      address: result.address,
+      address: result.address
+        ? {
+            ...result.address,
+            city: normalizeCityName(result.address.city) ?? undefined,
+            state: normalizeCityName(result.address.state) ?? undefined,
+            province: normalizeCityName(result.address.province) ?? undefined,
+          }
+        : undefined,
     }]
   })
 }

@@ -64,7 +64,7 @@ export function SettingsPage() {
     setBgError(null);
     try {
       const compressed = await compressImage(file);
-      const res = await uploadToCloudinary(compressed);
+      const res = await uploadToCloudinary(compressed, { folder: `pinly/${couple?.id ?? "shared"}` });
       await updateCouple({ background_image_url: res.url });
     } catch (e) {
       setBgError(e instanceof Error ? e.message : String(e));

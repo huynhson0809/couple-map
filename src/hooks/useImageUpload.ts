@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { compressImage } from '../lib/imageCompress'
 import { uploadToCloudinary, MAX_VIDEO_BYTES, type CloudinaryUploadResult } from '../lib/cloudinary'
 
-export function useImageUpload() {
+export function useImageUpload(folder = 'pinly') {
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
 
@@ -24,7 +24,7 @@ export function useImageUpload() {
           toUpload = await compressImage(file)
         }
 
-        const res = await uploadToCloudinary(toUpload)
+        const res = await uploadToCloudinary(toUpload, { folder })
         results.push(res)
         setProgress(Math.round(((i + 1) / files.length) * 100))
       }

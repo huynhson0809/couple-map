@@ -3,12 +3,14 @@ import { Camera, ImagePlus, X, ImageUp, Eraser, Video, Plus, MapPin, Trash2, Pen
 import { Button } from '../ui/Button'
 import { useImageUpload } from '../../hooks/useImageUpload'
 import { usePins } from '../../hooks/usePins'
-import { CATEGORIES, deleteCustomCategory, getCategory, getAllCategories, saveCustomCategory, type Category } from '../../lib/categories'
+import { isBuiltInCategory, type Category } from '../../lib/categories'
+import { useCategoriesCtx } from '../../hooks/CategoriesContext'
 import { useI18n } from '../../hooks/I18nContext'
 import { compressImage } from '../../lib/imageCompress'
 import { uploadToCloudinary, getImageUrl, MAX_VIDEO_BYTES } from '../../lib/cloudinary'
 import { reverseGeocode } from '../../lib/geocoding'
 import { searchPlaces, type PlaceSearchResult } from '../../lib/placeSearch'
+import { normalizeAddress, normalizeCityName } from '../../lib/locationNames'
 
 interface Props {
   coupleId: string
@@ -22,7 +24,13 @@ const CUSTOM_EMOJIS = ['❤️', '🌸', '⭐', '🎈', '🍕', '🐱', '🐶', 
 
 export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }: Props) {
   const { createPin } = usePins(coupleId, userId)
-  const { uploadFiles, uploading, progress } = useImageUpload()
+  const {
+    allCategories,
+    getCategory,
+    saveCustomCategory,
+    deleteCustomCategory,
+  } = useCategoriesCtx()
+  const { uploadFiles, uploading, progress } = useImageUpload(`pinly/${coupleId}`)
   const { t } = useI18n()
   const [title, setTitle] = useState('')
   const [note, setNote] = useState('')
@@ -38,7 +46,6 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
   const [editingTagId, setEditingTagId] = useState<string | null>(null)
   const [customTagName, setCustomTagName] = useState('')
   const [customTagEmoji, setCustomTagEmoji] = useState('')
-  const [allCategories, setAllCategories] = useState(() => getAllCategories())
   const [address, setAddress] = useState('')
   const [city, setCity] = useState<string | null>(null)
   const [country, setCountry] = useState<string | null>(null)
@@ -63,11 +70,11 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
         cancelled = true
       }
     }
-    reverseGeocode(pinCoords.lat, pinCoords.lng, navigator.language || 'vi')
+    reverseGeocode(pinCoords.lat, pinCoords.lng, 'vi')
       .then((geo) => {
         if (cancelled) return
-        setAddress(geo.address)
-        setCity(geo.city)
+        setAddress(normalizeAddress(geo.address))
+        setCity(normalizeCityName(geo.city))
         setCountry(geo.country)
       })
       .catch(() => {
@@ -89,7 +96,7 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
     addressDebounce.current = window.setTimeout(async () => {
       setAddressSearching(true)
       try {
-        const language = navigator.language || 'vi'
+        const language = 'vi'
         const proximity = { lat: pinCoords.lat, lng: pinCoords.lng }
         const results = await searchPlaces(address, { language, proximity })
         setAddressResults(results)
@@ -123,7 +130,7 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
     setMarkerUploading(true)
     try {
       const compressed = await compressImage(file)
-      const res = await uploadToCloudinary(compressed)
+      const res = await uploadToCloudinary(compressed, { folder: `pinly/${coupleId}` })
       setMarkerImageUrl(res.url)
       setMarkerEmoji(null)
     } catch (e) {
@@ -156,37 +163,45 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
     setShowCustomTag(true)
   }
 
-  function handleSaveCustomTag() {
+  async function handleSaveCustomTag() {
     if (!customTagName.trim()) return
-    const id = editingTagId ?? `custom_${Date.now()}`
+    const id =
+      editingTagId ??
+      `custom_${typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Date.now()}`
     const newCat: Category = {
       id,
       label: customTagName.trim(),
       emoji: customTagEmoji.trim() || '🏷️',
       color: '#6b7280',
     }
-    saveCustomCategory(newCat)
-    setAllCategories(getAllCategories())
-    setCategory(id)
-    setShowCustomTag(false)
-    setEditingTagId(null)
-    setCustomTagName('')
-    setCustomTagEmoji('')
+    try {
+      await saveCustomCategory(newCat)
+      setCategory(id)
+      setShowCustomTag(false)
+      setEditingTagId(null)
+      setCustomTagName('')
+      setCustomTagEmoji('')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
   }
 
-  function handleDeleteCustomTag(id: string) {
-    deleteCustomCategory(id)
-    setAllCategories(getAllCategories())
-    if (category === id) setCategory(null)
+  async function handleDeleteCustomTag(id: string) {
+    try {
+      await deleteCustomCategory(id)
+      if (category === id) setCategory(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
   }
 
   function pickCity(place: PlaceSearchResult): string | null {
     const a = place.address
-    return a?.city ?? a?.state ?? a?.province ?? a?.county ?? a?.town ?? a?.village ?? null
+    return normalizeCityName(a?.city ?? a?.state ?? a?.province ?? a?.county ?? a?.town ?? a?.village)
   }
 
   function selectAddressResult(place: PlaceSearchResult) {
-    setAddress(place.display_name)
+    setAddress(normalizeAddress(place.display_name))
     setAddressResults([])
     setAddressEdited(false)
     skipReverseGeocode.current = true
@@ -195,7 +210,7 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
       lng: parseFloat(place.lon),
       accuracy: null,
     })
-    setCity(pickCity(place))
+    setCity(normalizeCityName(pickCity(place)))
     setCountry(place.address?.country ?? null)
   }
 
@@ -227,8 +242,8 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
         marker_image_url: markerImageUrl,
         lat: pinCoords.lat,
         lng: pinCoords.lng,
-        address: address.trim() || null,
-        city,
+        address: normalizeAddress(address.trim()) || null,
+        city: normalizeCityName(city),
         country,
         images,
       })
@@ -256,7 +271,7 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
         <div className="category-grid">
           {allCategories.map((c) => {
             const active = category === c.id
-            const custom = !CATEGORIES.some((base) => base.id === c.id)
+            const custom = !isBuiltInCategory(c.id)
             return (
               <div key={c.id} className="category-chip-wrap">
                 <button

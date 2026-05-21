@@ -54,7 +54,7 @@ export function ImageLightbox({ images, startIndex, onClose }: Props) {
       const blob = await res.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `mapmate-${current.id}.jpg`;
+      a.download = `pinly-${current.id}.jpg`;
       document.body.appendChild(a);
       a.click();
       a.remove();

@@ -6,7 +6,7 @@ import { useCoupleCtx } from '../../hooks/CoupleContext'
 import { useNotifications } from '../../hooks/useNotifications'
 import { useI18n } from '../../hooks/I18nContext'
 import { getImageUrl } from '../../lib/cloudinary'
-import { getCategory } from '../../lib/categories'
+import { useCategoriesCtx } from '../../hooks/CategoriesContext'
 
 const TOAST_MS = 6000
 
@@ -15,6 +15,7 @@ export function NotificationToast() {
   const { partner } = useCoupleCtx()
   const { notify } = useNotifications()
   const { t } = useI18n()
+  const { getCategory } = useCategoriesCtx()
   const navigate = useNavigate()
   const timerRef = useRef<number | null>(null)
 

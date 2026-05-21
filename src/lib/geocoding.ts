@@ -1,3 +1,5 @@
+import { normalizeAddress, normalizeCityName } from './locationNames'
+
 export interface GeocodingResult {
   address: string
   city: string | null
@@ -45,12 +47,13 @@ function pickMajorCityFromDisplayName(displayName: string | undefined): string |
 }
 
 export async function reverseGeocode(lat: number, lng: number, language = 'vi'): Promise<GeocodingResult> {
+  const locale = language || 'vi'
   if (MAPBOX_TOKEN) {
-    const mapboxResult = await reverseGeocodeMapbox(lat, lng, language)
+    const mapboxResult = await reverseGeocodeMapbox(lat, lng, locale)
     if (mapboxResult.address) return mapboxResult
   }
 
-  return reverseGeocodeNominatim(lat, lng, language)
+  return reverseGeocodeNominatim(lat, lng, locale)
 }
 
 async function reverseGeocodeMapbox(lat: number, lng: number, language: string): Promise<GeocodingResult> {
@@ -72,11 +75,11 @@ async function reverseGeocodeMapbox(lat: number, lng: number, language: string):
     if (!props) return { address: '', city: null, country: null }
 
     const context = props.context ?? {}
-    const address = props.full_address ?? [props.name, props.place_formatted].filter(Boolean).join(', ')
+    const address = normalizeAddress(props.full_address ?? [props.name, props.place_formatted].filter(Boolean).join(', '))
 
     return {
       address,
-      city: context.place?.name ?? context.locality?.name ?? context.district?.name ?? context.region?.name ?? null,
+      city: normalizeCityName(context.place?.name ?? context.locality?.name ?? context.district?.name ?? context.region?.name),
       country: context.country?.name ?? null,
     }
   } catch {
@@ -114,8 +117,8 @@ async function reverseGeocodeNominatim(lat: number, lng: number, language: strin
   }
 
   return {
-    address: data.display_name ?? '',
-    city,
+    address: normalizeAddress(data.display_name ?? ''),
+    city: normalizeCityName(city),
     country: a.country ?? null,
   }
 }

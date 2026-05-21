@@ -15,7 +15,7 @@ interface Ctx {
 }
 
 const ThemeCtx = createContext<Ctx | null>(null);
-const KEY = "mapmate.theme";
+const KEY = "pinly.theme";
 
 // Dark mode temporarily disabled — force light until polished.
 const DARK_MODE_ENABLED = false;
@@ -51,8 +51,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const isDarkModeEnabled = () => DARK_MODE_ENABLED;
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTheme() {
   const v = useContext(ThemeCtx);
   if (!v) throw new Error("useTheme must be inside ThemeProvider");

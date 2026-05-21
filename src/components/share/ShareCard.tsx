@@ -2,9 +2,9 @@ import { useState } from "react";
 import { Download, Share2, X, MapPin, Calendar } from "lucide-react";
 import type { Pin } from "../../types";
 import { getImageUrl } from "../../lib/cloudinary";
-import { getCategory } from "../../lib/categories";
 import { useI18n } from "../../hooks/I18nContext";
 import { useCoupleCtx } from "../../hooks/CoupleContext";
+import { useCategoriesCtx } from "../../hooks/CategoriesContext";
 import { Button } from "../ui/Button";
 import { Logo } from "../ui/Logo";
 
@@ -75,54 +75,57 @@ interface ShareTag {
   emoji: string;
 }
 
-/** Draw the Mapmate pin logo at (x, y) with given size */
+/** Draw the Pinly logo at (x, y) with given size */
 function drawLogo(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
-  const s = size / 44; // original path fits in ~44px box
+  const s = size / 72;
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(s, s);
 
-  // Back pin (faded)
-  ctx.globalAlpha = 0.55;
-  const g1 = ctx.createLinearGradient(0, 0, 32, 44);
-  g1.addColorStop(0, "#fb7185");
-  g1.addColorStop(1, "#f43f5e");
-  ctx.fillStyle = g1;
+  ctx.fillStyle = "rgba(31,31,31,0.14)";
   ctx.beginPath();
-  ctx.moveTo(16, 0);
-  ctx.bezierCurveTo(7, 0, 0, 7, 0, 16);
-  ctx.bezierCurveTo(0, 26, 16, 44, 16, 44);
-  ctx.bezierCurveTo(16, 44, 32, 26, 32, 16);
-  ctx.bezierCurveTo(32, 7, 25, 0, 16, 0);
+  ctx.ellipse(36, 58, 15, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.globalAlpha = 0.62;
+  ctx.fillStyle = "#d84349";
+  ctx.beginPath();
+  ctx.moveTo(36, 62);
+  ctx.lineTo(20, 46);
+  ctx.lineTo(36, 37);
+  ctx.lineTo(52, 46);
   ctx.closePath();
   ctx.fill();
 
-  // Front pin
   ctx.globalAlpha = 1;
-  const g2 = ctx.createLinearGradient(10, 4, 44, 44);
-  g2.addColorStop(0, "#ff6b6b");
-  g2.addColorStop(0.55, "#ec4899");
-  g2.addColorStop(1, "#a855f7");
-  ctx.fillStyle = g2;
+  const g = ctx.createLinearGradient(18, 8, 54, 64);
+  g.addColorStop(0, "#ff676d");
+  g.addColorStop(1, "#ff4d57");
+  ctx.fillStyle = g;
   ctx.beginPath();
-  ctx.moveTo(30, 8);
-  ctx.bezierCurveTo(21, 8, 14, 15, 14, 24);
-  ctx.bezierCurveTo(14, 34, 30, 52, 30, 52);
-  ctx.bezierCurveTo(30, 52, 46, 34, 46, 24);
-  ctx.bezierCurveTo(46, 15, 39, 8, 30, 8);
+  ctx.moveTo(36, 6);
+  ctx.bezierCurveTo(20.5, 6, 9, 17.6, 9, 32.5);
+  ctx.bezierCurveTo(9, 47.8, 36, 66, 36, 66);
+  ctx.bezierCurveTo(36, 66, 63, 47.8, 63, 32.5);
+  ctx.bezierCurveTo(63, 17.6, 51.5, 6, 36, 6);
   ctx.closePath();
   ctx.fill();
 
-  // Heart
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "#fff7f7";
   ctx.beginPath();
-  ctx.moveTo(30, 32);
-  ctx.bezierCurveTo(30, 32, 23, 27, 23, 22);
-  ctx.bezierCurveTo(23, 19.5, 25, 18, 27, 18);
-  ctx.bezierCurveTo(28.5, 18, 30, 19, 30, 19);
-  ctx.bezierCurveTo(30, 19, 31.5, 18, 33, 18);
-  ctx.bezierCurveTo(35, 18, 37, 19.5, 37, 22);
-  ctx.bezierCurveTo(37, 27, 30, 32, 30, 32);
+  ctx.arc(36, 31, 14, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#ffd1d4";
+  ctx.beginPath();
+  ctx.arc(36, 31, 9, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#ff5a5f";
+  ctx.beginPath();
+  ctx.moveTo(36, 62);
+  ctx.lineTo(30, 51);
+  ctx.lineTo(36, 47);
+  ctx.lineTo(42, 51);
   ctx.closePath();
   ctx.fill();
 
@@ -327,17 +330,17 @@ async function drawCardWithPhoto(
   ctx.lineTo(CARD_W - PAD, infoY + 90);
   ctx.stroke();
 
-  // Footer: couple names left, logo + Mapmate right
+  // Footer: couple names left, logo + Pinly right
   const footerY = infoY + 140;
   ctx.font = "500 30px -apple-system, BlinkMacSystemFont, sans-serif";
   ctx.fillStyle = "#555555";
   ctx.textAlign = "left";
   ctx.fillText(coupleNames, PAD, footerY);
   ctx.textAlign = "right";
-  ctx.fillStyle = "#e8685a";
-  const mapmateW = ctx.measureText("Mapmate").width;
-  ctx.fillText("Mapmate", CARD_W - PAD, footerY);
-  drawLogo(ctx, CARD_W - PAD - mapmateW - 40, footerY - 28, 32);
+  ctx.fillStyle = "#ff5a5f";
+  const pinlyW = ctx.measureText("Pinly").width;
+  ctx.fillText("Pinly", CARD_W - PAD, footerY);
+  drawLogo(ctx, CARD_W - PAD - pinlyW - 40, footerY - 28, 32);
   ctx.textAlign = "left";
 
   ctx.restore(); // restore outer rounded clip
@@ -437,10 +440,10 @@ async function drawCardNoPhoto(
   ctx.textAlign = "left";
   ctx.fillText(coupleNames, PAD, footerY);
   ctx.textAlign = "right";
-  ctx.fillStyle = "#e8685a";
-  const mapmateW = ctx.measureText("Mapmate").width;
-  ctx.fillText("Mapmate", CARD_W - PAD, footerY);
-  drawLogo(ctx, CARD_W - PAD - mapmateW - 40, footerY - 28, 32);
+  ctx.fillStyle = "#ff5a5f";
+  const pinlyW = ctx.measureText("Pinly").width;
+  ctx.fillText("Pinly", CARD_W - PAD, footerY);
+  drawLogo(ctx, CARD_W - PAD - pinlyW - 40, footerY - 28, 32);
 
   return canvas.toDataURL("image/png");
 }
@@ -450,6 +453,7 @@ async function drawCardNoPhoto(
 export function ShareCard({ pin, onClose }: Props) {
   const { lang, t } = useI18n();
   const { profile, partner } = useCoupleCtx();
+  const { getCategory } = useCategoriesCtx();
   const [generating, setGenerating] = useState(false);
 
   const images = pin.images ?? [];
@@ -603,7 +607,7 @@ export function ShareCard({ pin, onClose }: Props) {
                   <span className="share-card-couple">{coupleNames}</span>
                   <span className="share-card-brand">
                     <Logo size={16} className="share-card-brand-logo" />
-                    Mapmate
+                    Pinly
                   </span>
                 </div>
               </div>
@@ -639,7 +643,7 @@ export function ShareCard({ pin, onClose }: Props) {
                   <span className="share-card-couple">{coupleNames}</span>
                   <span className="share-card-brand">
                     <Logo size={16} className="share-card-brand-logo" />
-                    Mapmate
+                    Pinly
                   </span>
                 </div>
               </div>

@@ -13,8 +13,8 @@ import { Button } from "../ui/Button";
 import { ImageLightbox } from "../ui/ImageLightbox";
 import { EditPinForm } from "./EditPinForm";
 import { ShareCard } from "../share/ShareCard";
-import { getCategory } from "../../lib/categories";
 import { useI18n } from "../../hooks/I18nContext";
+import { useCategoriesCtx } from "../../hooks/CategoriesContext";
 
 interface Props {
   pin: Pin;
@@ -27,12 +27,14 @@ const EDIT_WINDOW_MS = 60 * 60 * 1000;
 
 export function PinDetail({ pin, currentUserId, onDelete, onUpdated }: Props) {
   const { t, lang } = useI18n();
+  const { getCategory } = useCategoriesCtx();
   const [deleting, setDeleting] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
 
   const isMine = pin.created_by === currentUserId;
+  // eslint-disable-next-line react-hooks/purity
   const ageMs = Date.now() - new Date(pin.created_at).getTime();
   const withinEditWindow = ageMs < EDIT_WINDOW_MS;
   const canEdit = isMine && withinEditWindow;

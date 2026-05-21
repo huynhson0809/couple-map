@@ -2,7 +2,8 @@ import { useRef, useState } from 'react'
 import { ImageUp, Eraser, Plus, Trash2, Video, Pencil } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { usePinsCtx } from '../../hooks/PinsContext'
-import { CATEGORIES, deleteCustomCategory, getCategory, getAllCategories, saveCustomCategory, type Category } from '../../lib/categories'
+import { isBuiltInCategory, type Category } from '../../lib/categories'
+import { useCategoriesCtx } from '../../hooks/CategoriesContext'
 import { useI18n } from '../../hooks/I18nContext'
 import { compressImage } from '../../lib/imageCompress'
 import { uploadToCloudinary, getImageUrl, isVideoUrl, getVideoUrl, MAX_VIDEO_BYTES } from '../../lib/cloudinary'
@@ -20,6 +21,12 @@ const CUSTOM_EMOJIS = ['❤️', '🌸', '⭐', '🎈', '🍕', '🐱', '🐶', 
 
 export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   const { updatePin } = usePinsCtx()
+  const {
+    allCategories,
+    getCategory,
+    saveCustomCategory,
+    deleteCustomCategory,
+  } = useCategoriesCtx()
   const { t } = useI18n()
   const [title, setTitle] = useState(pin.title)
   const [note, setNote] = useState(pin.note ?? '')
@@ -34,7 +41,6 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   const [editingTagId, setEditingTagId] = useState<string | null>(null)
   const [customTagName, setCustomTagName] = useState('')
   const [customTagEmoji, setCustomTagEmoji] = useState('')
-  const [allCategories, setAllCategories] = useState(() => getAllCategories())
   const markerInput = useRef<HTMLInputElement | null>(null)
 
   // --- Media management ---
@@ -50,7 +56,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     setMarkerUploading(true)
     try {
       const compressed = await compressImage(file)
-      const res = await uploadToCloudinary(compressed)
+      const res = await uploadToCloudinary(compressed, { folder: `pinly/${pin.couple_id}` })
       setMarkerImageUrl(res.url)
       setMarkerEmoji(null)
     } catch (e) {
@@ -83,33 +89,41 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     setShowCustomTag(true)
   }
 
-  function handleSaveCustomTag() {
+  async function handleSaveCustomTag() {
     if (!customTagName.trim()) return
-    const id = editingTagId ?? `custom_${Date.now()}`
+    const id =
+      editingTagId ??
+      `custom_${typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Date.now()}`
     const newCat: Category = {
       id,
       label: customTagName.trim(),
       emoji: customTagEmoji.trim() || '🏷️',
       color: '#6b7280',
     }
-    saveCustomCategory(newCat)
-    setAllCategories(getAllCategories())
-    setCategory(id)
-    setShowCustomTag(false)
-    setEditingTagId(null)
-    setCustomTagName('')
-    setCustomTagEmoji('')
-  }
-
-  function handleDeleteCustomTag(id: string) {
-    deleteCustomCategory(id)
-    setAllCategories(getAllCategories())
-    if (category === id) setCategory(null)
-    if (editingTagId === id) {
+    try {
+      await saveCustomCategory(newCat)
+      setCategory(id)
       setShowCustomTag(false)
       setEditingTagId(null)
       setCustomTagName('')
       setCustomTagEmoji('')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  async function handleDeleteCustomTag(id: string) {
+    try {
+      await deleteCustomCategory(id)
+      if (category === id) setCategory(null)
+      if (editingTagId === id) {
+        setShowCustomTag(false)
+        setEditingTagId(null)
+        setCustomTagName('')
+        setCustomTagEmoji('')
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
     }
   }
 
@@ -173,7 +187,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
           newFiles.map(async (file) => {
             const isVideo = file.type.startsWith('video/')
             const toUpload = isVideo ? file : await compressImage(file)
-            return uploadToCloudinary(toUpload)
+            return uploadToCloudinary(toUpload, { folder: `pinly/${pin.couple_id}` })
           }),
         )
         const startOrder = existingImages.length
@@ -223,7 +237,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         <div className="category-grid">
           {allCategories.map((c) => {
             const active = category === c.id
-            const custom = !CATEGORIES.some((base) => base.id === c.id)
+            const custom = !isBuiltInCategory(c.id)
             return (
               <div key={c.id} className="category-chip-wrap">
                 <button

@@ -1,4 +1,4 @@
-# Mapmate
+# Pinly
 
 Bản đồ kỷ niệm của 2 người. React + Vite + TypeScript + MapLibre GL JS + OpenFreeMap + Supabase + Cloudinary. PWA-ready.
 
@@ -6,7 +6,7 @@ Bản đồ kỷ niệm của 2 người. React + Vite + TypeScript + MapLibre G
 
 1. `npm install`
 2. Create a Supabase project (free tier). Open the SQL editor and run [supabase/schema.sql](supabase/schema.sql).
-3. Create a Cloudinary account. Settings → Upload → add an **unsigned** upload preset (folder `mapmate`).
+3. Create a Cloudinary account. Settings → Upload → add an **unsigned** upload preset (folder `pinly`).
 4. Copy `.env.example` → `.env.local` and fill in:
    ```
    VITE_SUPABASE_URL=
@@ -15,7 +15,7 @@ Bản đồ kỷ niệm của 2 người. React + Vite + TypeScript + MapLibre G
    VITE_CLOUDINARY_UPLOAD_PRESET=
    VITE_MAPBOX_ACCESS_TOKEN=
    ```
-5. Drop two PWA icons into `public/icons/` — `icon-192.png` and `icon-512.png`.
+5. The Pinly PWA icon lives at `public/favicon.svg`.
 
 ## Develop
 

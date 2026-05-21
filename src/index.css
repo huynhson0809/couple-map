@@ -1,5 +1,7 @@
 :root {
-  --coral: #e24b4a;
+  --coral: #ff5a5f;
+  --coral-strong: #ff4d57;
+  --pinly-dark: #20201e;
   --blue: #378add;
   --green: #639922;
   --bg: #fafafa;
@@ -82,7 +84,7 @@ body { -webkit-tap-highlight-color: transparent; }
   font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  background: linear-gradient(135deg, #ff6b6b 0%, #ec4899 50%, #a855f7 100%);
+  background: linear-gradient(135deg, #ff676d 0%, #ff5a5f 50%, #d84349 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -101,12 +103,12 @@ body { -webkit-tap-highlight-color: transparent; }
   margin-bottom: 8px;
 }
 .logo { display: inline-flex; align-items: center; gap: 10px; }
-.logo svg { filter: drop-shadow(0 6px 14px rgba(236,72,153,0.25)); }
+.logo svg { filter: drop-shadow(0 6px 14px rgba(255,90,95,0.25)); }
 .logo-wordmark {
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  background: linear-gradient(135deg, #ff6b6b, #a855f7);
+  background: linear-gradient(135deg, #ff676d, #d84349);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -224,7 +226,7 @@ body { -webkit-tap-highlight-color: transparent; }
 }
 .heat-btn { left: 12px; right: auto; }
 .heat-btn.active {
-  background: linear-gradient(135deg, #ec4899, #ef4444);
+  background: linear-gradient(135deg, #ff5a5f, #ff4d57);
   color: white; border-color: transparent;
 }
 
@@ -458,7 +460,7 @@ body { -webkit-tap-highlight-color: transparent; }
 .onboard-icon {
   width: 56px; height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ff6b6b, #ec4899);
+  background: linear-gradient(135deg, #ff676d, #ff5a5f);
   color: white;
   display: flex;
   align-items: center;
@@ -662,7 +664,7 @@ body { -webkit-tap-highlight-color: transparent; }
   margin: 0 0 4px;
   font-size: 28px; font-weight: 800;
   letter-spacing: -0.02em;
-  background: linear-gradient(135deg, #ff6b6b 0%, #c084fc 100%);
+  background: linear-gradient(135deg, #ff676d 0%, #ff4d57 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -894,8 +896,8 @@ body { -webkit-tap-highlight-color: transparent; }
   box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 }
 .category-delete-btn:hover {
-  color: #ef4444;
-  border-color: #ef4444;
+  color: #ff4d57;
+  border-color: #ff4d57;
 }
 .category-edit-btn {
   position: absolute;
@@ -1071,7 +1073,7 @@ body { -webkit-tap-highlight-color: transparent; }
   transition: all 0.15s;
 }
 .heat-pill.active {
-  background: linear-gradient(135deg, #ec4899, #ef4444);
+  background: linear-gradient(135deg, #ff5a5f, #ff4d57);
   color: white;
   border-color: transparent;
 }
@@ -1112,7 +1114,7 @@ body { -webkit-tap-highlight-color: transparent; }
 .wish-submit-btn {
   min-height: 48px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #ff6b6b, #ef4444);
+  background: linear-gradient(135deg, #ff676d, #ff4d57);
   box-shadow: 0 8px 18px rgba(239, 68, 68, 0.22);
   transition: transform 0.12s, box-shadow 0.15s, opacity 0.15s, filter 0.15s;
 }
@@ -1444,7 +1446,7 @@ body { -webkit-tap-highlight-color: transparent; }
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  color: #e8685a;
+  color: var(--coral);
   font-weight: 500;
 }
 .share-card-brand .logo { gap: 0; }
@@ -1456,7 +1458,7 @@ body { -webkit-tap-highlight-color: transparent; }
 /* Gradient card (no photo) */
 .share-card-gradient {
   height: 260px;
-  background: linear-gradient(135deg, #ff6b6b, #ec4899, #a855f7);
+  background: linear-gradient(135deg, #ff676d, #ff5a5f, #d84349);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1547,17 +1549,17 @@ body { -webkit-tap-highlight-color: transparent; }
 .cluster-bubble:hover { transform: scale(1.08); }
 .cluster-bubble[data-tier="1"] {
   width: 50px; height: 50px;
-  background: linear-gradient(135deg, #f97316, #ef4444);
+  background: linear-gradient(135deg, #f97316, #ff4d57);
   font-size: 15px;
 }
 .cluster-bubble[data-tier="2"] {
   width: 58px; height: 58px;
-  background: linear-gradient(135deg, #ef4444, #ec4899);
+  background: linear-gradient(135deg, #ff4d57, #ff5a5f);
   font-size: 16px;
 }
 .cluster-bubble[data-tier="3"] {
   width: 68px; height: 68px;
-  background: linear-gradient(135deg, #ec4899, #9333ea);
+  background: linear-gradient(135deg, #ff5a5f, #9333ea);
   font-size: 17px;
 }
 

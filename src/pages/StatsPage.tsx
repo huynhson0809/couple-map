@@ -25,7 +25,7 @@ export function StatsPage() {
           icon={<Sparkles />}
           value={s.totalPins}
           label={t("stats.memories")}
-          color="#e24b4a"
+          color="#ff5a5f"
         />
         <StatCard
           icon={<MapPin />}
@@ -43,7 +43,7 @@ export function StatsPage() {
           icon={<CalendarHeart />}
           value={s.daysTogether ?? "—"}
           label={t("stats.daysTogether")}
-          color="#ec4899"
+          color="#ff4d57"
         />
         <StatCard
           icon={<Plane />}
