@@ -264,6 +264,20 @@ export function SettingsPage() {
                 }
               />
             </label>
+            <label className="notif-pref-row">
+              <span>
+                <strong>{t("notif.streakReminders")}</strong>
+                <small>{t("notif.streakRemindersHint")}</small>
+              </span>
+              <input
+                type="checkbox"
+                checked={notifPrefs.prefs.streak_reminders}
+                disabled={notifPrefs.loading}
+                onChange={(e) =>
+                  notifPrefs.updatePrefs({ streak_reminders: e.target.checked })
+                }
+              />
+            </label>
           </div>
         )}
       </section>

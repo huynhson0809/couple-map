@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Map, Clock, BarChart3, Heart, Settings } from 'lucide-react'
+import { Map, Clock, BarChart3, Flame, Settings } from 'lucide-react'
 import { useI18n } from '../../hooks/I18nContext'
 
 export function BottomNav() {
@@ -15,7 +15,7 @@ export function BottomNav() {
         <span>{t('nav.timeline')}</span>
       </NavLink>
       <NavLink to="/wishlist" className={({ isActive }) => (isActive ? 'active' : '')}>
-        <Heart size={22} />
+        <Flame size={22} />
         <span>{t('nav.wishlist')}</span>
       </NavLink>
       <NavLink to="/stats" className={({ isActive }) => (isActive ? 'active' : '')}>

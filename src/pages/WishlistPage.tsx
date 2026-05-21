@@ -5,15 +5,18 @@ import { useAuth } from '../hooks/useAuth'
 import { useCoupleCtx } from '../hooks/CoupleContext'
 import { useBucket } from '../hooks/useBucket'
 import { useI18n } from '../hooks/I18nContext'
+import { useStreak } from '../hooks/useStreak'
 import { Button } from '../components/ui/Button'
 import { BottomSheet } from '../components/ui/BottomSheet'
+import { StreakCard } from '../components/streak/StreakCard'
 import { searchPlaces, type PlaceSearchResult } from '../lib/placeSearch'
 
 export function WishlistPage() {
   const { user } = useAuth()
-  const { couple } = useCoupleCtx()
+  const { couple, profile, partner } = useCoupleCtx()
   const { items, addItem, removeItem, markDone, markDream } = useBucket(couple?.id, user?.id)
   const { t } = useI18n()
+  const streak = useStreak(couple, profile?.id ?? user?.id)
   const navigate = useNavigate()
 
   const [adding, setAdding] = useState(false)
@@ -95,6 +98,21 @@ export function WishlistPage() {
         <h1>{t('wish.title')}</h1>
         <p className="muted">{t('wish.subtitle')}</p>
       </header>
+
+      {!streak.error && (
+        <StreakCard
+          currentCount={streak.currentCount}
+          bestCount={streak.bestCount}
+          todayDate={streak.todayDate}
+          todayCompleted={streak.todayCompleted}
+          youPosted={streak.youPosted}
+          partnerPosted={streak.partnerPosted}
+          atRisk={streak.atRisk}
+          loading={streak.loading}
+          profile={profile}
+          partner={partner}
+        />
+      )}
 
       <Button onClick={openAdd} style={{ width: '100%' }}>
         <Plus size={18} /> {t('wish.add')}

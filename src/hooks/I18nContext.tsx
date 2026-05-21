@@ -14,7 +14,7 @@ const dict = {
   en: {
     "nav.map": "Map",
     "nav.timeline": "Timeline",
-    "nav.wishlist": "Wishlist",
+    "nav.wishlist": "Streak",
     "nav.stats": "Stats",
     "nav.settings": "Settings",
 
@@ -121,6 +121,9 @@ const dict = {
     "notif.reactionsHint": "When your partner reacts to your memory",
     "notif.comments": "Comments",
     "notif.commentsHint": "When your partner comments on your memory",
+    "notif.streakReminders": "Daily streak",
+    "notif.streakRemindersHint":
+      "Reminder at night if today's chain is not complete",
     "notif.viewOnMap": "View on map",
 
     "share.card": "Card",
@@ -140,6 +143,17 @@ const dict = {
     "timeline.clearFilters": "Clear filters",
     "timeline.noResults": "No memories match these filters.",
 
+    "streak.title": "Daily streak",
+    "streak.days": "days",
+    "streak.best": "Best",
+    "streak.loading": "Checking today's chain…",
+    "streak.completed": "Today's chain is locked. Keep it glowing.",
+    "streak.youMissing": "Your turn — add one memory to keep the chain.",
+    "streak.partnerMissing": "Waiting for your partner to add a memory.",
+    "streak.bothMissing": "Both of you need one memory today.",
+    "streak.startToday": "Start a new chain together today.",
+    "streak.howTo": "To keep the streak, each person needs to post at least 1 memory every day.",
+
     "stats.title": "Our journey",
     "stats.memories": "Memories",
     "stats.cities": "Cities",
@@ -149,8 +163,8 @@ const dict = {
     "stats.firstMemory": "First memory",
     "stats.placesBeen": "Places we've been",
 
-    "wish.title": "Wishlist",
-    "wish.subtitle": "Places we want to go someday 💫",
+    "wish.title": "Streak & wishlist",
+    "wish.subtitle": "Keep the daily chain alive and plan dream places together.",
     "wish.add": "Add a dream place",
     "wish.adding": "Add a dream place",
     "wish.empty": "No dreams yet — add somewhere you both want to visit.",
@@ -195,7 +209,7 @@ const dict = {
   vi: {
     "nav.map": "Bản đồ",
     "nav.timeline": "Dòng thời gian",
-    "nav.wishlist": "Mơ ước",
+    "nav.wishlist": "Chuỗi",
     "nav.stats": "Thống kê",
     "nav.settings": "Cài đặt",
 
@@ -301,6 +315,9 @@ const dict = {
     "notif.reactionsHint": "Khi người ấy bày tỏ cảm xúc với kỷ niệm của bạn",
     "notif.comments": "Bình luận",
     "notif.commentsHint": "Khi người ấy bình luận kỷ niệm của bạn",
+    "notif.streakReminders": "Chuỗi mỗi ngày",
+    "notif.streakRemindersHint":
+      "Nhắc vào buổi tối nếu hôm nay chưa nối chuỗi",
     "notif.viewOnMap": "Xem trên map",
 
     "share.card": "Card",
@@ -319,6 +336,17 @@ const dict = {
     "timeline.clearFilters": "Xóa lọc",
     "timeline.noResults": "Không có kỷ niệm nào khớp bộ lọc.",
 
+    "streak.title": "Chuỗi mỗi ngày",
+    "streak.days": "ngày",
+    "streak.best": "Kỷ lục",
+    "streak.loading": "Đang kiểm tra chuỗi hôm nay…",
+    "streak.completed": "Hôm nay đã nối chuỗi. Đẹp rồi đó.",
+    "streak.youMissing": "Tới lượt bạn — thêm 1 kỷ niệm để giữ chuỗi.",
+    "streak.partnerMissing": "Đang chờ người ấy thêm 1 kỷ niệm.",
+    "streak.bothMissing": "Hôm nay cả hai cần thêm 1 kỷ niệm.",
+    "streak.startToday": "Bắt đầu một chuỗi mới cùng nhau hôm nay.",
+    "streak.howTo": "Để giữ chuỗi, mỗi người cần đăng ít nhất 1 kỷ niệm mỗi ngày.",
+
     "stats.title": "Hành trình của tụi mình",
     "stats.memories": "Kỷ niệm",
     "stats.cities": "Thành phố",
@@ -328,8 +356,8 @@ const dict = {
     "stats.firstMemory": "Lần đầu",
     "stats.placesBeen": "Những nơi đã qua",
 
-    "wish.title": "Mơ ước",
-    "wish.subtitle": "Những nơi tụi mình muốn đi 💫",
+    "wish.title": "Chuỗi & Mơ ước",
+    "wish.subtitle": "Giữ chuỗi mỗi ngày và lưu những nơi tụi mình muốn đi.",
     "wish.add": "Thêm địa điểm mơ ước",
     "wish.adding": "Thêm địa điểm mơ ước",
     "wish.empty": "Chưa có ước mơ — thêm 1 nơi 2 đứa muốn đến.",

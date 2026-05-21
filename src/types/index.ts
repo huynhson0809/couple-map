@@ -57,6 +57,31 @@ export interface PinComment {
   author?: User | null
 }
 
+export interface CoupleStreak {
+  couple_id: string
+  current_count: number
+  best_count: number
+  last_completed_date: string | null
+  today_date: string
+  today_user_a_posted: boolean
+  today_user_b_posted: boolean
+  today_completed: boolean
+  timezone: string
+  updated_at: string
+}
+
+export interface CoupleStreakDay {
+  couple_id: string
+  streak_date: string
+  user_a_pin_count: number
+  user_b_pin_count: number
+  user_a_posted: boolean
+  user_b_posted: boolean
+  completed: boolean
+  completed_at: string | null
+  updated_at: string
+}
+
 export interface PinImage {
   id: string
   pin_id: string

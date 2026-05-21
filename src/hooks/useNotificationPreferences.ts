@@ -5,12 +5,14 @@ export interface NotificationPreferences {
   memory_added: boolean
   reactions: boolean
   comments: boolean
+  streak_reminders: boolean
 }
 
 const DEFAULT_PREFS: NotificationPreferences = {
   memory_added: true,
   reactions: true,
   comments: true,
+  streak_reminders: true,
 }
 
 export function useNotificationPreferences(userId: string | undefined) {
@@ -22,7 +24,7 @@ export function useNotificationPreferences(userId: string | undefined) {
     setLoading(true)
     const { data } = await supabase
       .from('notification_preferences')
-      .select('memory_added,reactions,comments')
+      .select('memory_added,reactions,comments,streak_reminders')
       .eq('user_id', userId)
       .maybeSingle()
 

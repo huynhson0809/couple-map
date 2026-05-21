@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Flame, Plus } from "lucide-react";
 import { useI18n } from "../hooks/I18nContext";
 import { MapView } from "../components/map/MapView";
 import { BottomSheet } from "../components/ui/BottomSheet";
@@ -12,6 +12,7 @@ import { usePinsCtx } from "../hooks/PinsContext";
 import { useBucket } from "../hooks/useBucket";
 import { useLocation as useGeo } from "../hooks/useLocation";
 import { useMapStyle } from "../hooks/useMapStyle";
+import { useStreak } from "../hooks/useStreak";
 import type { Pin } from "../types";
 
 interface FlyToState {
@@ -26,6 +27,7 @@ export function MapPage() {
   const { items: bucketItems } = useBucket(couple?.id, user?.id);
   const { getCurrentPosition } = useGeo();
   const { styleUrl } = useMapStyle();
+  const streak = useStreak(couple, profile?.id ?? user?.id);
   const routeLocation = useLocation();
   const navigate = useNavigate();
 
@@ -132,6 +134,16 @@ export function MapPage() {
 
       <button className="fab" onClick={handleFabClick} aria-label="Pin here">
         <Plus size={24} />
+      </button>
+
+      <button
+        type="button"
+        className={`map-streak-float ${streak.todayCompleted ? "complete" : streak.atRisk ? "risk" : ""}`}
+        onClick={() => navigate("/wishlist")}
+        aria-label={t("streak.title")}
+      >
+        <Flame size={20} fill="currentColor" />
+        <span>{streak.currentCount}</span>
       </button>
 
       <BottomSheet

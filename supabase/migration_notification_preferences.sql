@@ -6,8 +6,12 @@ create table if not exists public.notification_preferences (
   memory_added boolean not null default true,
   reactions boolean not null default true,
   comments boolean not null default true,
+  streak_reminders boolean not null default true,
   updated_at timestamptz default now()
 );
+
+alter table public.notification_preferences
+  add column if not exists streak_reminders boolean not null default true;
 
 alter table public.notification_preferences enable row level security;
 
