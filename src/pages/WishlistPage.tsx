@@ -104,6 +104,7 @@ export function WishlistPage() {
           currentCount={streak.currentCount}
           bestCount={streak.bestCount}
           todayDate={streak.todayDate}
+          lastCompletedDate={streak.lastCompletedDate}
           todayCompleted={streak.todayCompleted}
           youPosted={streak.youPosted}
           partnerPosted={streak.partnerPosted}

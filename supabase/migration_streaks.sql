@@ -91,6 +91,7 @@ declare
   today_a boolean := false;
   today_b boolean := false;
   today_done boolean := false;
+  existing_summary record;
   result public.couple_streaks;
 begin
   select id, user_a, user_b
@@ -101,6 +102,11 @@ begin
   if couple_row.id is null then
     return null;
   end if;
+
+  select current_count, best_count, last_completed_date
+    into existing_summary
+    from public.couple_streaks
+    where couple_id = target_couple_id;
 
   delete from public.couple_streak_days
     where couple_id = target_couple_id;
@@ -164,6 +170,9 @@ begin
     where couple_id = target_couple_id
       and streak_date = streak_today;
 
+  -- The current day is still open, so an incomplete today must not break
+  -- the visible streak. We only require completed days up to yesterday
+  -- until both people have saved a memory today.
   if coalesce(anchor_completed, false) then
     anchor_date := streak_today;
   else
@@ -186,6 +195,14 @@ begin
     from public.couple_streak_days
     where couple_id = target_couple_id
       and streak_date = streak_today;
+
+  if not coalesce(today_done, false)
+    and existing_summary.last_completed_date = streak_today - 1
+  then
+    computed_current := greatest(computed_current, existing_summary.current_count);
+    computed_best := greatest(computed_best, existing_summary.best_count, computed_current);
+    computed_last_completed := existing_summary.last_completed_date;
+  end if;
 
   insert into public.couple_streaks (
     couple_id,

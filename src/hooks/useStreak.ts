@@ -120,16 +120,19 @@ export function useStreak(couple: Couple | null, userId: string | undefined) {
       : today?.completed ?? false
     const youPosted = userSlot === 'user_a' ? userAPosted : userSlot === 'user_b' ? userBPosted : false
     const partnerPosted = partnerSlot === 'user_a' ? userAPosted : partnerSlot === 'user_b' ? userBPosted : false
+    const savedCount = streak?.current_count ?? 0
+    const hasOpenDayGrace = !todayCompleted && streak?.last_completed_date === yesterday
     const currentCount = todayCompleted && !streakIsForToday
-      ? (streak?.last_completed_date === yesterday ? streak?.current_count ?? 0 : 0) + 1
-      : streakIsForToday || streak?.last_completed_date === yesterday
-        ? streak?.current_count ?? 0
+      ? (streak?.last_completed_date === yesterday ? savedCount : 0) + 1
+      : todayCompleted || streakIsForToday || hasOpenDayGrace
+        ? savedCount
         : 0
 
     return {
       currentCount,
       bestCount: streak?.best_count ?? 0,
       todayDate: localToday,
+      lastCompletedDate: streak?.last_completed_date ?? null,
       todayCompleted,
       youPosted,
       partnerPosted,

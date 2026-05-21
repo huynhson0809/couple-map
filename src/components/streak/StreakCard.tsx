@@ -13,10 +13,21 @@ function weekIndexFromIso(isoDate: string) {
   return (sundayFirst + 6) % 7
 }
 
+function weekStartFromIso(isoDate: string) {
+  const date = new Date(`${isoDate}T12:00:00Z`)
+  date.setUTCDate(date.getUTCDate() - weekIndexFromIso(isoDate))
+  return date.toISOString().slice(0, 10)
+}
+
+function isSameWeek(a: string, b: string) {
+  return weekStartFromIso(a) === weekStartFromIso(b)
+}
+
 interface StreakCardProps {
   currentCount: number
   bestCount: number
   todayDate: string
+  lastCompletedDate: string | null
   todayCompleted: boolean
   youPosted: boolean
   partnerPosted: boolean
@@ -30,6 +41,7 @@ export function StreakCard({
   currentCount,
   bestCount,
   todayDate,
+  lastCompletedDate,
   todayCompleted,
   youPosted,
   partnerPosted,
@@ -41,13 +53,19 @@ export function StreakCard({
   const { t, lang } = useI18n()
   const weekLabels = lang === 'vi' ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'] : ['M', 'T', 'W', 'T', 'F', 'S', 'S']
   const todayIndex = weekIndexFromIso(todayDate)
-  const activeIndex = todayCompleted || youPosted || partnerPosted ? todayIndex : Math.max(todayIndex - 1, 0)
-  const markerPercent = `${(todayIndex / 6) * 100}%`
-  const progressPercent = `${(activeIndex / 6) * 100}%`
+  const lastCompletedIndex =
+    lastCompletedDate && isSameWeek(todayDate, lastCompletedDate)
+      ? weekIndexFromIso(lastCompletedDate)
+      : -1
+  const activeIndex = todayCompleted ? todayIndex : lastCompletedIndex
+  const markerIndex = activeIndex >= 0 ? activeIndex : todayIndex
+  const markerPercent = `${(markerIndex / 6) * 100}%`
+  const progressPercent = activeIndex >= 0 ? `${(activeIndex / 6) * 100}%` : '0%'
   const weekRailStyle = {
     '--streak-week-progress': progressPercent,
     '--streak-week-today': markerPercent,
   } as CSSProperties
+  const pendingToday = !loading && !todayCompleted && currentCount > 0
 
   const status = loading
     ? t('streak.loading')
@@ -74,6 +92,7 @@ export function StreakCard({
           <span>{t('streak.days')}</span>
         </div>
         <p>{status}</p>
+        {pendingToday && <span className="streak-pending">{t('streak.pendingToday')}</span>}
       </div>
 
       <div className="streak-chain" aria-label={status}>
@@ -95,7 +114,7 @@ export function StreakCard({
           {weekLabels.map((label, index) => (
             <span
               key={`${label}-${index}`}
-              className={`${index === todayIndex ? 'today' : ''} ${index <= activeIndex ? 'active' : ''}`}
+              className={`${index === todayIndex && todayCompleted ? 'today' : ''} ${index <= activeIndex ? 'active' : ''}`}
             >
               {label}
             </span>
