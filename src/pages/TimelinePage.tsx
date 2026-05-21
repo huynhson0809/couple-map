@@ -385,19 +385,27 @@ export function TimelinePage() {
             <div className="timeline-advanced-filters">
               <div className="timeline-filter-field">
                 <label>{t('timeline.fromDate')}</label>
-                <input
-                  type="date"
-                  value={draftDateFrom}
-                  onChange={(e) => setDraftDateFrom(e.target.value)}
-                />
+                <div className="timeline-date-input">
+                  <input
+                    type="date"
+                    value={draftDateFrom}
+                    onChange={(e) => setDraftDateFrom(e.target.value)}
+                    aria-label={t('timeline.fromDate')}
+                  />
+                  {!draftDateFrom && <span className="timeline-date-placeholder">dd/mm/yyyy</span>}
+                </div>
               </div>
               <div className="timeline-filter-field">
                 <label>{t('timeline.toDate')}</label>
-                <input
-                  type="date"
-                  value={draftDateTo}
-                  onChange={(e) => setDraftDateTo(e.target.value)}
-                />
+                <div className="timeline-date-input">
+                  <input
+                    type="date"
+                    value={draftDateTo}
+                    onChange={(e) => setDraftDateTo(e.target.value)}
+                    aria-label={t('timeline.toDate')}
+                  />
+                  {!draftDateTo && <span className="timeline-date-placeholder">dd/mm/yyyy</span>}
+                </div>
               </div>
               <div className="timeline-filter-field">
                 <label>{t('timeline.creator')}</label>

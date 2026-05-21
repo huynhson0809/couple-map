@@ -86,8 +86,8 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "Pinly";
   const options: NotificationOptions = {
     body: payload.body || "",
-    icon: payload.icon || "/favicon.svg",
-    badge: payload.badge || "/favicon.svg",
+    icon: payload.icon || "/icons/icon-192.png",
+    badge: payload.badge || "/icons/icon-192.png",
     data: payload.data || { url: "/" },
     tag: "pinly-pin",
   };

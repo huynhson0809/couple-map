@@ -182,7 +182,8 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     }
   }
 
-  function startReactionPress() {
+  function startReactionPress(event?: React.PointerEvent<HTMLButtonElement>) {
+    event?.preventDefault();
     if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
     longPressTimer.current = window.setTimeout(() => {
       setReactionPickerOpen(true);
@@ -190,7 +191,8 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     }, 360);
   }
 
-  function endReactionPress() {
+  function endReactionPress(event?: React.PointerEvent<HTMLButtonElement>) {
+    event?.preventDefault();
     if (!longPressTimer.current) return;
     window.clearTimeout(longPressTimer.current);
     longPressTimer.current = null;
@@ -352,6 +354,7 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
                     key={reaction.type}
                     type="button"
                     className="reaction-picker-btn"
+                    onPointerDown={(e) => e.preventDefault()}
                     onClick={() => handleReaction(reaction.type)}
                     aria-label={reaction.label}
                   >
@@ -366,12 +369,19 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
               className={`heart-action ${myReaction ? "active" : ""}`}
               onPointerDown={startReactionPress}
               onPointerUp={endReactionPress}
+              onPointerCancel={() => {
+                if (longPressTimer.current) {
+                  window.clearTimeout(longPressTimer.current);
+                  longPressTimer.current = null;
+                }
+              }}
               onPointerLeave={() => {
                 if (longPressTimer.current) {
                   window.clearTimeout(longPressTimer.current);
                   longPressTimer.current = null;
                 }
               }}
+              onSelect={(e) => e.preventDefault()}
               onContextMenu={(e) => {
                 e.preventDefault();
                 setReactionPickerOpen(true);

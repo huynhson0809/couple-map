@@ -41,8 +41,8 @@ export function useNotifications() {
       if (!document.hidden) return;
 
       const notifOpts: NotificationOptions = {
-        icon: "/favicon.svg",
-        badge: "/favicon.svg",
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
         ...opts,
       };
 
