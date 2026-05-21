@@ -16,7 +16,10 @@ export function CoupleProvider({
   const value = useCouple(userId)
   const { refresh } = value
   const refreshRef = useRef(refresh)
-  refreshRef.current = refresh
+
+  useEffect(() => {
+    refreshRef.current = refresh
+  }, [refresh])
 
   const coupleId = value.couple?.id
   const paired = !!value.couple?.user_b
@@ -60,6 +63,7 @@ export function CoupleProvider({
   return <CoupleCtx.Provider value={value}>{children}</CoupleCtx.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCoupleCtx() {
   const v = useContext(CoupleCtx)
   if (!v) throw new Error('useCoupleCtx must be used within CoupleProvider')

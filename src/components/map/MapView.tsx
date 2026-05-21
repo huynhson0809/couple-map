@@ -17,7 +17,7 @@ interface Props {
     accuracy?: number | null;
   }) => void;
   onMapCenterChange?: (coords: { lat: number; lng: number }) => void;
-  flyTo?: { lat: number; lng: number; key: number } | null;
+  flyTo?: { lat: number; lng: number; key: number; pinId?: string } | null;
   showHeatmap?: boolean;
   bucketItems?: { id: string; lat: number; lng: number }[];
   onBucketClick?: (id: string) => void;
@@ -63,6 +63,8 @@ export function MapView({
   const onUserLocationRef = useRef(onUserLocation);
   const onMapCenterChangeRef = useRef(onMapCenterChange);
   const newestPinIdRef = useRef(newestPinId);
+  const highlightedPinIdRef = useRef<string | null>(null);
+  const pendingFlyToRef = useRef<Props["flyTo"]>(null);
 
   useEffect(() => {
     pinsRef.current = pins;
@@ -85,6 +87,17 @@ export function MapView({
     }));
     const groups: Group[] = [];
     const taken = new Set<string>();
+    const highlightedItem = highlightedPinIdRef.current
+      ? items.find((item) => item.pin.id === highlightedPinIdRef.current)
+      : undefined;
+    if (highlightedItem) {
+      taken.add(highlightedItem.pin.id);
+      groups.push({
+        key: `pin:${highlightedItem.pin.id}`,
+        center: { lat: highlightedItem.pin.lat, lng: highlightedItem.pin.lng },
+        pins: [highlightedItem.pin],
+      });
+    }
     for (const it of items) {
       if (taken.has(it.pin.id)) continue;
       taken.add(it.pin.id);
@@ -124,6 +137,8 @@ export function MapView({
     el.className = "circle-marker";
     if (newestPinIdRef.current && p.id === newestPinIdRef.current)
       el.classList.add("pulse");
+    if (highlightedPinIdRef.current && p.id === highlightedPinIdRef.current)
+      el.classList.add("showing");
     el.style.borderColor = pinColor(p);
     const cat = getCategory(p.category);
     if (p.marker_image_url) {
@@ -223,6 +238,34 @@ export function MapView({
     onMapCenterChangeRef.current?.({ lat: center.lat, lng: center.lng });
   }
 
+  function rebuildMarkers() {
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current.clear();
+    if (styleLoadedRef.current) renderMarkers();
+  }
+
+  function applyFlyTo(target: NonNullable<Props["flyTo"]>) {
+    const map = mapRef.current;
+    if (!map) return;
+    highlightedPinIdRef.current = target.pinId ?? null;
+    rebuildMarkers();
+    map.flyTo({
+      center: [target.lng, target.lat],
+      zoom: 19,
+      speed: 0.82,
+      curve: 1.2,
+      essential: true,
+    });
+    map.once("moveend", () => {
+      rebuildMarkers();
+    });
+    window.setTimeout(() => {
+      if (highlightedPinIdRef.current !== target.pinId) return;
+      highlightedPinIdRef.current = null;
+      rebuildMarkers();
+    }, 5000);
+  }
+
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
@@ -297,6 +340,7 @@ export function MapView({
       fitToPinsOnce(map);
       emitMapCenter(map);
       renderMarkers();
+      if (pendingFlyToRef.current) applyFlyTo(pendingFlyToRef.current);
       requestAnimationFrame(() => map.resize());
     });
     map.on("moveend", () => {
@@ -370,9 +414,9 @@ export function MapView({
 
   // Fly to
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !flyTo) return;
-    map.flyTo({ center: [flyTo.lng, flyTo.lat], zoom: 16, speed: 1.2 });
+    pendingFlyToRef.current = flyTo;
+    if (flyTo) applyFlyTo(flyTo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flyTo]);
 
   // Heatmap

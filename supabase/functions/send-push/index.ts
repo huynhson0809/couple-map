@@ -1,6 +1,6 @@
 // Supabase Edge Function: send-push
-// Triggered by DB webhook on pins INSERT.
-// Reads partner's push subscriptions and sends Web Push notification.
+// Triggered by DB webhook on pins INSERT or directly by the app for interactions.
+// Reads recipient's push subscriptions and sends Web Push notification.
 //
 // Deploy: supabase functions deploy send-push --no-verify-jwt
 // Env vars needed: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
@@ -9,15 +9,26 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import webpush from "npm:web-push@3.6.7";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   try {
     const body = await req.json();
     const { record } = body;
+    const eventType = body.event_type || body.type || "memory_added";
 
-    if (!record || !record.couple_id || !record.created_by) {
+    if (!record) {
       return new Response(JSON.stringify({ error: "Invalid payload" }), {
         status: 400,
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -34,40 +45,96 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Find partner's user_id in the couple
-    const { data: couple } = await supabase
-      .from("couples")
-      .select("user_a, user_b")
-      .eq("id", record.couple_id)
-      .single();
+    let recipientId: string | null = null;
+    let actorId: string | null = null;
+    const notificationKind: "memory_added" | "reactions" | "comments" =
+      eventType === "reaction"
+        ? "reactions"
+        : eventType === "comment"
+          ? "comments"
+          : "memory_added";
+    let pinTitle = record.title || "một kỷ niệm";
+    let pinId = record.id || record.pin_id;
 
-    if (!couple) {
-      return new Response(JSON.stringify({ error: "Couple not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
+    if (eventType === "reaction" || eventType === "comment") {
+      actorId = record.user_id;
+      if (!record.pin_id || !actorId) {
+        return new Response(JSON.stringify({ error: "Invalid interaction payload" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: pin } = await supabase
+        .from("pins")
+        .select("id,title,created_by")
+        .eq("id", record.pin_id)
+        .single();
+
+      if (!pin) {
+        return new Response(JSON.stringify({ error: "Pin not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      recipientId = pin.created_by;
+      pinTitle = pin.title || pinTitle;
+      pinId = pin.id;
+    } else {
+      actorId = record.created_by;
+      if (!record.couple_id || !actorId) {
+        return new Response(JSON.stringify({ error: "Invalid pin payload" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: couple } = await supabase
+        .from("couples")
+        .select("user_a, user_b")
+        .eq("id", record.couple_id)
+        .single();
+
+      if (!couple) {
+        return new Response(JSON.stringify({ error: "Couple not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      recipientId = couple.user_a === actorId ? couple.user_b : couple.user_a;
     }
 
-    const partnerId =
-      couple.user_a === record.created_by ? couple.user_b : couple.user_a;
-
-    if (!partnerId) {
-      return new Response(JSON.stringify({ message: "No partner yet" }), {
+    if (!recipientId || recipientId === actorId) {
+      return new Response(JSON.stringify({ message: "No recipient" }), {
         status: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Get partner's push subscriptions
+    const { data: pref } = await supabase
+      .from("notification_preferences")
+      .select("memory_added,reactions,comments")
+      .eq("user_id", recipientId)
+      .maybeSingle();
+
+    if (pref && pref[notificationKind] === false) {
+      return new Response(JSON.stringify({ message: "Notification disabled" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { data: subscriptions } = await supabase
       .from("push_subscriptions")
       .select("endpoint, p256dh, auth")
-      .eq("user_id", partnerId);
+      .eq("user_id", recipientId);
 
     if (!subscriptions || subscriptions.length === 0) {
       return new Response(
         JSON.stringify({ message: "No push subscriptions for partner" }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -75,18 +142,33 @@ serve(async (req) => {
     const { data: creator } = await supabase
       .from("users")
       .select("display_name")
-      .eq("id", record.created_by)
+      .eq("id", actorId)
       .single();
 
     const creatorName = creator?.display_name || "Người yêu";
-    const pinTitle = record.title || "một địa điểm mới";
+    const reaction = record.reaction || "love";
+    const bodyPreview = record.body ? `“${String(record.body).slice(0, 80)}”` : pinTitle;
+
+    const title =
+      eventType === "reaction"
+        ? `💞 ${creatorName} đã bày tỏ cảm xúc`
+        : eventType === "comment"
+          ? `💬 ${creatorName} đã bình luận`
+          : `📍 ${creatorName} đã ghim`;
+
+    const notificationBody =
+      eventType === "reaction"
+        ? `${reaction} · ${pinTitle}`
+        : eventType === "comment"
+          ? bodyPreview
+          : pinTitle;
 
     const notificationPayload = JSON.stringify({
-      title: `📍 ${creatorName} đã ghim`,
-      body: pinTitle,
+      title,
+      body: notificationBody,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
-      data: { url: "/" },
+      data: { url: pinId ? `/?pin=${pinId}` : "/" },
     });
 
     // Send to all subscriptions
@@ -121,13 +203,13 @@ serve(async (req) => {
         sent,
         total: subscriptions.length,
       }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
     console.error("send-push error:", err);
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

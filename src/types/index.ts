@@ -31,10 +31,30 @@ export interface Pin {
   category: string | null
   marker_emoji: string | null
   marker_image_url: string | null
+  is_favorite: boolean
   created_at: string
   updated_at: string
   images?: PinImage[]
   creator?: User
+}
+
+export interface PinReaction {
+  pin_id: string
+  user_id: string
+  reaction: ReactionType
+  created_at: string
+}
+
+export type ReactionType = 'like' | 'love' | 'care' | 'haha' | 'wow' | 'sad' | 'angry'
+
+export interface PinComment {
+  id: string
+  pin_id: string
+  user_id: string
+  body: string
+  created_at: string
+  updated_at: string
+  author?: User | null
 }
 
 export interface PinImage {

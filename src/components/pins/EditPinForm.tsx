@@ -140,9 +140,14 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     setExistingImages((prev) => prev.filter((i) => i.id !== img.id))
   }
 
-  function handleAddMedia(files: FileList | null) {
-    if (!files) return
-    const arr = Array.from(files)
+  function handleAddMedia(files: FileList | null, kind: 'image' | 'video') {
+    const arr = Array.from(files ?? []).filter((file) => {
+      if (file.size <= 0) return false
+      return kind === 'video'
+        ? file.type.startsWith('video/')
+        : file.type.startsWith('image/')
+    })
+    if (arr.length === 0) return
     for (const f of arr) {
       if (f.type.startsWith('video/') && f.size > MAX_VIDEO_BYTES) {
         setError(`Video quá lớn (tối đa ${MAX_VIDEO_BYTES / 1024 / 1024}MB)`)
@@ -404,10 +409,24 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
           ))}
         </div>
         <div className="row" style={{ marginTop: 8 }}>
-          <button type="button" className="photo-btn small" onClick={() => mediaInput.current?.click()}>
+          <button
+            type="button"
+            className="photo-btn small"
+            onClick={() => {
+              if (mediaInput.current) mediaInput.current.value = ''
+              mediaInput.current?.click()
+            }}
+          >
             <ImageUp size={16} /> {t('pin.addPhoto')}
           </button>
-          <button type="button" className="photo-btn small" onClick={() => videoInput.current?.click()}>
+          <button
+            type="button"
+            className="photo-btn small"
+            onClick={() => {
+              if (videoInput.current) videoInput.current.value = ''
+              videoInput.current?.click()
+            }}
+          >
             <Video size={16} /> {t('pin.addVideo')}
           </button>
         </div>
@@ -417,14 +436,14 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
           accept="image/*"
           multiple
           style={{ display: 'none' }}
-          onChange={(e) => { handleAddMedia(e.target.files); e.target.value = '' }}
+          onChange={(e) => { handleAddMedia(e.target.files, 'image'); e.target.value = '' }}
         />
         <input
           ref={videoInput}
           type="file"
           accept="video/*"
           style={{ display: 'none' }}
-          onChange={(e) => { handleAddMedia(e.target.files); e.target.value = '' }}
+          onChange={(e) => { handleAddMedia(e.target.files, 'video'); e.target.value = '' }}
         />
       </div>
 

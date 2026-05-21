@@ -55,7 +55,10 @@ export function useCouple(userId: string | undefined) {
   }, [userId])
 
   useEffect(() => {
-    refresh()
+    const timer = window.setTimeout(() => {
+      void refresh()
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [refresh])
 
   const createCouple = useCallback(async () => {

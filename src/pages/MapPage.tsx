@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { useI18n } from "../hooks/I18nContext";
 import { MapView } from "../components/map/MapView";
@@ -15,18 +15,19 @@ import { useMapStyle } from "../hooks/useMapStyle";
 import type { Pin } from "../types";
 
 interface FlyToState {
-  flyTo?: { lat: number; lng: number; pinId?: string };
+  flyTo?: { lat: number; lng: number; pinId?: string; openDetail?: boolean };
 }
 
 export function MapPage() {
   const { user } = useAuth();
   const { t } = useI18n();
-  const { couple, partner } = useCoupleCtx();
+  const { couple, profile, partner } = useCoupleCtx();
   const { pins, deletePin, fetchPins } = usePinsCtx();
   const { items: bucketItems } = useBucket(couple?.id, user?.id);
   const { getCurrentPosition } = useGeo();
   const { styleUrl } = useMapStyle();
   const routeLocation = useLocation();
+  const navigate = useNavigate();
 
   const newestPinId =
     pins.length > 0
@@ -45,7 +46,9 @@ export function MapPage() {
     lat: number;
     lng: number;
     key: number;
+    pinId?: string;
   } | null>(null);
+  const [pendingPinId, setPendingPinId] = useState<string | null>(null);
   const [lastUserLocation, setLastUserLocation] = useState<{
     lat: number;
     lng: number;
@@ -57,16 +60,25 @@ export function MapPage() {
 
   useEffect(() => {
     const s = routeLocation.state as FlyToState | null;
-    if (s?.flyTo) {
-      flyKey.current += 1;
-      setFlyTo({ ...s.flyTo, key: flyKey.current });
-      if (s.flyTo.pinId) {
-        const p = pins.find((x) => x.id === s.flyTo!.pinId);
-        if (p) setSelectedPin(p);
-      }
-      window.history.replaceState({}, "");
-    }
-  }, [routeLocation.state, pins]);
+    if (!s?.flyTo) return;
+
+    flyKey.current += 1;
+    setFlyTo({ ...s.flyTo, key: flyKey.current });
+    setPendingPinId(s.flyTo.openDetail === false ? null : (s.flyTo.pinId ?? null));
+    navigate(`${routeLocation.pathname}${routeLocation.search}`, {
+      replace: true,
+      state: null,
+    });
+  }, [navigate, routeLocation.key, routeLocation.pathname, routeLocation.search, routeLocation.state]);
+
+  useEffect(() => {
+    if (!pendingPinId) return;
+    const p = pins.find((x) => x.id === pendingPinId);
+    if (!p) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedPin(p);
+    setPendingPinId(null);
+  }, [pendingPinId, pins]);
 
   const handleLongPress = useCallback((c: { lat: number; lng: number }) => {
     setNewPinCoords(c);
@@ -150,6 +162,7 @@ export function MapPage() {
           <PinDetail
             pin={pins.find((p) => p.id === selectedPin.id) ?? selectedPin}
             currentUserId={user.id}
+            currentUserName={profile?.display_name ?? user.email ?? null}
             onDelete={async (id) => {
               await deletePin(id);
               setSelectedPin(null);

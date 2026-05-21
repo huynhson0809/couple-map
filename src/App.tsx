@@ -51,7 +51,7 @@ function PairedShell() {
   const shellStyle =
     bgUrl && !isMap
       ? ({
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.78), rgba(255,255,255,0.92)), url(${getImageUrl(
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.16), rgba(255,255,255,0.36)), url(${getImageUrl(
             bgUrl,
             1200,
           )})`,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { RefreshCw } from 'lucide-react'
 
@@ -18,11 +18,7 @@ export function UpdatePrompt() {
     },
   })
 
-  useEffect(() => {
-    if (needRefresh) setShow(true)
-  }, [needRefresh])
-
-  if (!show) return null
+  if (!show && !needRefresh) return null
 
   return (
     <div className="update-prompt">

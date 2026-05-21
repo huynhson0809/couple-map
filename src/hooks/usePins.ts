@@ -122,7 +122,7 @@ export function usePins(coupleId: string | null | undefined, userId: string | un
   const updatePin = useCallback(
     async (
       id: string,
-      patch: Partial<Pick<Pin, 'title' | 'note' | 'category' | 'marker_emoji' | 'marker_image_url'>>,
+      patch: Partial<Pick<Pin, 'title' | 'note' | 'category' | 'marker_emoji' | 'marker_image_url' | 'is_favorite'>>,
     ) => {
       const { data, error } = await supabase
         .from('pins')

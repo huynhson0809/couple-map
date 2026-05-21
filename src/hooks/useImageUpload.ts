@@ -11,8 +11,13 @@ export function useImageUpload(folder = 'pinly') {
     setProgress(0)
     try {
       const results: CloudinaryUploadResult[] = []
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]
+      const validFiles = files.filter(
+        (file) =>
+          file.size > 0 &&
+          (file.type.startsWith('image/') || file.type.startsWith('video/')),
+      )
+      for (let i = 0; i < validFiles.length; i++) {
+        const file = validFiles[i]
         let toUpload: File
 
         if (file.type.startsWith('video/')) {
@@ -26,7 +31,7 @@ export function useImageUpload(folder = 'pinly') {
 
         const res = await uploadToCloudinary(toUpload, { folder })
         results.push(res)
-        setProgress(Math.round(((i + 1) / files.length) * 100))
+        setProgress(Math.round(((i + 1) / validFiles.length) * 100))
       }
       return results
     } finally {

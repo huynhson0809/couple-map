@@ -12,6 +12,7 @@ import {
   Bell,
   BellOff,
   RefreshCw,
+  CheckCircle2,
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
@@ -20,6 +21,7 @@ import { isDarkModeEnabled, useTheme } from "../hooks/ThemeContext";
 import { useI18n } from "../hooks/I18nContext";
 import { useNotifications } from "../hooks/useNotifications";
 import { usePushSubscription } from "../hooks/usePushSubscription";
+import { useNotificationPreferences } from "../hooks/useNotificationPreferences";
 import { useMapStyle, MAP_STYLES } from "../hooks/useMapStyle";
 import { Button } from "../components/ui/Button";
 import { compressImage } from "../lib/imageCompress";
@@ -32,6 +34,7 @@ export function SettingsPage() {
   const { lang, setLang, t } = useI18n();
   const notif = useNotifications();
   const push = usePushSubscription(user?.id);
+  const notifPrefs = useNotificationPreferences(user?.id);
   const { styleId, setStyleId } = useMapStyle();
   const [copied, setCopied] = useState(false);
   const [annivDate, setAnnivDate] = useState(couple?.anniversary_date ?? "");
@@ -64,7 +67,9 @@ export function SettingsPage() {
     setBgError(null);
     try {
       const compressed = await compressImage(file);
-      const res = await uploadToCloudinary(compressed, { folder: `pinly/${couple?.id ?? "shared"}` });
+      const res = await uploadToCloudinary(compressed, {
+        folder: `pinly/${couple?.id ?? "shared"}`,
+      });
       await updateCouple({ background_image_url: res.url });
     } catch (e) {
       setBgError(e instanceof Error ? e.message : String(e));
@@ -94,7 +99,7 @@ export function SettingsPage() {
         </div>
 
         {showDarkToggle && (
-          <div className="setting-row">
+          <div className="setting-row compact">
             <span>{t("settings.theme")}</span>
             <div className="seg">
               <button
@@ -113,7 +118,7 @@ export function SettingsPage() {
           </div>
         )}
 
-        <div className="setting-row">
+        <div className="setting-row compact">
           {showDarkToggle ? (
             <span>
               <Globe
@@ -161,6 +166,11 @@ export function SettingsPage() {
               <div className="map-style-label">
                 {lang === "vi" ? s.labelVi : s.labelEn}
               </div>
+              {styleId === s.id && (
+                <span className="map-style-selected" aria-hidden="true">
+                  <CheckCircle2 size={16} />
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -210,6 +220,52 @@ export function SettingsPage() {
             </div>
           )}
         </div>
+        {push.subscribed && (
+          <div className="notif-pref-list">
+            <label className="notif-pref-row">
+              <span>
+                <strong>{t("notif.memoryAdded")}</strong>
+                <small>{t("notif.memoryAddedHint")}</small>
+              </span>
+              <input
+                type="checkbox"
+                checked={notifPrefs.prefs.memory_added}
+                disabled={notifPrefs.loading}
+                onChange={(e) =>
+                  notifPrefs.updatePrefs({ memory_added: e.target.checked })
+                }
+              />
+            </label>
+            <label className="notif-pref-row">
+              <span>
+                <strong>{t("notif.reactions")}</strong>
+                <small>{t("notif.reactionsHint")}</small>
+              </span>
+              <input
+                type="checkbox"
+                checked={notifPrefs.prefs.reactions}
+                disabled={notifPrefs.loading}
+                onChange={(e) =>
+                  notifPrefs.updatePrefs({ reactions: e.target.checked })
+                }
+              />
+            </label>
+            <label className="notif-pref-row">
+              <span>
+                <strong>{t("notif.comments")}</strong>
+                <small>{t("notif.commentsHint")}</small>
+              </span>
+              <input
+                type="checkbox"
+                checked={notifPrefs.prefs.comments}
+                disabled={notifPrefs.loading}
+                onChange={(e) =>
+                  notifPrefs.updatePrefs({ comments: e.target.checked })
+                }
+              />
+            </label>
+          </div>
+        )}
       </section>
 
       {couple && (

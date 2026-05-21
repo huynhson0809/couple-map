@@ -22,7 +22,10 @@ export function useBucket(coupleId: string | null | undefined, userId: string | 
   }, [coupleId])
 
   useEffect(() => {
-    fetchItems()
+    const timer = window.setTimeout(() => {
+      void fetchItems()
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [fetchItems])
 
   const addItem = useCallback(

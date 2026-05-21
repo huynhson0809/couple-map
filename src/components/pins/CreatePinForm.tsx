@@ -108,9 +108,14 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
     }, 400)
   }, [address, addressEdited, pinCoords.lat, pinCoords.lng])
 
-  function addFiles(list: FileList | null) {
-    if (!list) return
-    const incoming = Array.from(list)
+  function addFiles(list: FileList | null, kind: 'image' | 'video') {
+    const incoming = Array.from(list ?? []).filter((file) => {
+      if (file.size <= 0) return false
+      return kind === 'video'
+        ? file.type.startsWith('video/')
+        : file.type.startsWith('image/')
+    })
+    if (incoming.length === 0) return
     // Validate video size
     for (const f of incoming) {
       if (f.type.startsWith('video/') && f.size > MAX_VIDEO_BYTES) {
@@ -455,7 +460,10 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
           <button
             type="button"
             className="photo-btn"
-            onClick={() => cameraInput.current?.click()}
+            onClick={() => {
+              if (cameraInput.current) cameraInput.current.value = ''
+              cameraInput.current?.click()
+            }}
             disabled={files.length >= 5}
           >
             <Camera size={20} /> {t('pin.takePhoto')}
@@ -463,7 +471,10 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
           <button
             type="button"
             className="photo-btn"
-            onClick={() => libraryInput.current?.click()}
+            onClick={() => {
+              if (libraryInput.current) libraryInput.current.value = ''
+              libraryInput.current?.click()
+            }}
             disabled={files.length >= 5}
           >
             <ImagePlus size={20} /> {t('pin.fromLibrary')}
@@ -471,7 +482,10 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
           <button
             type="button"
             className="photo-btn"
-            onClick={() => videoInput.current?.click()}
+            onClick={() => {
+              if (videoInput.current) videoInput.current.value = ''
+              videoInput.current?.click()
+            }}
             disabled={files.length >= 5}
           >
             <Video size={20} /> {t('pin.addVideo')}
@@ -483,7 +497,7 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
           accept="image/*"
           capture="environment"
           onChange={(e) => {
-            addFiles(e.target.files)
+            addFiles(e.target.files, 'image')
             e.target.value = ''
           }}
           style={{ display: 'none' }}
@@ -494,7 +508,7 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
           accept="image/*"
           multiple
           onChange={(e) => {
-            addFiles(e.target.files)
+            addFiles(e.target.files, 'image')
             e.target.value = ''
           }}
           style={{ display: 'none' }}
@@ -504,7 +518,7 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
           type="file"
           accept="video/*"
           onChange={(e) => {
-            addFiles(e.target.files)
+            addFiles(e.target.files, 'video')
             e.target.value = ''
           }}
           style={{ display: 'none' }}
