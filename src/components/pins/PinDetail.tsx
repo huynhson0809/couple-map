@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Trash2,
   MapPin,
@@ -12,7 +12,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import type { Pin } from "../../types";
-import { getImageUrl, isVideoUrl, getVideoUrl } from "../../lib/cloudinary";
+import { getImageUrl, isVideoUrl, getVideoUrl, getVideoThumbnailUrl } from "../../lib/cloudinary";
 import { Button } from "../ui/Button";
 import { ImageLightbox } from "../ui/ImageLightbox";
 import { EditPinForm } from "./EditPinForm";
@@ -95,6 +95,8 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState("");
   const [commentMenuOpenId, setCommentMenuOpenId] = useState<string | null>(null);
+  const [commentReactionPickerOpenId, setCommentReactionPickerOpenId] = useState<string | null>(null);
+  const [replyingToComment, setReplyingToComment] = useState<{ id: string; name: string } | null>(null);
   const [pinActionMenuOpen, setPinActionMenuOpen] = useState(false);
   const longPressTimer = useRef<number | null>(null);
   const reactionWrapRef = useRef<HTMLDivElement | null>(null);
@@ -103,11 +105,13 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     reactionCount,
     myReaction,
     comments,
+    commentReactions,
     loading: interactionsLoading,
     setReaction,
     addComment,
     updateComment,
     deleteComment,
+    setCommentReaction,
   } = usePinInteractions(pin.id, currentUserId);
 
   const isMine = pin.created_by === currentUserId;
@@ -115,7 +119,11 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
   const ageMs = Date.now() - new Date(pin.created_at).getTime();
   const withinEditWindow = ageMs < EDIT_WINDOW_MS;
   const canEdit = isMine && withinEditWindow;
-  const images = pin.images ?? [];
+  const images = useMemo(() => pin.images ?? [], [pin.images]);
+  const photoImages = useMemo(
+    () => images.filter((img) => !isVideoUrl(img.cloudinary_url)),
+    [images],
+  );
 
   const displayedFavorite =
     favoriteOverride?.pinId === pin.id ? favoriteOverride.value : pin.is_favorite;
@@ -141,6 +149,17 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     window.addEventListener("pointerdown", handleOutsidePointer);
     return () => window.removeEventListener("pointerdown", handleOutsidePointer);
   }, [commentMenuOpenId]);
+
+  useEffect(() => {
+    if (!commentReactionPickerOpenId) return;
+    function handleOutsidePointer(event: PointerEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-comment-reaction-picker]")) return;
+      setCommentReactionPickerOpenId(null);
+    }
+    window.addEventListener("pointerdown", handleOutsidePointer);
+    return () => window.removeEventListener("pointerdown", handleOutsidePointer);
+  }, [commentReactionPickerOpenId]);
 
   useEffect(() => {
     if (!pinActionMenuOpen) return;
@@ -234,8 +253,9 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     setSendingComment(true);
     setInteractionError(null);
     try {
-      await addComment(body);
+      await addComment(body, replyingToComment?.id ?? null);
       setCommentText("");
+      setReplyingToComment(null);
     } catch (err) {
       setInteractionError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -272,6 +292,16 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     }
   }
 
+  async function handleCommentReaction(commentId: string, reaction: ReactionType) {
+    setInteractionError(null);
+    setCommentReactionPickerOpenId(null);
+    try {
+      await setCommentReaction(commentId, reaction);
+    } catch (err) {
+      setInteractionError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   function displayName(userId: string, authorName: string | null | undefined) {
     if (userId === currentUserId) return t("common.you");
     return authorName || t("common.partner");
@@ -283,10 +313,198 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     return (trimmed.match(/\p{L}/u)?.[0] ?? "?").toUpperCase();
   }
 
+  function startReply(commentId: string, userId: string, authorName: string | null | undefined) {
+    setReplyingToComment({
+      id: commentId,
+      name: displayName(userId, authorName),
+    });
+  }
+
+  function openPhotoLightbox(imageId: string) {
+    const index = photoImages.findIndex((photo) => photo.id === imageId);
+    if (index >= 0) setLightboxIndex(index);
+  }
+
   const currentReaction = reactionMeta(myReaction);
   const reactionSummary = REACTIONS
     .filter((r) => reactions.some((item) => item.reaction === r.type))
     .slice(0, 3);
+  const topLevelComments = useMemo(
+    () => comments.filter((comment) => !comment.parent_comment_id),
+    [comments],
+  );
+  const repliesByComment = useMemo(() => {
+    const map = new Map<string, typeof comments>();
+    comments.forEach((comment) => {
+      if (!comment.parent_comment_id) return;
+      const replies = map.get(comment.parent_comment_id) ?? [];
+      replies.push(comment);
+      map.set(comment.parent_comment_id, replies);
+    });
+    return map;
+  }, [comments]);
+
+  function commentReactionCount(commentId: string) {
+    return commentReactions.filter((item) => item.comment_id === commentId).length;
+  }
+
+  function myCommentReaction(commentId: string) {
+    return commentReactions.find(
+      (item) => item.comment_id === commentId && item.user_id === currentUserId,
+    )?.reaction ?? null;
+  }
+
+  function commentReactionSummary(commentId: string) {
+    return REACTIONS
+      .filter((reaction) =>
+        commentReactions.some(
+          (item) => item.comment_id === commentId && item.reaction === reaction.type,
+        ),
+      )
+      .slice(0, 3);
+  }
+
+  function renderComment(comment: (typeof comments)[number], isReply = false) {
+    const mine = comment.user_id === currentUserId;
+    const count = commentReactionCount(comment.id);
+    const myCommentReactionType = myCommentReaction(comment.id);
+    const currentCommentReaction = reactionMeta(myCommentReactionType);
+    const commentSummary = commentReactionSummary(comment.id);
+
+    return (
+      <div key={comment.id} className={`pin-comment ${isReply ? "reply" : ""}`}>
+        <div className="pin-comment-avatar">
+          {avatarInitial(comment.user_id, comment.author?.display_name)}
+        </div>
+        <div className="pin-comment-main">
+          <div className="pin-comment-meta">
+            <strong>{displayName(comment.user_id, comment.author?.display_name)}</strong>
+            <span>{formatCommentTime(comment.created_at, lang)}</span>
+          </div>
+          {editingCommentId === comment.id ? (
+            <form className="pin-comment-edit-form" onSubmit={handleSaveEditedComment}>
+              <input
+                type="text"
+                value={editingCommentText}
+                onChange={(e) => setEditingCommentText(e.target.value)}
+                maxLength={500}
+                autoFocus
+              />
+              <div className="pin-comment-edit-actions">
+                <button type="submit" disabled={!editingCommentText.trim()}>
+                  {t("common.save")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingCommentId(null);
+                    setEditingCommentText("");
+                  }}
+                >
+                  {t("common.cancel")}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <p>{comment.body}</p>
+              <div className="pin-comment-inline-actions">
+                <div className="pin-comment-reaction-wrap" data-comment-reaction-picker>
+                  {commentReactionPickerOpenId === comment.id && (
+                    <div className="reaction-picker comment-reaction-picker" role="menu">
+                      {REACTIONS.map((reaction) => (
+                        <button
+                          key={reaction.type}
+                          type="button"
+                          className="reaction-picker-btn"
+                          onPointerDown={(e) => e.preventDefault()}
+                          onClick={() => handleCommentReaction(comment.id, reaction.type)}
+                          aria-label={reaction.label}
+                        >
+                          {reaction.emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className={`pin-comment-reaction-btn ${myCommentReactionType ? "active" : ""}`}
+                    onClick={() =>
+                      setCommentReactionPickerOpenId((openId) =>
+                        openId === comment.id ? null : comment.id,
+                      )
+                    }
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setCommentReactionPickerOpenId(comment.id);
+                    }}
+                    aria-expanded={commentReactionPickerOpenId === comment.id}
+                  >
+                    {currentCommentReaction ? (
+                      <span className="pin-comment-reaction-emoji">{currentCommentReaction.emoji}</span>
+                    ) : commentSummary.length > 0 ? (
+                      <span className="pin-comment-reaction-stack">
+                        {commentSummary.map((reaction) => (
+                          <span key={reaction.type}>{reaction.emoji}</span>
+                        ))}
+                      </span>
+                    ) : (
+                      <Heart size={12} />
+                    )}
+                    <span>{count > 0 ? count : t("pin.react")}</span>
+                  </button>
+                </div>
+                {!isReply && (
+                  <button
+                    type="button"
+                    onClick={() => startReply(comment.id, comment.user_id, comment.author?.display_name)}
+                  >
+                    {t("pin.reply")}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+        {mine && editingCommentId !== comment.id && (
+          <div className="pin-comment-actions" data-comment-actions>
+            <button
+              type="button"
+              className="pin-comment-menu-button"
+              onClick={() =>
+                setCommentMenuOpenId((openId) =>
+                  openId === comment.id ? null : comment.id,
+                )
+              }
+              aria-label={t("pin.commentActions")}
+              aria-expanded={commentMenuOpenId === comment.id}
+            >
+              <MoreHorizontal size={16} />
+            </button>
+            {commentMenuOpenId === comment.id && (
+              <div className="pin-comment-menu">
+                <button
+                  type="button"
+                  onClick={() => startEditComment(comment.id, comment.body)}
+                >
+                  <Pencil size={13} />
+                  <span>{t("pin.edit")}</span>
+                </button>
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={() => handleDeleteComment(comment.id)}
+                >
+                  <Trash2 size={13} />
+                  <span>{t("pin.delete")}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (editing) {
     return (
@@ -305,15 +523,15 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     <div className="pin-detail">
       {images.length > 0 && (
         <div className="image-strip">
-          {images.map((img, i) => (
+          {images.map((img) => (
             isVideoUrl(img.cloudinary_url) ? (
               <div key={img.id} className="image-strip-item video-item">
                 <video
                   src={getVideoUrl(img.cloudinary_url)}
+                  poster={getVideoThumbnailUrl(img.cloudinary_url, 720)}
                   controls
                   playsInline
                   preload="metadata"
-                  style={{ width: '100%', borderRadius: 8 }}
                 />
               </div>
             ) : (
@@ -321,7 +539,7 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
                 key={img.id}
                 type="button"
                 className="image-strip-item"
-                onClick={() => setLightboxIndex(i)}
+                onClick={() => openPhotoLightbox(img.id)}
                 aria-label="View full image"
               >
                 <img src={getImageUrl(img.cloudinary_url, 800)} alt="" />
@@ -332,7 +550,7 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
       )}
       {lightboxIndex !== null && (
         <ImageLightbox
-          images={images.map((img) => ({
+          images={photoImages.map((img) => ({
             id: img.id,
             url: getImageUrl(img.cloudinary_url, 1600, 90),
           }))}
@@ -508,90 +726,29 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
         </div>
         {interactionError && <p className="error small">{interactionError}</p>}
         <div className="pin-comments-list">
-          {comments.length === 0 && !interactionsLoading ? (
+          {topLevelComments.length === 0 && !interactionsLoading ? (
             <p className="muted small pin-comments-empty">{t("pin.noComments")}</p>
           ) : (
-            comments.map((comment) => {
-              const mine = comment.user_id === currentUserId;
-              return (
-                <div key={comment.id} className="pin-comment">
-                  <div className="pin-comment-avatar">
-                    {avatarInitial(comment.user_id, comment.author?.display_name)}
-                  </div>
-                  <div className="pin-comment-main">
-                    <div className="pin-comment-meta">
-                      <strong>{displayName(comment.user_id, comment.author?.display_name)}</strong>
-                      <span>{formatCommentTime(comment.created_at, lang)}</span>
-                    </div>
-                    {editingCommentId === comment.id ? (
-                      <form className="pin-comment-edit-form" onSubmit={handleSaveEditedComment}>
-                        <input
-                          type="text"
-                          value={editingCommentText}
-                          onChange={(e) => setEditingCommentText(e.target.value)}
-                          maxLength={500}
-                          autoFocus
-                        />
-                        <div className="pin-comment-edit-actions">
-                          <button type="submit" disabled={!editingCommentText.trim()}>
-                            {t("common.save")}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingCommentId(null);
-                              setEditingCommentText("");
-                            }}
-                          >
-                            {t("common.cancel")}
-                          </button>
-                        </div>
-                      </form>
-                    ) : (
-                      <p>{comment.body}</p>
-                    )}
-                  </div>
-                  {mine && editingCommentId !== comment.id && (
-                    <div className="pin-comment-actions" data-comment-actions>
-                      <button
-                        type="button"
-                        className="pin-comment-menu-button"
-                        onClick={() =>
-                          setCommentMenuOpenId((openId) =>
-                            openId === comment.id ? null : comment.id,
-                          )
-                        }
-                        aria-label={t("pin.commentActions")}
-                        aria-expanded={commentMenuOpenId === comment.id}
-                      >
-                        <MoreHorizontal size={16} />
-                      </button>
-                      {commentMenuOpenId === comment.id && (
-                        <div className="pin-comment-menu">
-                          <button
-                            type="button"
-                            onClick={() => startEditComment(comment.id, comment.body)}
-                          >
-                            <Pencil size={13} />
-                            <span>{t("pin.edit")}</span>
-                          </button>
-                          <button
-                            type="button"
-                            className="danger"
-                            onClick={() => handleDeleteComment(comment.id)}
-                          >
-                            <Trash2 size={13} />
-                            <span>{t("pin.delete")}</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })
+            topLevelComments.map((comment) => (
+              <div key={comment.id} className="pin-comment-thread">
+                {renderComment(comment)}
+                {(repliesByComment.get(comment.id) ?? []).map((reply) =>
+                  renderComment(reply, true),
+                )}
+              </div>
+            ))
           )}
         </div>
+        {replyingToComment && (
+          <div className="pin-comment-replying">
+            <span>
+              {t("pin.replyingTo")} <strong>{replyingToComment.name}</strong>
+            </span>
+            <button type="button" onClick={() => setReplyingToComment(null)}>
+              {t("common.cancel")}
+            </button>
+          </div>
+        )}
         <form className="pin-comment-form" onSubmit={handleAddComment}>
           <input
             type="text"

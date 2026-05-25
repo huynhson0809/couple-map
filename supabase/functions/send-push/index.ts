@@ -23,7 +23,7 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { record } = body;
-    const eventType = body.event_type || body.type || "memory_added";
+    const eventType = String(body.event_type || body.type || "memory_added");
 
     if (!record) {
       return new Response(JSON.stringify({ error: "Invalid payload" }), {
@@ -48,13 +48,12 @@ serve(async (req) => {
     let recipientId: string | null = null;
     let actorId: string | null = null;
     const notificationKind: "memory_added" | "reactions" | "comments" =
-      eventType === "reaction"
-        ? "reactions"
-        : eventType === "comment"
-          ? "comments"
-          : "memory_added";
+      eventType === "reaction" ? "reactions" :
+      eventType === "comment" || eventType === "comment_reply" || eventType === "comment_reaction" ? "comments" :
+      "memory_added";
     let pinTitle = record.title || "một kỷ niệm";
     let pinId = record.id || record.pin_id;
+    let interactionBody: string | null = record.body ? String(record.body) : null;
 
     if (eventType === "reaction" || eventType === "comment") {
       actorId = record.user_id;
@@ -81,6 +80,70 @@ serve(async (req) => {
       recipientId = pin.created_by;
       pinTitle = pin.title || pinTitle;
       pinId = pin.id;
+    } else if (eventType === "comment_reply") {
+      actorId = record.user_id;
+      if (!record.pin_id || !record.parent_comment_id || !actorId) {
+        return new Response(JSON.stringify({ error: "Invalid comment reply payload" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const [{ data: pin }, { data: parentComment }] = await Promise.all([
+        supabase
+          .from("pins")
+          .select("id,title,created_by")
+          .eq("id", record.pin_id)
+          .single(),
+        supabase
+          .from("pin_comments")
+          .select("id,user_id,body")
+          .eq("id", record.parent_comment_id)
+          .single(),
+      ]);
+
+      if (!pin) {
+        return new Response(JSON.stringify({ error: "Pin not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      recipientId = parentComment?.user_id ?? pin.created_by;
+      pinTitle = pin.title || pinTitle;
+      pinId = pin.id;
+    } else if (eventType === "comment_reaction") {
+      actorId = record.user_id;
+      if (!record.comment_id || !actorId) {
+        return new Response(JSON.stringify({ error: "Invalid comment reaction payload" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: comment } = await supabase
+        .from("pin_comments")
+        .select("id,pin_id,user_id,body")
+        .eq("id", record.comment_id)
+        .single();
+
+      if (!comment) {
+        return new Response(JSON.stringify({ error: "Comment not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: pin } = await supabase
+        .from("pins")
+        .select("id,title")
+        .eq("id", comment.pin_id)
+        .single();
+
+      recipientId = comment.user_id;
+      pinTitle = pin?.title || pinTitle;
+      pinId = comment.pin_id;
+      interactionBody = String(comment.body || "");
     } else {
       actorId = record.created_by;
       if (!record.couple_id || !actorId) {
@@ -147,20 +210,26 @@ serve(async (req) => {
 
     const creatorName = creator?.display_name || "Người yêu";
     const reaction = record.reaction || "love";
-    const bodyPreview = record.body ? `“${String(record.body).slice(0, 80)}”` : pinTitle;
+    const bodyPreview = interactionBody ? `“${interactionBody.slice(0, 80)}”` : pinTitle;
 
     const title =
       eventType === "reaction"
         ? `💞 ${creatorName} đã bày tỏ cảm xúc`
         : eventType === "comment"
           ? `💬 ${creatorName} đã bình luận`
-          : `📍 ${creatorName} đã ghim`;
+          : eventType === "comment_reply"
+            ? `↩️ ${creatorName} đã trả lời bình luận`
+            : eventType === "comment_reaction"
+              ? `💞 ${creatorName} đã thả tim bình luận`
+              : `📍 ${creatorName} đã ghim`;
 
     const notificationBody =
       eventType === "reaction"
         ? `${reaction} · ${pinTitle}`
-        : eventType === "comment"
+        : eventType === "comment" || eventType === "comment_reply"
           ? bodyPreview
+          : eventType === "comment_reaction"
+            ? `${reaction} · ${bodyPreview}`
           : pinTitle;
 
     const notificationPayload = JSON.stringify({

@@ -1,4 +1,4 @@
-import { normalizeAddress, normalizeCityName } from './locationNames'
+import { normalizeAddress, normalizeCityName, pickVietnamProvinceFromAddress, pickVietnamProvinceFromParts } from './locationNames'
 
 export interface PlaceSearchResult {
   display_name: string
@@ -87,14 +87,22 @@ async function searchMapbox(query: string, options: SearchOptions): Promise<Plac
       const context = props.context ?? {}
       const displayName = props.full_address ?? [props.name, props.place_formatted].filter(Boolean).join(', ')
       if (!displayName) return []
+      const normalizedDisplayName = normalizeAddress(displayName)
+      const provinceCity = pickVietnamProvinceFromParts([
+        context.region?.name,
+        normalizedDisplayName,
+        context.place?.name,
+        context.locality?.name,
+        context.district?.name,
+      ])
 
       return [{
-        display_name: normalizeAddress(displayName),
+        display_name: normalizedDisplayName,
         lat: String(lat),
         lon: String(lng),
         source: 'mapbox' as const,
         address: {
-          city: normalizeCityName(context.place?.name ?? context.locality?.name) ?? undefined,
+          city: provinceCity ?? undefined,
           state: context.region?.name,
           county: context.district?.name,
           town: context.locality?.name,
@@ -140,7 +148,7 @@ async function searchNominatim(query: string, language = 'vi'): Promise<PlaceSea
       address: result.address
         ? {
             ...result.address,
-            city: normalizeCityName(result.address.city) ?? undefined,
+            city: pickVietnamProvinceFromAddress(result.display_name) ?? normalizeCityName(result.address.state ?? result.address.province ?? result.address.city) ?? undefined,
             state: normalizeCityName(result.address.state) ?? undefined,
             province: normalizeCityName(result.address.province) ?? undefined,
           }

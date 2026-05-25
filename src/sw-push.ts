@@ -99,7 +99,9 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
-  const url = event.notification.data?.url || "/";
+  const rawUrl = event.notification.data?.url || "/";
+  const targetUrl = new URL(rawUrl, self.location.origin);
+  if (targetUrl.origin !== self.location.origin) return;
 
   event.waitUntil(
     self.clients
@@ -107,11 +109,11 @@ self.addEventListener("notificationclick", (event) => {
       .then((clientList) => {
         for (const client of clientList) {
           if (client.url.includes(self.location.origin) && "focus" in client) {
-            client.navigate(url);
+            client.navigate(targetUrl.href);
             return client.focus();
           }
         }
-        return self.clients.openWindow(url);
+        return self.clients.openWindow(targetUrl.href);
       }),
   );
 });

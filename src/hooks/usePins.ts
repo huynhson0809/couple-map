@@ -108,6 +108,14 @@ export function usePins(coupleId: string | null | undefined, userId: string | un
       }
       const newPin: Pin = { ...(pin as Pin), images }
       setPins((prev) => [newPin, ...prev])
+      supabase.functions.invoke('send-push', {
+        body: {
+          event_type: 'memory_added',
+          record: newPin,
+        },
+      }).then(({ error }) => {
+        if (error) console.warn('send-push memory failed:', error.message)
+      })
       return newPin
     },
     [coupleId, userId],

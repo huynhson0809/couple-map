@@ -51,10 +51,18 @@ export interface PinComment {
   id: string
   pin_id: string
   user_id: string
+  parent_comment_id: string | null
   body: string
   created_at: string
   updated_at: string
   author?: User | null
+}
+
+export interface PinCommentReaction {
+  comment_id: string
+  user_id: string
+  reaction: ReactionType
+  created_at: string
 }
 
 export interface CoupleStreak {

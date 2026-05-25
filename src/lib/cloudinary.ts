@@ -69,5 +69,18 @@ export function isVideoUrl(url: string): boolean {
   return url.includes("/video/upload/");
 }
 
+export function getVideoThumbnailUrl(
+  url: string,
+  width = 800,
+  quality: number | "auto" = "auto",
+): string {
+  if (!isVideoUrl(url)) return getImageUrl(url, width, quality);
+  const transformed = url.replace(
+    "/upload/",
+    `/upload/w_${width},q_${quality},f_jpg,so_0/`,
+  );
+  return transformed.replace(/\.[a-z0-9]+($|\?)/i, ".jpg$1");
+}
+
 const MAX_VIDEO_SIZE_MB = 50;
 export const MAX_VIDEO_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;

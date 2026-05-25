@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import type { PinComment, PinReaction, ReactionType } from '../types'
+import type { PinComment, PinCommentReaction, PinReaction, ReactionType } from '../types'
 
 function sendInteractionPush(
-  eventType: 'reaction' | 'comment',
+  eventType: 'reaction' | 'comment' | 'comment_reply' | 'comment_reaction',
   record: Record<string, unknown>,
 ) {
   supabase.functions.invoke('send-push', {
@@ -22,6 +22,7 @@ export function usePinInteractions(
 ) {
   const [reactions, setReactions] = useState<PinReaction[]>([])
   const [comments, setComments] = useState<PinComment[]>([])
+  const [commentReactions, setCommentReactions] = useState<PinCommentReaction[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -36,7 +37,7 @@ export function usePinInteractions(
         .eq('pin_id', pinId),
       supabase
         .from('pin_comments')
-        .select('*, author:users(*)')
+        .select('*, author:users!pin_comments_user_id_fkey(*)')
         .eq('pin_id', pinId)
         .order('created_at', { ascending: true }),
     ])
@@ -44,8 +45,22 @@ export function usePinInteractions(
     if (reactionRes.error || commentRes.error) {
       setError(reactionRes.error?.message ?? commentRes.error?.message ?? 'Failed to load interactions')
     } else {
+      const nextComments = (commentRes.data as PinComment[]) ?? []
       setReactions((reactionRes.data as PinReaction[]) ?? [])
-      setComments((commentRes.data as PinComment[]) ?? [])
+      setComments(nextComments)
+      if (nextComments.length > 0) {
+        const { data: commentReactionData, error: commentReactionErr } = await supabase
+          .from('pin_comment_reactions')
+          .select('*')
+          .in('comment_id', nextComments.map((comment) => comment.id))
+        if (commentReactionErr) {
+          setError(commentReactionErr.message)
+        } else {
+          setCommentReactions((commentReactionData as PinCommentReaction[]) ?? [])
+        }
+      } else {
+        setCommentReactions([])
+      }
     }
     setLoading(false)
   }, [pinId])
@@ -67,6 +82,11 @@ export function usePinInteractions(
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'pin_comments', filter: `pin_id=eq.${pinId}` },
+        () => void fetchInteractions(),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'pin_comment_reactions' },
         () => void fetchInteractions(),
       )
       .subscribe()
@@ -109,20 +129,22 @@ export function usePinInteractions(
     sendInteractionPush('reaction', data as Record<string, unknown>)
   }, [myReaction, pinId, userId])
 
-  const addComment = useCallback(async (body: string) => {
+  const addComment = useCallback(async (body: string, parentCommentId?: string | null) => {
     if (!userId) throw new Error('Not signed in')
     const trimmed = body.trim()
     if (!trimmed) return
     const { data, error: insertErr } = await supabase
       .from('pin_comments')
-      .insert({ pin_id: pinId, user_id: userId, body: trimmed })
-      .select('*, author:users(*)')
+      .insert({ pin_id: pinId, user_id: userId, body: trimmed, parent_comment_id: parentCommentId ?? null })
+      .select('*, author:users!pin_comments_user_id_fkey(*)')
       .single()
     if (insertErr) throw insertErr
     setComments((prev) => [...prev, data as PinComment])
-    sendInteractionPush('comment', {
+    sendInteractionPush(parentCommentId ? 'comment_reply' : 'comment', {
+      id: (data as PinComment).id,
       pin_id: pinId,
       user_id: userId,
+      parent_comment_id: parentCommentId ?? null,
       body: trimmed,
     })
   }, [pinId, userId])
@@ -140,11 +162,41 @@ export function usePinInteractions(
       .from('pin_comments')
       .update({ body: trimmed })
       .eq('id', id)
-      .select('*, author:users(*)')
+      .select('*, author:users!pin_comments_user_id_fkey(*)')
       .single()
     if (updateErr) throw updateErr
     setComments((prev) => prev.map((c) => (c.id === id ? (data as PinComment) : c)))
   }, [])
+
+  const setCommentReaction = useCallback(async (commentId: string, reaction: ReactionType = 'love') => {
+    if (!userId) throw new Error('Not signed in')
+    const current = commentReactions.find((item) => item.comment_id === commentId && item.user_id === userId)
+    if (current?.reaction === reaction) {
+      const { error: deleteErr } = await supabase
+        .from('pin_comment_reactions')
+        .delete()
+        .eq('comment_id', commentId)
+        .eq('user_id', userId)
+      if (deleteErr) throw deleteErr
+      setCommentReactions((prev) =>
+        prev.filter((item) => !(item.comment_id === commentId && item.user_id === userId)),
+      )
+      return
+    }
+
+    const row = { comment_id: commentId, user_id: userId, reaction }
+    const { data, error: upsertErr } = await supabase
+      .from('pin_comment_reactions')
+      .upsert(row, { onConflict: 'comment_id,user_id' })
+      .select()
+      .single()
+    if (upsertErr) throw upsertErr
+    setCommentReactions((prev) => [
+      ...prev.filter((item) => !(item.comment_id === commentId && item.user_id === userId)),
+      data as PinCommentReaction,
+    ])
+    sendInteractionPush('comment_reaction', data as Record<string, unknown>)
+  }, [commentReactions, userId])
 
   return {
     reactions,
@@ -152,6 +204,7 @@ export function usePinInteractions(
     hasReacted,
     myReaction,
     comments,
+    commentReactions,
     loading,
     error,
     fetchInteractions,
@@ -159,5 +212,6 @@ export function usePinInteractions(
     addComment,
     updateComment,
     deleteComment,
+    setCommentReaction,
   }
 }

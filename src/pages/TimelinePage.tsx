@@ -7,7 +7,7 @@ import { useCoupleCtx } from '../hooks/CoupleContext'
 import { useI18n } from '../hooks/I18nContext'
 import { useCategoriesCtx } from '../hooks/CategoriesContext'
 import { useTimelinePins } from '../hooks/useTimelinePins'
-import { getImageUrl } from '../lib/cloudinary'
+import { getImageUrl, getVideoThumbnailUrl, isVideoUrl } from '../lib/cloudinary'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { PinDetail } from '../components/pins/PinDetail'
 import type { Pin } from '../types'
@@ -88,6 +88,11 @@ function TimelineRowItem({
 
   const p = row.pin
   const cover = p.images?.[0]?.cloudinary_url
+  const coverThumb = cover
+    ? isVideoUrl(cover)
+      ? getVideoThumbnailUrl(cover, 180, 70)
+      : getImageUrl(cover, 180, 70)
+    : null
   const cat = getCategory(p.category)
   const who = p.created_by === profileId ? profileName : partnerName
 
@@ -95,9 +100,9 @@ function TimelineRowItem({
     <div style={style} className="timeline-virtual-row pin-row">
       <div className={`timeline-card ${p.is_favorite ? 'favorite' : ''}`}>
         <button type="button" className="timeline-card-open" onClick={() => openPinDetail(p)}>
-          {cover ? (
+          {coverThumb ? (
             <img
-              src={getImageUrl(cover, 180, 70)}
+              src={coverThumb}
               alt=""
               className="timeline-thumb"
               loading="lazy"
@@ -420,24 +425,32 @@ export function TimelinePage() {
             <div className="timeline-advanced-filters">
               <div className="timeline-filter-field">
                 <label>{t('timeline.fromDate')}</label>
-                <div className="timeline-date-input">
+                <div
+                  className={`timeline-date-input ${draftDateFrom ? '' : 'empty'}`}
+                  data-placeholder="dd/mm/yyyy"
+                >
                   <input
                     type="date"
                     value={draftDateFrom}
                     onChange={(e) => setDraftDateFrom(e.target.value)}
                     aria-label={t('timeline.fromDate')}
                   />
+                  {!draftDateFrom && <span className="timeline-date-placeholder">dd/mm/yyyy</span>}
                 </div>
               </div>
               <div className="timeline-filter-field">
                 <label>{t('timeline.toDate')}</label>
-                <div className="timeline-date-input">
+                <div
+                  className={`timeline-date-input ${draftDateTo ? '' : 'empty'}`}
+                  data-placeholder="dd/mm/yyyy"
+                >
                   <input
                     type="date"
                     value={draftDateTo}
                     onChange={(e) => setDraftDateTo(e.target.value)}
                     aria-label={t('timeline.toDate')}
                   />
+                  {!draftDateTo && <span className="timeline-date-placeholder">dd/mm/yyyy</span>}
                 </div>
               </div>
               <div className="timeline-filter-field">

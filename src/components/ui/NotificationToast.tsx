@@ -5,7 +5,7 @@ import { usePinsCtx } from '../../hooks/PinsContext'
 import { useCoupleCtx } from '../../hooks/CoupleContext'
 import { useNotifications } from '../../hooks/useNotifications'
 import { useI18n } from '../../hooks/I18nContext'
-import { getImageUrl } from '../../lib/cloudinary'
+import { getImageUrl, getVideoThumbnailUrl, isVideoUrl } from '../../lib/cloudinary'
 import { useCategoriesCtx } from '../../hooks/CategoriesContext'
 
 const TOAST_MS = 6000
@@ -28,6 +28,7 @@ export function NotificationToast() {
     notify(`${who} ${t('notif.newMemory')}`, {
       body: pin.title,
       tag: `pin-${pin.id}`,
+      data: { url: `/?pin=${pin.id}` },
       onClick: () => {
         navigate('/', { state: { flyTo: { lat: pin.lat, lng: pin.lng, pinId: pin.id } } })
         clearLatestPartnerPin()
@@ -51,6 +52,11 @@ export function NotificationToast() {
   const pin = latestPartnerPin
   const cat = getCategory(pin.category)
   const cover = pin.images?.[0]?.cloudinary_url
+  const coverThumb = cover
+    ? isVideoUrl(cover)
+      ? getVideoThumbnailUrl(cover, 120, 70)
+      : getImageUrl(cover, 120, 70)
+    : null
   const who = partner?.display_name ?? t('common.partner')
 
   function viewOnMap() {
@@ -65,8 +71,8 @@ export function NotificationToast() {
       onClick={viewOnMap}
       aria-label={t('notif.viewOnMap')}
     >
-      {cover ? (
-        <img src={getImageUrl(cover, 120)} alt="" className="notif-cover" />
+      {coverThumb ? (
+        <img src={coverThumb} alt="" className="notif-cover" />
       ) : (
         <div className="notif-cover empty">
           <span>{pin.marker_emoji ?? cat?.emoji ?? '📍'}</span>

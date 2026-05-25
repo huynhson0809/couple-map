@@ -50,7 +50,6 @@ export function MapPage() {
     key: number;
     pinId?: string;
   } | null>(null);
-  const [pendingPinId, setPendingPinId] = useState<string | null>(null);
   const [lastUserLocation, setLastUserLocation] = useState<{
     lat: number;
     lng: number;
@@ -59,6 +58,7 @@ export function MapPage() {
   } | null>(null);
   const [mapCenter, setMapCenter] = useState({ lat: 10.8231, lng: 106.6297 });
   const flyKey = useRef(0);
+  const pendingPinIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const s = routeLocation.state as FlyToState | null;
@@ -66,7 +66,7 @@ export function MapPage() {
 
     flyKey.current += 1;
     setFlyTo({ ...s.flyTo, key: flyKey.current });
-    setPendingPinId(s.flyTo.openDetail === false ? null : (s.flyTo.pinId ?? null));
+    pendingPinIdRef.current = s.flyTo.openDetail === false ? null : (s.flyTo.pinId ?? null);
     navigate(`${routeLocation.pathname}${routeLocation.search}`, {
       replace: true,
       state: null,
@@ -74,13 +74,32 @@ export function MapPage() {
   }, [navigate, routeLocation.key, routeLocation.pathname, routeLocation.search, routeLocation.state]);
 
   useEffect(() => {
+    const pinId = new URLSearchParams(routeLocation.search).get("pin");
+    if (!pinId) return;
+
+    const pin = pins.find((p) => p.id === pinId);
+    if (!pin) {
+      pendingPinIdRef.current = pinId;
+      void fetchPins();
+      return;
+    }
+
+    flyKey.current += 1;
+    setFlyTo({ lat: pin.lat, lng: pin.lng, pinId: pin.id, key: flyKey.current });
+    setSelectedPin(pin);
+    navigate(routeLocation.pathname, { replace: true, state: null });
+  }, [fetchPins, navigate, pins, routeLocation.pathname, routeLocation.search]);
+
+  useEffect(() => {
+    const pendingPinId = pendingPinIdRef.current;
     if (!pendingPinId) return;
     const p = pins.find((x) => x.id === pendingPinId);
     if (!p) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    flyKey.current += 1;
+    setFlyTo({ lat: p.lat, lng: p.lng, pinId: p.id, key: flyKey.current });
     setSelectedPin(p);
-    setPendingPinId(null);
-  }, [pendingPinId, pins]);
+    pendingPinIdRef.current = null;
+  }, [pins]);
 
   const handleLongPress = useCallback((c: { lat: number; lng: number }) => {
     setNewPinCoords(c);

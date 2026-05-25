@@ -10,7 +10,7 @@ import { compressImage } from '../../lib/imageCompress'
 import { uploadToCloudinary, getImageUrl, MAX_VIDEO_BYTES } from '../../lib/cloudinary'
 import { reverseGeocode } from '../../lib/geocoding'
 import { searchPlaces, type PlaceSearchResult } from '../../lib/placeSearch'
-import { normalizeAddress, normalizeCityName } from '../../lib/locationNames'
+import { normalizeAddress, normalizeCityName, pickVietnamProvinceFromAddress } from '../../lib/locationNames'
 
 interface Props {
   coupleId: string
@@ -202,7 +202,8 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
 
   function pickCity(place: PlaceSearchResult): string | null {
     const a = place.address
-    return normalizeCityName(a?.city ?? a?.state ?? a?.province ?? a?.county ?? a?.town ?? a?.village)
+    return pickVietnamProvinceFromAddress(place.display_name) ??
+      normalizeCityName(a?.state ?? a?.province ?? a?.city ?? a?.county ?? a?.town ?? a?.village)
   }
 
   function selectAddressResult(place: PlaceSearchResult) {
