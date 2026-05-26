@@ -5,6 +5,9 @@
 alter table if exists public.notification_preferences
   add column if not exists streak_reminders boolean not null default true;
 
+alter table if exists public.notification_preferences
+  add column if not exists streak_email_reminders boolean not null default false;
+
 create table if not exists public.couple_streak_days (
   couple_id uuid references public.couples(id) on delete cascade not null,
   streak_date date not null,

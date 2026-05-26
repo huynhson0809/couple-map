@@ -105,7 +105,9 @@ export function StreakCard({
         </div>
         <div className={`streak-person ${partnerPosted ? 'posted' : ''}`}>
           <span>{initial(partner?.display_name, 'P')}</span>
-          <small>{t('common.partner')}</small>
+          <small title={partner?.display_name ?? t('common.partner')}>
+            {partner?.display_name ?? t('common.partner')}
+          </small>
         </div>
       </div>
 

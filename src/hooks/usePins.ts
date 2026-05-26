@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { reverseGeocode } from '../lib/geocoding'
-import { normalizeAddress, normalizeCityName } from '../lib/locationNames'
+import { normalizeAddress, normalizeCityName, normalizeCountryName } from '../lib/locationNames'
 import type { Pin, PinImage } from '../types'
 import type { CloudinaryUploadResult } from '../lib/cloudinary'
 
@@ -57,13 +57,13 @@ export function usePins(coupleId: string | null | undefined, userId: string | un
       if (input.address !== undefined || input.city !== undefined || input.country !== undefined) {
         address = normalizeAddress(input.address) || null
         city = normalizeCityName(input.city)
-        country = input.country || null
+        country = normalizeCountryName(input.country)
       } else {
         try {
           const geo = await reverseGeocode(input.lat, input.lng, 'vi')
           address = normalizeAddress(geo.address) || null
           city = normalizeCityName(geo.city)
-          country = geo.country
+          country = normalizeCountryName(geo.country)
         } catch {
           // best-effort
         }

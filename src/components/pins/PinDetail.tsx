@@ -302,6 +302,12 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     }
   }
 
+  function toggleCommentReactionPicker(commentId: string) {
+    setCommentReactionPickerOpenId((openId) =>
+      openId === commentId ? null : commentId,
+    );
+  }
+
   function displayName(userId: string, authorName: string | null | undefined) {
     if (userId === currentUserId) return t("common.you");
     return authorName || t("common.partner");
@@ -429,11 +435,15 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
                   <button
                     type="button"
                     className={`pin-comment-reaction-btn ${myCommentReactionType ? "active" : ""}`}
-                    onClick={() =>
-                      setCommentReactionPickerOpenId((openId) =>
-                        openId === comment.id ? null : comment.id,
-                      )
-                    }
+                    onPointerDown={(e) => e.preventDefault()}
+                    onPointerUp={(e) => {
+                      e.preventDefault();
+                      toggleCommentReactionPicker(comment.id);
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (e.detail === 0) toggleCommentReactionPicker(comment.id);
+                    }}
                     onContextMenu={(e) => {
                       e.preventDefault();
                       setCommentReactionPickerOpenId(comment.id);

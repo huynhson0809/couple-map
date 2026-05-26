@@ -74,6 +74,7 @@ export interface CoupleStreak {
   today_user_a_posted: boolean
   today_user_b_posted: boolean
   today_completed: boolean
+  streak_bonus_count: number
   timezone: string
   updated_at: string
 }

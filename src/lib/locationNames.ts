@@ -1,4 +1,5 @@
 const HCM_CITY = 'Thành phố Hồ Chí Minh'
+const VIETNAM = 'Việt Nam'
 
 const VN_PROVINCE_GROUPS: Array<[string, string[]]> = [
   ['Tuyên Quang', ['Tuyên Quang', 'Hà Giang']],
@@ -81,6 +82,24 @@ export function normalizeCityName(city: string | null | undefined): string | nul
 
   const normalized = trimmed.normalize('NFC')
   return VN_PROVINCE_ALIAS_MAP.get(keyOf(normalized)) ?? normalized
+}
+
+export function normalizeCountryName(country: string | null | undefined): string | null {
+  const trimmed = country?.trim()
+  if (!trimmed) return null
+
+  const key = keyOf(trimmed)
+  if (
+    key === 'vn' ||
+    key === 'viet nam' ||
+    key === 'vietnam' ||
+    key === 'socialist republic of viet nam' ||
+    key === 'cong hoa xa hoi chu nghia viet nam'
+  ) {
+    return VIETNAM
+  }
+
+  return trimmed.normalize('NFC')
 }
 
 export function normalizeAddress(address: string | null | undefined): string {

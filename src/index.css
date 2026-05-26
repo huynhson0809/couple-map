@@ -3653,61 +3653,59 @@ body { -webkit-tap-highlight-color: transparent; }
 /* iOS Safari polish: keep native controls readable and prevent accidental zoom/selection. */
 .timeline-date-input {
   position: relative;
-}
-.timeline-date-placeholder,
-.timeline-date-input::before {
-  content: attr(data-placeholder);
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  z-index: 4;
-  transform: translateY(-50%);
-  color: var(--muted);
-  font-size: 16px;
-  line-height: 1;
-  pointer-events: none;
-  opacity: 0;
-}
-.timeline-date-input.empty::before {
-  opacity: 0;
-}
-.timeline-date-placeholder {
-  opacity: 0.82;
-}
-.timeline-date-input input[type="date"] {
-  position: relative;
-  z-index: 1;
-  min-height: 44px;
-  height: 44px;
-  padding: 0 42px 0 12px !important;
-  color: var(--fg) !important;
-  -webkit-text-fill-color: var(--fg);
-  background-color: rgba(255, 255, 255, 0.64) !important;
-  color-scheme: light;
-  font-size: 16px !important;
-  line-height: 1.2;
-  appearance: auto;
-  -webkit-appearance: auto;
-}
-.timeline-date-input.empty input[type="date"] {
-  color: transparent !important;
-  -webkit-text-fill-color: transparent;
-}
-.timeline-date-input input[type="date"]::-webkit-date-and-time-value {
   min-height: 44px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.52)),
+    rgba(255, 255, 255, 0.38);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.74),
+    0 8px 20px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+.timeline-date-display {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
   color: var(--fg);
-  text-align: left;
+  font-size: 16px;
+  line-height: 1;
+  white-space: nowrap;
 }
-.timeline-date-input.empty input[type="date"]::-webkit-date-and-time-value {
-  color: transparent;
+.timeline-date-input.empty .timeline-date-display {
+  color: var(--muted);
 }
-.timeline-date-input input[type="date"]::-webkit-calendar-picker-indicator {
+.timeline-date-input > svg {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  color: var(--fg);
+  opacity: 0.82;
+}
+.timeline-date-input input[type="date"] {
   position: absolute;
-  right: 12px;
-  opacity: 0.9;
+  inset: 0;
   z-index: 3;
+  width: 100%;
+  height: 100%;
+  min-height: 44px;
+  padding: 0 !important;
+  border: 0;
+  opacity: 0.001;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent;
+  background: transparent !important;
+  color-scheme: light;
+  font-size: 16px !important;
+  line-height: 1.2;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
 }
 .pin-tool-btn.danger.btn,
 .pin-owner-actions .pin-tool-btn.danger.btn,
@@ -3733,9 +3731,15 @@ body { -webkit-tap-highlight-color: transparent; }
 .reaction-action-wrap *,
 .reaction-picker,
 .reaction-picker *,
-.heart-action {
+.heart-action,
+.pin-comment-inline-actions,
+.pin-comment-inline-actions *,
+.pin-comment-reaction-wrap,
+.pin-comment-reaction-wrap *,
+.pin-comment-reaction-btn {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
+  -moz-user-select: none;
   user-select: none;
   touch-action: manipulation;
 }

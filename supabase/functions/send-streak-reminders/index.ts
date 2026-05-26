@@ -5,7 +5,9 @@
 // Deploy: supabase functions deploy send-streak-reminders --no-verify-jwt
 // Env vars needed: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
 // Optional Gemini env: GEMINI_API_KEY or GOOGLE_API_KEY. Optional model: GEMINI_MODEL.
+// Optional email env: RESEND_API_KEY, STREAK_REMINDER_EMAIL_FROM, APP_URL.
 // Optional env: STREAK_REMINDER_SECRET. If set, pass it as x-streak-secret.
+// Optional debug env: STREAK_REMINDER_DRY_RUN=true to generate/log without sending push.
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
@@ -27,6 +29,19 @@ type PushSubscriptionRow = {
   auth: string;
 };
 
+type UserEmailRow = {
+  email: string | null;
+  display_name: string | null;
+};
+
+type EmailSendResult = {
+  sent: number;
+  skipped: boolean;
+  reason?: string;
+  toEmail?: string;
+  emailSource?: "public_users" | "auth_users";
+};
+
 type CoupleStreakRow = {
   couple_id: string;
   current_count: number;
@@ -35,6 +50,62 @@ type CoupleStreakRow = {
   today_user_b_posted: boolean;
   today_completed: boolean;
 };
+
+type GeminiReminderResult =
+  | {
+      ok: true;
+      model: string;
+      text: string;
+      words: number;
+      attempt: number;
+    }
+  | {
+      ok: false;
+      model?: string;
+      reason: string;
+      attempt?: number;
+      status?: number;
+      rawText?: string;
+      error?: string;
+    };
+
+type GeneratedReminder = {
+  body: string;
+  source: "gemini" | "template";
+  state: ReminderState;
+  gemini: GeminiReminderResult;
+  templateBody?: string;
+};
+
+type DebugRecipient = {
+  userId: string;
+  slot: "user_a" | "user_b";
+  source: GeneratedReminder["source"];
+  state: ReminderState;
+  body: string;
+  gemini: GeminiReminderResult;
+  sent: number;
+  skipped: boolean;
+  emailSent: number;
+  emailSkipped: boolean;
+  emailReason?: string;
+  emailTo?: string;
+  emailSource?: EmailSendResult["emailSource"];
+  dryRun: boolean;
+};
+
+type DebugCouple = {
+  coupleId: string;
+  currentCount: number;
+  todayDate: string;
+  todayCompleted: boolean;
+  todayUserAPosted: boolean;
+  todayUserBPosted: boolean;
+  logStatus: "created" | "dry_run" | "skipped_duplicate" | "missing_couple";
+  recipients: DebugRecipient[];
+};
+
+type ReasonCounts = Record<string, number>;
 
 function localParts(date = new Date(), timeZone = "Asia/Ho_Chi_Minh") {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -50,6 +121,114 @@ function localParts(date = new Date(), timeZone = "Asia/Ho_Chi_Minh") {
     date: `${value("year")}-${value("month")}-${value("day")}`,
     hour: Number(value("hour")),
   };
+}
+
+function envFlag(name: string) {
+  return ["1", "true", "yes", "on"].includes((Deno.env.get(name) ?? "").toLowerCase());
+}
+
+function requestValue(
+  body: Record<string, unknown>,
+  searchParams: URLSearchParams,
+  headers: Headers,
+  key: string,
+) {
+  return body[key] ?? searchParams.get(key) ?? headers.get(`x-${key}`);
+}
+
+function booleanValue(value: unknown) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+  }
+
+  return false;
+}
+
+function numberValue(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function stringValue(value: unknown, fallback: string) {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  return trimmed || fallback;
+}
+
+function parseJsonBody(rawBody: string) {
+  if (!rawBody.trim()) {
+    return {
+      body: {} as Record<string, unknown>,
+      error: null as string | null,
+      recovered: false,
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(rawBody);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return {
+        body: parsed as Record<string, unknown>,
+        error: null,
+        recovered: false,
+      };
+    }
+
+    return {
+      body: {},
+      error: "json_body_is_not_an_object",
+      recovered: false,
+    };
+  } catch (err) {
+    const originalError = (err as Error).message;
+    const headerBodySeparator = rawBody.lastIndexOf("\r\n\r\n");
+    const possibleBody = headerBodySeparator >= 0
+      ? rawBody.slice(headerBodySeparator + 4).trim()
+      : "";
+
+    for (const candidate of [
+      possibleBody,
+      rawBody.slice(rawBody.indexOf("{"), rawBody.lastIndexOf("}") + 1),
+    ]) {
+      if (!candidate) continue;
+      try {
+        const parsed = JSON.parse(candidate);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          return {
+            body: parsed as Record<string, unknown>,
+            error: `recovered_from_malformed_body: ${originalError}`,
+            recovered: true,
+          };
+        }
+      } catch {
+        // Try the next recovery candidate.
+      }
+    }
+
+    return {
+      body: {},
+      error: originalError,
+      recovered: false,
+    };
+  }
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function maskEmail(email: string) {
+  const [name, domain] = email.split("@");
+  if (!name || !domain) return email;
+  const visibleName = name.length <= 2 ? `${name[0] ?? ""}*` : `${name.slice(0, 2)}***`;
+  return `${visibleName}@${domain}`;
 }
 
 async function sendToUser(
@@ -98,6 +277,108 @@ async function sendToUser(
   return {
     sent: results.filter((result) => result.status === "fulfilled").length,
     skipped: false,
+  };
+}
+
+async function sendEmailToUser(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  subject: string,
+  body: string,
+): Promise<EmailSendResult> {
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  const from = Deno.env.get("STREAK_REMINDER_EMAIL_FROM");
+  if (!resendApiKey || !from) {
+    return { sent: 0, skipped: true, reason: "missing_email_config" };
+  }
+
+  const { data: pref } = await supabase
+    .from("notification_preferences")
+    .select("streak_email_reminders")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!pref?.streak_email_reminders) {
+    return { sent: 0, skipped: true, reason: "email_preference_disabled" };
+  }
+
+  const { data: user } = await supabase
+    .from("users")
+    .select("email, display_name")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const row = user as UserEmailRow | null;
+  let toEmail = row?.email ?? null;
+  let emailSource: EmailSendResult["emailSource"] | undefined = toEmail
+    ? "public_users"
+    : undefined;
+
+  if (!toEmail) {
+    const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userId);
+    if (authError) {
+      console.error("Streak email auth lookup error:", {
+        userId,
+        message: authError.message,
+      });
+    }
+    toEmail = authUser?.user?.email ?? null;
+    emailSource = toEmail ? "auth_users" : undefined;
+  }
+
+  if (!toEmail) {
+    return { sent: 0, skipped: true, reason: "missing_user_email" };
+  }
+
+  const text = [
+    body,
+    "",
+    "Mở Pinly để lưu một mẩu ký ức hôm nay:",
+    `${Deno.env.get("APP_URL") || ""}/wishlist`,
+  ].join("\n");
+  const appUrl = `${Deno.env.get("APP_URL") || ""}/wishlist`;
+  const html = [
+    `<p>${escapeHtml(body)}</p>`,
+    `<p><a href="${appUrl}">Mở Pinly</a> để lưu một mẩu ký ức hôm nay.</p>`,
+  ].join("");
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${resendApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [toEmail],
+      subject,
+      text,
+      html,
+    }),
+  });
+
+  if (!response.ok) {
+    const rawText = await response.text();
+    console.error("Resend streak email error:", {
+      status: response.status,
+      rawText,
+      userId,
+    });
+    return {
+      sent: 0,
+      skipped: true,
+      reason: `resend_http_${response.status}`,
+      toEmail: maskEmail(toEmail),
+      emailSource,
+    };
+  }
+
+  return {
+    sent: 1,
+    skipped: false,
+    reason: undefined,
+    toEmail: maskEmail(toEmail),
+    emailSource,
   };
 }
 
@@ -215,14 +496,17 @@ function statePromptLabel(state: ReminderState) {
 
 function buildGeminiPrompt(state: ReminderState, streak: CoupleStreakRow) {
   return [
-    "Viết đúng 1 câu push notification tiếng Việt cho app Pinly.",
-    "Độ dài 12-15 từ, hài hước, ấm áp, tự nhiên.",
+    "Bạn là người viết microcopy cho app Pinly.",
+    "Hãy trả về đúng 1 câu push notification tiếng Việt.",
+    "Câu dài 12-15 từ, hài hước, ấm áp, tự nhiên.",
     "App dùng để lưu khoảnh khắc của cặp đôi, không phải task manager.",
     "Không tạo cảm giác nhiệm vụ, deadline, bắt buộc, KPI.",
-    "Không dùng ngoặc kép, hashtag, markdown, xuống dòng.",
+    "Không giải thích, không mở đầu bằng lời xác nhận.",
+    "Không dùng ngoặc kép, hashtag, markdown, emoji, xuống dòng.",
     "Không dùng các từ: phải, bắt buộc, nhiệm vụ, deadline.",
     `Bối cảnh: ${statePromptLabel(state)}.`,
     `Chuỗi hiện tại: ${streak.current_count || 0} ngày.`,
+    "Ví dụ style: Pinly còn chiếc ghế trống, ai đem chuyện vui tới ngồi không?",
   ].join(" ");
 }
 
@@ -233,48 +517,87 @@ function extractGeminiText(data: unknown) {
   return response.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 }
 
-async function geminiReminderBody(streak: CoupleStreakRow, recipientSlot: "user_a" | "user_b") {
+async function geminiReminderBody(
+  streak: CoupleStreakRow,
+  recipientSlot: "user_a" | "user_b",
+): Promise<GeminiReminderResult> {
   const apiKey =
     Deno.env.get("GEMINI_API_KEY") ||
     Deno.env.get("GOOGLE_API_KEY") ||
     Deno.env.get("GOOGLE_AI_API_KEY");
-  if (!apiKey) return null;
+  if (!apiKey) {
+    return { ok: false, reason: "missing_gemini_api_key" };
+  }
 
   const model = Deno.env.get("GEMINI_MODEL") || DEFAULT_GEMINI_MODEL;
   const modelPath = model.startsWith("models/") ? model : `models/${model}`;
   const state = reminderState(streak, recipientSlot);
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: buildGeminiPrompt(state, streak) }] }],
-        generationConfig: {
-          temperature: 0.9,
-          topP: 0.95,
-          maxOutputTokens: 48,
-          candidateCount: 1,
+
+  let lastValidationFailure: GeminiReminderResult | null = null;
+
+  for (const attempt of [1, 2]) {
+    const prompt = attempt === 1
+      ? buildGeminiPrompt(state, streak)
+      : [
+          buildGeminiPrompt(state, streak),
+          "Lần trước câu quá ngắn. Lần này bắt buộc trả câu hoàn chỉnh 12-15 từ.",
+          "Chỉ trả về câu cuối cùng, không thêm chữ Tuyệt, OK, hay giải thích.",
+        ].join(" ");
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
         },
-      }),
-    },
-  );
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.85,
+            topP: 0.95,
+            maxOutputTokens: 160,
+            candidateCount: 1,
+            thinkingConfig: { thinkingBudget: 0 },
+          },
+        }),
+      },
+    );
 
-  if (!response.ok) {
-    console.error("Gemini reminder error:", response.status, await response.text());
-    return null;
+    if (!response.ok) {
+      const rawText = await response.text();
+      const result: GeminiReminderResult = {
+        ok: false,
+        model,
+        reason: "gemini_http_error",
+        attempt,
+        status: response.status,
+        rawText,
+      };
+      console.error("Gemini reminder error:", result);
+      return result;
+    }
+
+    const text = normalizeReminderText(extractGeminiText(await response.json()));
+    const words = wordCount(text);
+    if (text && words >= 10 && words <= 18 && !/phải|bắt buộc|nhiệm vụ|deadline/i.test(text)) {
+      return { ok: true, model, text, words, attempt };
+    }
+
+    lastValidationFailure = {
+      ok: false,
+      model,
+      reason: "gemini_validation_failed",
+      attempt,
+      rawText: text,
+    };
   }
 
-  const text = normalizeReminderText(extractGeminiText(await response.json()));
-  const words = wordCount(text);
-  if (!text || words < 10 || words > 18 || /phải|bắt buộc|nhiệm vụ|deadline/i.test(text)) {
-    return null;
-  }
-
-  return text;
+  return lastValidationFailure ?? {
+    ok: false,
+    model,
+    reason: "gemini_validation_failed",
+  };
 }
 
 function hashString(input: string) {
@@ -308,19 +631,41 @@ async function generateReminderBody(
   recipientId: string,
   reminderDate: string,
   reminderHour: number,
-) {
-  const aiText = await geminiReminderBody(streak, recipientSlot).catch((err) => {
+): Promise<GeneratedReminder> {
+  const state = reminderState(streak, recipientSlot);
+  const gemini = await geminiReminderBody(streak, recipientSlot).catch((err) => {
     console.error("Gemini reminder failed:", err);
-    return null;
+    return {
+      ok: false,
+      reason: "gemini_request_failed",
+      error: (err as Error).message,
+    } satisfies GeminiReminderResult;
   });
 
-  return aiText ?? templateReminderBody(
+  if (gemini.ok) {
+    return {
+      body: gemini.text,
+      source: "gemini",
+      state,
+      gemini,
+    };
+  }
+
+  const templateBody = templateReminderBody(
     streak,
     recipientSlot,
     recipientId,
     reminderDate,
     reminderHour,
   );
+
+  return {
+    body: templateBody,
+    source: "template",
+    state,
+    gemini,
+    templateBody,
+  };
 }
 
 serve(async (req) => {
@@ -337,14 +682,49 @@ serve(async (req) => {
       });
     }
 
-    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const requestUrl = new URL(req.url);
+    const rawBody = req.method === "POST" ? await req.text() : "";
+    const parsedBody = parseJsonBody(rawBody);
+    const body = parsedBody.body;
     const now = localParts();
-    const reminderDate = body.date || now.date;
-    const reminderHour = Number.isFinite(Number(body.hour)) ? Number(body.hour) : now.hour;
-    const force = body.force === true;
+    const reminderDate = stringValue(
+      requestValue(body, requestUrl.searchParams, req.headers, "date"),
+      now.date,
+    );
+    const reminderHour = numberValue(
+      requestValue(body, requestUrl.searchParams, req.headers, "hour"),
+      now.hour,
+    );
+    const force = booleanValue(requestValue(body, requestUrl.searchParams, req.headers, "force"));
+    const debug = booleanValue(requestValue(body, requestUrl.searchParams, req.headers, "debug"));
+    const envDryRun = envFlag("STREAK_REMINDER_DRY_RUN");
+    const dryRun = envDryRun ||
+      booleanValue(requestValue(body, requestUrl.searchParams, req.headers, "dryRun")) ||
+      booleanValue(requestValue(body, requestUrl.searchParams, req.headers, "preview"));
+    const includeDebug = dryRun || debug;
 
     if (!force && !REMINDER_HOURS.includes(reminderHour)) {
-      return new Response(JSON.stringify({ message: "Outside reminder window" }), {
+      return new Response(JSON.stringify({
+        message: "Outside reminder window",
+        date: reminderDate,
+        hour: reminderHour,
+        force,
+        received: {
+          method: req.method,
+          contentType: req.headers.get("content-type"),
+          contentLength: req.headers.get("content-length"),
+          rawBody,
+          bodyParseError: parsedBody.error,
+          bodyRecovered: parsedBody.recovered,
+          bodyKeys: Object.keys(body),
+          bodyForce: body.force ?? null,
+          queryForce: requestUrl.searchParams.get("force"),
+          headerForce: req.headers.get("x-force"),
+          bodyHour: body.hour ?? null,
+          queryHour: requestUrl.searchParams.get("hour"),
+          headerHour: req.headers.get("x-hour"),
+        },
+      }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -352,12 +732,14 @@ serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY")!;
-    const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY")!;
-    const VAPID_SUBJECT =
-      Deno.env.get("VAPID_SUBJECT") || "mailto:hello@pinly.app";
+    if (!dryRun) {
+      const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY")!;
+      const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY")!;
+      const VAPID_SUBJECT =
+        Deno.env.get("VAPID_SUBJECT") || "mailto:hello@pinly.app";
 
-    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+      webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+    }
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const { data: couplesForRefresh, error: couplesError } = await supabase
@@ -385,19 +767,38 @@ serve(async (req) => {
 
     let sent = 0;
     let skipped = 0;
+    let emailSent = 0;
+    let emailSkipped = 0;
+    const emailReasons: ReasonCounts = {};
+    const debugCouples: DebugCouple[] = [];
 
     for (const streak of ((streakRows ?? []) as CoupleStreakRow[])) {
-      const { error: logError } = await supabase
-        .from("streak_reminder_logs")
-        .insert({
-          couple_id: streak.couple_id,
-          reminder_date: reminderDate,
-          reminder_hour: reminderHour,
-        });
+      const debugCouple: DebugCouple = {
+        coupleId: streak.couple_id,
+        currentCount: streak.current_count,
+        todayDate: streak.today_date,
+        todayCompleted: streak.today_completed,
+        todayUserAPosted: streak.today_user_a_posted,
+        todayUserBPosted: streak.today_user_b_posted,
+        logStatus: dryRun ? "dry_run" : "created",
+        recipients: [],
+      };
 
-      if (logError) {
-        skipped += 1;
-        continue;
+      if (!dryRun) {
+        const { error: logError } = await supabase
+          .from("streak_reminder_logs")
+          .insert({
+            couple_id: streak.couple_id,
+            reminder_date: reminderDate,
+            reminder_hour: reminderHour,
+          });
+
+        if (logError) {
+          skipped += 1;
+          debugCouple.logStatus = "skipped_duplicate";
+          debugCouples.push(debugCouple);
+          continue;
+        }
       }
 
       const { data: couple } = await supabase
@@ -408,6 +809,8 @@ serve(async (req) => {
 
       if (!couple?.user_a || !couple?.user_b) {
         skipped += 1;
+        debugCouple.logStatus = "missing_couple";
+        debugCouples.push(debugCouple);
         continue;
       }
 
@@ -426,16 +829,63 @@ serve(async (req) => {
         );
         const payload = JSON.stringify({
           title: "🔥 Pinly nhắc nhẹ",
-          body: notificationBody,
+          body: notificationBody.body,
           icon: "/icons/icon-192.png",
           badge: "/icons/icon-192.png",
           data: { url: "/wishlist" },
         });
 
-        const result = await sendToUser(supabase, recipient.userId, payload);
+        console.log("streak reminder generated", {
+          dryRun,
+          coupleId: streak.couple_id,
+          recipientSlot: recipient.slot,
+          recipientId: recipient.userId,
+          source: notificationBody.source,
+          state: notificationBody.state,
+          body: notificationBody.body,
+          gemini: notificationBody.gemini,
+        });
+
+        const result = dryRun
+          ? { sent: 0, skipped: false }
+          : await sendToUser(supabase, recipient.userId, payload);
         sent += result.sent;
         if (result.skipped) skipped += 1;
+
+        const emailResult = dryRun
+          ? { sent: 0, skipped: false, reason: "dry_run" }
+          : await sendEmailToUser(
+              supabase,
+              recipient.userId,
+              "Pinly nhắc nhẹ",
+              notificationBody.body,
+            );
+        emailSent += emailResult.sent;
+        if (emailResult.skipped) {
+          emailSkipped += 1;
+          const reason = emailResult.reason ?? "unknown";
+          emailReasons[reason] = (emailReasons[reason] ?? 0) + 1;
+        }
+
+        debugCouple.recipients.push({
+          userId: recipient.userId,
+          slot: recipient.slot,
+          source: notificationBody.source,
+          state: notificationBody.state,
+          body: notificationBody.body,
+          gemini: notificationBody.gemini,
+          sent: result.sent,
+          skipped: result.skipped,
+          emailSent: emailResult.sent,
+          emailSkipped: emailResult.skipped,
+          emailReason: emailResult.reason,
+          emailTo: emailResult.toEmail,
+          emailSource: emailResult.emailSource,
+          dryRun,
+        });
       }
+
+      debugCouples.push(debugCouple);
     }
 
     return new Response(
@@ -443,9 +893,15 @@ serve(async (req) => {
         message: "Streak reminders processed",
         date: reminderDate,
         hour: reminderHour,
+        dryRun,
+        dryRunSource: envDryRun ? "env" : dryRun ? "request" : null,
         couples: streakRows?.length ?? 0,
         sent,
         skipped,
+        emailSent,
+        emailSkipped,
+        emailReasons,
+        ...(includeDebug ? { debug: debugCouples } : {}),
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

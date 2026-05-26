@@ -127,6 +127,9 @@ const dict = {
     "notif.streakReminders": "Daily streak",
     "notif.streakRemindersHint":
       "Reminder at night if today's chain is not complete",
+    "notif.streakEmailReminders": "Email streak reminders",
+    "notif.streakEmailRemindersHint":
+      "Send an email if today's chain still needs a memory",
     "notif.viewOnMap": "View on map",
 
     "share.card": "Card",
@@ -325,6 +328,9 @@ const dict = {
     "notif.streakReminders": "Chuỗi mỗi ngày",
     "notif.streakRemindersHint":
       "Nhắc vào buổi tối nếu hôm nay chưa nối chuỗi",
+    "notif.streakEmailReminders": "Nhắc chuỗi qua email",
+    "notif.streakEmailRemindersHint":
+      "Gửi email nếu hôm nay vẫn còn thiếu một kỷ niệm",
     "notif.viewOnMap": "Xem trên map",
 
     "share.card": "Card",

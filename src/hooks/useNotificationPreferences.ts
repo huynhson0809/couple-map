@@ -6,6 +6,7 @@ export interface NotificationPreferences {
   reactions: boolean
   comments: boolean
   streak_reminders: boolean
+  streak_email_reminders: boolean
 }
 
 const DEFAULT_PREFS: NotificationPreferences = {
@@ -13,6 +14,7 @@ const DEFAULT_PREFS: NotificationPreferences = {
   reactions: true,
   comments: true,
   streak_reminders: true,
+  streak_email_reminders: false,
 }
 
 export function useNotificationPreferences(userId: string | undefined) {
@@ -24,12 +26,12 @@ export function useNotificationPreferences(userId: string | undefined) {
     setLoading(true)
     const { data } = await supabase
       .from('notification_preferences')
-      .select('memory_added,reactions,comments,streak_reminders')
+      .select('memory_added,reactions,comments,streak_reminders,streak_email_reminders')
       .eq('user_id', userId)
       .maybeSingle()
 
     if (data) {
-      setPrefs(data as NotificationPreferences)
+      setPrefs({ ...DEFAULT_PREFS, ...(data as Partial<NotificationPreferences>) })
     } else {
       await supabase
         .from('notification_preferences')

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { List } from 'react-window'
-import { Check, ChevronDown, MapPin, Search, SlidersHorizontal, Star, X } from 'lucide-react'
+import { Calendar, Check, ChevronDown, MapPin, Search, SlidersHorizontal, Star, X } from 'lucide-react'
 import { usePinsCtx } from '../hooks/PinsContext'
 import { useCoupleCtx } from '../hooks/CoupleContext'
 import { useI18n } from '../hooks/I18nContext'
@@ -29,6 +29,13 @@ function useDebouncedValue(value: string, delay = 350) {
   }, [delay, value])
 
   return debounced
+}
+
+function formatFilterDate(value: string, lang: string) {
+  if (!value) return ''
+  const [year, month, day] = value.split('-')
+  if (!year || !month || !day) return value
+  return lang === 'vi' ? `${day}/${month}/${year}` : `${month}/${day}/${year}`
 }
 
 type TimelineRow =
@@ -426,31 +433,35 @@ export function TimelinePage() {
               <div className="timeline-filter-field">
                 <label>{t('timeline.fromDate')}</label>
                 <div
-                  className={`timeline-date-input ${draftDateFrom ? '' : 'empty'}`}
-                  data-placeholder="dd/mm/yyyy"
+                  className={`timeline-date-input ${draftDateFrom ? 'filled' : 'empty'}`}
                 >
+                  <span className="timeline-date-display">
+                    {draftDateFrom ? formatFilterDate(draftDateFrom, lang) : 'dd/mm/yyyy'}
+                  </span>
+                  <Calendar size={16} aria-hidden="true" />
                   <input
                     type="date"
                     value={draftDateFrom}
                     onChange={(e) => setDraftDateFrom(e.target.value)}
                     aria-label={t('timeline.fromDate')}
                   />
-                  {!draftDateFrom && <span className="timeline-date-placeholder">dd/mm/yyyy</span>}
                 </div>
               </div>
               <div className="timeline-filter-field">
                 <label>{t('timeline.toDate')}</label>
                 <div
-                  className={`timeline-date-input ${draftDateTo ? '' : 'empty'}`}
-                  data-placeholder="dd/mm/yyyy"
+                  className={`timeline-date-input ${draftDateTo ? 'filled' : 'empty'}`}
                 >
+                  <span className="timeline-date-display">
+                    {draftDateTo ? formatFilterDate(draftDateTo, lang) : 'dd/mm/yyyy'}
+                  </span>
+                  <Calendar size={16} aria-hidden="true" />
                   <input
                     type="date"
                     value={draftDateTo}
                     onChange={(e) => setDraftDateTo(e.target.value)}
                     aria-label={t('timeline.toDate')}
                   />
-                  {!draftDateTo && <span className="timeline-date-placeholder">dd/mm/yyyy</span>}
                 </div>
               </div>
               <div className="timeline-filter-field">

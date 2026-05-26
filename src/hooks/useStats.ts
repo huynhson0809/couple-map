@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { Couple, Pin } from '../types'
-import { normalizeCityName } from '../lib/locationNames'
+import { normalizeCityName, normalizeCountryName } from '../lib/locationNames'
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const R = 6371
@@ -22,7 +22,8 @@ export function useStats(pins: Pin[], couple: Couple | null) {
     pins.forEach((p) => {
       const city = normalizeCityName(p.city)
       if (city) cities.add(city)
-      if (p.country) countries.add(p.country)
+      const country = normalizeCountryName(p.country)
+      if (country) countries.add(country)
     })
 
     const sorted = [...pins].sort(

@@ -220,66 +220,82 @@ export function SettingsPage() {
             </div>
           )}
         </div>
-        {push.subscribed && (
-          <div className="notif-pref-list">
-            <label className="notif-pref-row">
-              <span>
-                <strong>{t("notif.memoryAdded")}</strong>
-                <small>{t("notif.memoryAddedHint")}</small>
-              </span>
-              <input
-                type="checkbox"
-                checked={notifPrefs.prefs.memory_added}
-                disabled={notifPrefs.loading}
-                onChange={(e) =>
-                  notifPrefs.updatePrefs({ memory_added: e.target.checked })
-                }
-              />
-            </label>
-            <label className="notif-pref-row">
-              <span>
-                <strong>{t("notif.reactions")}</strong>
-                <small>{t("notif.reactionsHint")}</small>
-              </span>
-              <input
-                type="checkbox"
-                checked={notifPrefs.prefs.reactions}
-                disabled={notifPrefs.loading}
-                onChange={(e) =>
-                  notifPrefs.updatePrefs({ reactions: e.target.checked })
-                }
-              />
-            </label>
-            <label className="notif-pref-row">
-              <span>
-                <strong>{t("notif.comments")}</strong>
-                <small>{t("notif.commentsHint")}</small>
-              </span>
-              <input
-                type="checkbox"
-                checked={notifPrefs.prefs.comments}
-                disabled={notifPrefs.loading}
-                onChange={(e) =>
-                  notifPrefs.updatePrefs({ comments: e.target.checked })
-                }
-              />
-            </label>
-            <label className="notif-pref-row">
-              <span>
-                <strong>{t("notif.streakReminders")}</strong>
-                <small>{t("notif.streakRemindersHint")}</small>
-              </span>
-              <input
-                type="checkbox"
-                checked={notifPrefs.prefs.streak_reminders}
-                disabled={notifPrefs.loading}
-                onChange={(e) =>
-                  notifPrefs.updatePrefs({ streak_reminders: e.target.checked })
-                }
-              />
-            </label>
-          </div>
-        )}
+        <div className="notif-pref-list">
+          {push.subscribed && (
+            <>
+              <label className="notif-pref-row">
+                <span>
+                  <strong>{t("notif.memoryAdded")}</strong>
+                  <small>{t("notif.memoryAddedHint")}</small>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={notifPrefs.prefs.memory_added}
+                  disabled={notifPrefs.loading}
+                  onChange={(e) =>
+                    notifPrefs.updatePrefs({ memory_added: e.target.checked })
+                  }
+                />
+              </label>
+              <label className="notif-pref-row">
+                <span>
+                  <strong>{t("notif.reactions")}</strong>
+                  <small>{t("notif.reactionsHint")}</small>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={notifPrefs.prefs.reactions}
+                  disabled={notifPrefs.loading}
+                  onChange={(e) =>
+                    notifPrefs.updatePrefs({ reactions: e.target.checked })
+                  }
+                />
+              </label>
+              <label className="notif-pref-row">
+                <span>
+                  <strong>{t("notif.comments")}</strong>
+                  <small>{t("notif.commentsHint")}</small>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={notifPrefs.prefs.comments}
+                  disabled={notifPrefs.loading}
+                  onChange={(e) =>
+                    notifPrefs.updatePrefs({ comments: e.target.checked })
+                  }
+                />
+              </label>
+              <label className="notif-pref-row">
+                <span>
+                  <strong>{t("notif.streakReminders")}</strong>
+                  <small>{t("notif.streakRemindersHint")}</small>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={notifPrefs.prefs.streak_reminders}
+                  disabled={notifPrefs.loading}
+                  onChange={(e) =>
+                    notifPrefs.updatePrefs({ streak_reminders: e.target.checked })
+                  }
+                />
+              </label>
+            </>
+          )}
+          <label className="notif-pref-row">
+            <span>
+              <strong>{t("notif.streakEmailReminders")}</strong>
+              <small>{t("notif.streakEmailRemindersHint")}</small>
+            </span>
+            <input
+              type="checkbox"
+              checked={notifPrefs.prefs.streak_email_reminders}
+              disabled={notifPrefs.loading}
+              onChange={(e) =>
+                notifPrefs.updatePrefs({ streak_email_reminders: e.target.checked })
+              }
+            />
+          </label>
+        </div>
       </section>
 
       {couple && (
