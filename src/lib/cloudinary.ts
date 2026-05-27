@@ -1,5 +1,14 @@
+import { supabase } from "./supabase";
+
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME as string;
-const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET as string;
+
+interface CloudinarySignature {
+  cloudName?: string;
+  apiKey: string;
+  timestamp: number;
+  signature: string;
+  folder: string;
+}
 
 export interface CloudinaryUploadResult {
   url: string;
@@ -16,14 +25,17 @@ export async function uploadToCloudinary(
 ): Promise<CloudinaryUploadResult> {
   const isVideo = file.type.startsWith("video/");
   const resourceType = isVideo ? "video" : "image";
+  const signature = await createUploadSignature(options.folder ?? "pinly");
 
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("upload_preset", UPLOAD_PRESET);
-  formData.append("folder", sanitizeFolder(options.folder ?? "pinly"));
+  formData.append("api_key", signature.apiKey);
+  formData.append("timestamp", String(signature.timestamp));
+  formData.append("signature", signature.signature);
+  formData.append("folder", signature.folder);
 
   const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`,
+    `https://api.cloudinary.com/v1_1/${signature.cloudName ?? CLOUD_NAME}/${resourceType}/upload`,
     { method: "POST", body: formData },
   );
 
@@ -41,6 +53,17 @@ export async function uploadToCloudinary(
     mediaType: isVideo ? "video" : "image",
     duration: isVideo ? data.duration : undefined,
   };
+}
+
+async function createUploadSignature(folder: string): Promise<CloudinarySignature> {
+  const { data, error } = await supabase.functions.invoke("sign-cloudinary-upload", {
+    body: { folder: sanitizeFolder(folder) },
+  });
+  if (error) throw new Error(`Cloudinary signature failed: ${error.message}`);
+  if (!data?.apiKey || !data?.timestamp || !data?.signature || !data?.folder) {
+    throw new Error("Cloudinary signature failed: invalid response");
+  }
+  return data as CloudinarySignature;
 }
 
 function sanitizeFolder(folder: string): string {

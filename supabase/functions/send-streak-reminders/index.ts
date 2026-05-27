@@ -6,7 +6,7 @@
 // Env vars needed: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
 // Optional Gemini env: GEMINI_API_KEY or GOOGLE_API_KEY. Optional model: GEMINI_MODEL.
 // Optional email env: RESEND_API_KEY, STREAK_REMINDER_EMAIL_FROM, APP_URL.
-// Optional env: STREAK_REMINDER_SECRET. If set, pass it as x-streak-secret.
+// Env var needed for invocation auth: STREAK_REMINDER_SECRET. Pass it as x-streak-secret.
 // Optional debug env: STREAK_REMINDER_DRY_RUN=true to generate/log without sending push.
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -675,7 +675,13 @@ serve(async (req) => {
 
   try {
     const secret = Deno.env.get("STREAK_REMINDER_SECRET");
-    if (secret && req.headers.get("x-streak-secret") !== secret) {
+    if (!secret) {
+      return new Response(JSON.stringify({ error: "Missing STREAK_REMINDER_SECRET" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (req.headers.get("x-streak-secret") !== secret) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -713,7 +719,6 @@ serve(async (req) => {
           method: req.method,
           contentType: req.headers.get("content-type"),
           contentLength: req.headers.get("content-length"),
-          rawBody,
           bodyParseError: parsedBody.error,
           bodyRecovered: parsedBody.recovered,
           bodyKeys: Object.keys(body),

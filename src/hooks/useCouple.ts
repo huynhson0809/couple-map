@@ -63,17 +63,8 @@ export function useCouple(userId: string | undefined) {
 
   const createCouple = useCallback(async () => {
     if (!userId) throw new Error('Not signed in')
-    const { data, error } = await supabase
-      .from('couples')
-      .insert({ user_a: userId })
-      .select()
-      .single()
+    const { data, error } = await supabase.rpc('create_couple_for_current_user')
     if (error) throw error
-    const { error: upErr } = await supabase
-      .from('users')
-      .update({ couple_id: data.id })
-      .eq('id', userId)
-    if (upErr) throw upErr
     await refresh()
     return data as Couple
   }, [userId, refresh])

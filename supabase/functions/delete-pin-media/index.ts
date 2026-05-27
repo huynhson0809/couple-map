@@ -21,26 +21,12 @@ interface DeleteAsset {
   resourceType: "image" | "video";
 }
 
-interface AuthJwtPayload {
-  sub?: string;
-}
+const MAX_ASSETS_PER_REQUEST = 20;
 
 function getBearerToken(req: Request) {
   const authHeader = req.headers.get("Authorization") ?? "";
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
   return match?.[1] ?? null;
-}
-
-function decodeJwtPayload(token: string): AuthJwtPayload {
-  try {
-    const payload = token.split(".")[1];
-    if (!payload) return {};
-    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = base64.padEnd(base64.length + ((4 - base64.length % 4) % 4), "=");
-    return JSON.parse(atob(padded));
-  } catch {
-    return {};
-  }
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -98,6 +84,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405);
+  }
 
   try {
     const accessToken = getBearerToken(req);
@@ -113,8 +102,8 @@ serve(async (req) => {
 
     const { data: authData, error: authError } =
       await supabase.auth.getUser(accessToken);
-    const userId = authData.user?.id ?? decodeJwtPayload(accessToken).sub;
-    if (authError) console.warn("getUser failed, using verified JWT payload:", authError.message);
+    const userId = authData.user?.id;
+    if (authError) console.warn("getUser failed:", authError.message);
     if (!userId) {
       return jsonResponse({ error: "Unauthorized" }, 401);
     }
@@ -123,6 +112,12 @@ serve(async (req) => {
     const assets = Array.isArray(body.assets)
       ? (body.assets as DeleteAsset[])
       : [];
+    if (assets.length > MAX_ASSETS_PER_REQUEST) {
+      return jsonResponse(
+        { error: `Too many assets. Max ${MAX_ASSETS_PER_REQUEST} per request.` },
+        413,
+      );
+    }
     const ids = assets.map((asset) => asset.id).filter(Boolean);
     if (ids.length === 0) {
       return jsonResponse({ deleted: 0 });

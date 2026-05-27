@@ -99,6 +99,7 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
   const [replyingToComment, setReplyingToComment] = useState<{ id: string; name: string } | null>(null);
   const [pinActionMenuOpen, setPinActionMenuOpen] = useState(false);
   const longPressTimer = useRef<number | null>(null);
+  const commentLongPressTimer = useRef<number | null>(null);
   const reactionWrapRef = useRef<HTMLDivElement | null>(null);
   const {
     reactions,
@@ -246,6 +247,12 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     void handleReaction(myReaction ? myReaction : "love");
   }
 
+  function clearCommentReactionPress() {
+    if (!commentLongPressTimer.current) return;
+    window.clearTimeout(commentLongPressTimer.current);
+    commentLongPressTimer.current = null;
+  }
+
   async function handleAddComment(e: React.FormEvent) {
     e.preventDefault();
     const body = commentText.trim();
@@ -302,10 +309,28 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     }
   }
 
-  function toggleCommentReactionPicker(commentId: string) {
-    setCommentReactionPickerOpenId((openId) =>
-      openId === commentId ? null : commentId,
-    );
+  function startCommentReactionPress(
+    commentId: string,
+    event: React.PointerEvent<HTMLButtonElement>,
+  ) {
+    event.preventDefault();
+    clearCommentReactionPress();
+    commentLongPressTimer.current = window.setTimeout(() => {
+      setCommentReactionPickerOpenId(commentId);
+      commentLongPressTimer.current = null;
+    }, 360);
+  }
+
+  function endCommentReactionPress(
+    commentId: string,
+    reaction: ReactionType,
+    event: React.PointerEvent<HTMLButtonElement>,
+  ) {
+    event.preventDefault();
+    if (!commentLongPressTimer.current) return;
+    window.clearTimeout(commentLongPressTimer.current);
+    commentLongPressTimer.current = null;
+    void handleCommentReaction(commentId, reaction);
   }
 
   function displayName(userId: string, authorName: string | null | undefined) {
@@ -435,14 +460,24 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
                   <button
                     type="button"
                     className={`pin-comment-reaction-btn ${myCommentReactionType ? "active" : ""}`}
-                    onPointerDown={(e) => e.preventDefault()}
-                    onPointerUp={(e) => {
-                      e.preventDefault();
-                      toggleCommentReactionPicker(comment.id);
-                    }}
+                    onPointerDown={(e) => startCommentReactionPress(comment.id, e)}
+                    onPointerUp={(e) =>
+                      endCommentReactionPress(
+                        comment.id,
+                        myCommentReactionType ? myCommentReactionType : "love",
+                        e,
+                      )
+                    }
+                    onPointerCancel={clearCommentReactionPress}
+                    onPointerLeave={clearCommentReactionPress}
                     onClick={(e) => {
                       e.preventDefault();
-                      if (e.detail === 0) toggleCommentReactionPicker(comment.id);
+                      if (e.detail === 0) {
+                        void handleCommentReaction(
+                          comment.id,
+                          myCommentReactionType ? myCommentReactionType : "love",
+                        );
+                      }
                     }}
                     onContextMenu={(e) => {
                       e.preventDefault();
