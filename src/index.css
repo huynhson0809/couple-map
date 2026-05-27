@@ -1154,13 +1154,31 @@ body { -webkit-tap-highlight-color: transparent; }
   display: flex; align-items: center; justify-content: center;
   padding: 60px 60px;
   cursor: zoom-out;
+  overflow: hidden;
+  touch-action: none;
+}
+.lightbox-stage.zoomed {
+  cursor: grab;
 }
 .lightbox-img {
   max-width: 100%; max-height: 100%;
   object-fit: contain;
   border-radius: 6px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-  cursor: default;
+  cursor: zoom-in;
+  user-select: none;
+  -webkit-user-drag: none;
+  touch-action: none;
+  will-change: transform;
+  transition: transform 120ms ease-out;
+  transform-origin: center center;
+}
+.lightbox-stage.zoomed .lightbox-img {
+  cursor: grab;
+}
+.lightbox-img.dragging {
+  cursor: grabbing;
+  transition: none;
 }
 .lightbox-nav {
   position: absolute;
@@ -1332,6 +1350,78 @@ body { -webkit-tap-highlight-color: transparent; }
   display: flex;
 }
 .notif-close:hover { background: var(--bg); }
+
+.app-toast-stack {
+  position: fixed;
+  top: calc(14px + env(safe-area-inset-top));
+  left: 50%;
+  z-index: 1200;
+  display: grid;
+  width: min(420px, calc(100% - 24px));
+  gap: 8px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.app-toast {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.72), rgba(255,255,255,0.38)),
+    rgba(255,255,255,0.28);
+  color: var(--fg);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.72),
+    0 16px 36px rgba(31, 41, 55, 0.2);
+  backdrop-filter: blur(22px) saturate(1.35);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+  animation: app-toast-in 240ms cubic-bezier(0.2, 0.9, 0.25, 1.2);
+  pointer-events: auto;
+}
+.app-toast.success { color: #119162; }
+.app-toast.error { color: #e23f4d; }
+.app-toast.info { color: #4b5563; }
+.app-toast-icon,
+.app-toast-close {
+  display: inline-grid;
+  place-items: center;
+}
+.app-toast-copy {
+  min-width: 0;
+  color: var(--fg);
+}
+.app-toast-copy strong,
+.app-toast-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-toast-copy strong {
+  font-size: 13px;
+  line-height: 1.2;
+}
+.app-toast-copy small {
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.app-toast-close {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.56);
+  color: var(--muted);
+}
+@keyframes app-toast-in {
+  from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 
 /* Update prompt */
 .update-prompt {
@@ -3228,37 +3318,163 @@ body { -webkit-tap-highlight-color: transparent; }
 
 /* Cluster bubble (HTML, JS-clustered) */
 .cluster-bubble {
+  width: 44px;
   min-width: 44px;
+  max-width: 44px;
   height: 44px;
-  padding: 0 12px;
+  padding: 0;
   border-radius: 999px;
   background: linear-gradient(135deg, #fbbf24, #f97316);
   color: white;
   font-weight: 800;
   font-size: 14px;
-  display: flex;
+  display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   border: 3px solid rgba(255,255,255,0.9);
   box-shadow: 0 4px 14px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05);
   cursor: pointer;
+  position: relative;
+  box-sizing: border-box;
   transition: transform 0.15s ease;
 }
 .cluster-bubble:hover { transform: scale(1.08); }
+.cluster-bubble.showing {
+  z-index: 5;
+  animation: cluster-show-glow 1.1s ease-out infinite alternate;
+}
+.cluster-bubble.showing::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
+  border-radius: inherit;
+  border: 3px solid var(--coral);
+  animation: marker-show-ring 1.25s ease-out infinite;
+  pointer-events: none;
+}
 .cluster-bubble[data-tier="1"] {
-  width: 50px; height: 50px;
+  width: 50px; min-width: 50px; max-width: 50px; height: 50px;
   background: linear-gradient(135deg, #f97316, #ff4d57);
   font-size: 15px;
 }
 .cluster-bubble[data-tier="2"] {
-  width: 58px; height: 58px;
+  width: 58px; min-width: 58px; max-width: 58px; height: 58px;
   background: linear-gradient(135deg, #ff4d57, #ff5a5f);
   font-size: 16px;
 }
 .cluster-bubble[data-tier="3"] {
-  width: 68px; height: 68px;
+  width: 68px; min-width: 68px; max-width: 68px; height: 68px;
   background: linear-gradient(135deg, #ff5a5f, #9333ea);
   font-size: 17px;
+}
+@keyframes cluster-show-glow {
+  from {
+    box-shadow:
+      0 6px 18px rgba(255, 90, 95, 0.28),
+      0 0 0 4px rgba(255, 90, 95, 0.1),
+      0 0 0 1px rgba(0,0,0,0.05);
+  }
+  to {
+    box-shadow:
+      0 10px 28px rgba(255, 90, 95, 0.45),
+      0 0 0 8px rgba(255, 90, 95, 0.17),
+      0 0 0 1px rgba(0,0,0,0.05);
+  }
+}
+.memory-cluster-popup .maplibregl-popup-content {
+  padding: 0;
+  border: 1px solid rgba(255,255,255,0.62);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.72), rgba(255,255,255,0.42)),
+    rgba(255,255,255,0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.8),
+    0 18px 42px rgba(31, 41, 55, 0.22);
+  backdrop-filter: blur(20px) saturate(1.35);
+  -webkit-backdrop-filter: blur(20px) saturate(1.35);
+  overflow: hidden;
+}
+.memory-cluster-popup .maplibregl-popup-close-button {
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 18px;
+}
+.memory-cluster-popup .maplibregl-popup-tip {
+  border-top-color: rgba(255,255,255,0.58);
+  border-bottom-color: rgba(255,255,255,0.58);
+}
+.map-cluster-list {
+  width: min(300px, calc(100vw - 48px));
+  max-height: min(360px, 58vh);
+  padding: 12px;
+  overflow: auto;
+}
+.map-cluster-list-title {
+  padding: 2px 34px 10px 2px;
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 800;
+}
+.map-cluster-memory {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 54px;
+  padding: 7px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.52);
+  color: var(--fg);
+  font-family: inherit;
+  text-align: left;
+}
+.map-cluster-memory + .map-cluster-memory {
+  margin-top: 7px;
+}
+.map-cluster-memory:active {
+  transform: scale(0.99);
+}
+.map-cluster-memory-media {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.8);
+  overflow: hidden;
+  font-size: 22px;
+}
+.map-cluster-memory-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.map-cluster-memory-copy {
+  min-width: 0;
+}
+.map-cluster-memory-copy strong,
+.map-cluster-memory-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.map-cluster-memory-copy strong {
+  font-size: 13px;
+  line-height: 1.2;
+}
+.map-cluster-memory-copy small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 /* Circular HTML marker for memory pins */

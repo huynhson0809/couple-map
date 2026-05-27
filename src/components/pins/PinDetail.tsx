@@ -22,6 +22,7 @@ import { useCategoriesCtx } from "../../hooks/CategoriesContext";
 import { usePinInteractions } from "../../hooks/usePinInteractions";
 import { usePinsCtx } from "../../hooks/PinsContext";
 import type { ReactionType } from "../../types";
+import { useToast } from "../../hooks/ToastContext";
 
 interface Props {
   pin: Pin;
@@ -77,6 +78,7 @@ function formatCommentTime(value: string, lang: string) {
 
 export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpdated, onFavoriteUpdated, onShowOnMap }: Props) {
   const { t, lang } = useI18n();
+  const { showToast } = useToast();
   const { getCategory } = useCategoriesCtx();
   const { updatePin } = usePinsCtx();
   const [deleting, setDeleting] = useState(false);
@@ -179,6 +181,10 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     setDeleting(true);
     try {
       await onDelete(pin.id);
+      showToast({ type: "success", title: t("toast.memoryDeleted") });
+    } catch (err) {
+      setInteractionError(err instanceof Error ? err.message : String(err));
+      showToast({ type: "error", title: t("toast.actionFailed") });
     } finally {
       setDeleting(false);
     }
@@ -212,9 +218,14 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
       const updated = await updatePin(pin.id, { is_favorite: nextFavorite });
       setFavoriteOverride({ pinId: pin.id, value: updated.is_favorite });
       onFavoriteUpdated?.(updated);
+      showToast({
+        type: "success",
+        title: updated.is_favorite ? t("toast.favoriteAdded") : t("toast.favoriteRemoved"),
+      });
     } catch (err) {
       setFavoriteOverride({ pinId: pin.id, value: !nextFavorite });
       setInteractionError(err instanceof Error ? err.message : String(err));
+      showToast({ type: "error", title: t("toast.actionFailed") });
     } finally {
       setFavoriteBusy(false);
     }
@@ -263,8 +274,10 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
       await addComment(body, replyingToComment?.id ?? null);
       setCommentText("");
       setReplyingToComment(null);
+      showToast({ type: "success", title: t("toast.commentAdded") });
     } catch (err) {
       setInteractionError(err instanceof Error ? err.message : String(err));
+      showToast({ type: "error", title: t("toast.actionFailed") });
     } finally {
       setSendingComment(false);
     }
@@ -275,8 +288,10 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     setCommentMenuOpenId(null);
     try {
       await deleteComment(id);
+      showToast({ type: "success", title: t("toast.commentDeleted") });
     } catch (err) {
       setInteractionError(err instanceof Error ? err.message : String(err));
+      showToast({ type: "error", title: t("toast.actionFailed") });
     }
   }
 
@@ -294,8 +309,10 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
       await updateComment(editingCommentId, editingCommentText);
       setEditingCommentId(null);
       setEditingCommentText("");
+      showToast({ type: "success", title: t("toast.commentUpdated") });
     } catch (err) {
       setInteractionError(err instanceof Error ? err.message : String(err));
+      showToast({ type: "error", title: t("toast.actionFailed") });
     }
   }
 
@@ -306,6 +323,7 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
       await setCommentReaction(commentId, reaction);
     } catch (err) {
       setInteractionError(err instanceof Error ? err.message : String(err));
+      showToast({ type: "error", title: t("toast.actionFailed") });
     }
   }
 

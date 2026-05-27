@@ -28,11 +28,18 @@ interface Props {
 const COLOR_USER_A = "#E24B4A";
 const COLOR_USER_B = "#378ADD";
 const CLUSTER_RADIUS_PX = 56;
+const VENUE_CLUSTER_RADIUS_METERS = 45;
 
 interface Group {
   key: string;
   center: { lat: number; lng: number };
   pins: Pin[];
+  highlighted: boolean;
+}
+
+interface ProjectedPin {
+  pin: Pin;
+  pt: { x: number; y: number };
 }
 
 export function MapView({
@@ -87,17 +94,7 @@ export function MapView({
     }));
     const groups: Group[] = [];
     const taken = new Set<string>();
-    const highlightedItem = highlightedPinIdRef.current
-      ? items.find((item) => item.pin.id === highlightedPinIdRef.current)
-      : undefined;
-    if (highlightedItem) {
-      taken.add(highlightedItem.pin.id);
-      groups.push({
-        key: `pin:${highlightedItem.pin.id}`,
-        center: { lat: highlightedItem.pin.lat, lng: highlightedItem.pin.lng },
-        pins: [highlightedItem.pin],
-      });
-    }
+    const highlightedPinId = highlightedPinIdRef.current;
     for (const it of items) {
       if (taken.has(it.pin.id)) continue;
       taken.add(it.pin.id);
@@ -106,9 +103,7 @@ export function MapView({
       let sumLng = it.pin.lng;
       for (const other of items) {
         if (taken.has(other.pin.id)) continue;
-        const dx = it.pt.x - other.pt.x;
-        const dy = it.pt.y - other.pt.y;
-        if (dx * dx + dy * dy < CLUSTER_RADIUS_PX * CLUSTER_RADIUS_PX) {
+        if (shouldClusterPins(it, other)) {
           taken.add(other.pin.id);
           groupPins.push(other.pin);
           sumLat += other.pin.lat;
@@ -127,9 +122,36 @@ export function MapView({
         key,
         center: { lat: sumLat / n, lng: sumLng / n },
         pins: groupPins,
+        highlighted: Boolean(
+          highlightedPinId && groupPins.some((pin) => pin.id === highlightedPinId),
+        ),
       });
     }
     return groups;
+  }
+
+  function distanceMeters(a: Pin, b: Pin) {
+    const earthRadius = 6_371_000;
+    const toRad = (value: number) => (value * Math.PI) / 180;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const lat1 = toRad(a.lat);
+    const lat2 = toRad(b.lat);
+    const h =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+    return 2 * earthRadius * Math.asin(Math.sqrt(h));
+  }
+
+  function shouldClusterPins(
+    a: ProjectedPin,
+    b: ProjectedPin,
+  ) {
+    const dx = a.pt.x - b.pt.x;
+    const dy = a.pt.y - b.pt.y;
+    const closeOnScreen = dx * dx + dy * dy < CLUSTER_RADIUS_PX * CLUSTER_RADIUS_PX;
+    if (closeOnScreen) return true;
+    return distanceMeters(a.pin, b.pin) <= VENUE_CLUSTER_RADIUS_METERS;
   }
 
   function createPinEl(p: Pin) {
@@ -158,15 +180,90 @@ export function MapView({
     return el;
   }
 
+  function pinsShareLocation(groupPins: Pin[]) {
+    if (groupPins.length < 2) return false;
+    const first = groupPins[0];
+    return groupPins.every(
+      (pin) =>
+        Math.abs(pin.lat - first.lat) < 0.000003 &&
+        Math.abs(pin.lng - first.lng) < 0.000003,
+    );
+  }
+
+  function openClusterList(
+    map: maplibregl.Map,
+    center: { lat: number; lng: number },
+    groupPins: Pin[],
+  ) {
+    const popup = new maplibregl.Popup({
+      closeButton: true,
+      closeOnClick: true,
+      className: "memory-cluster-popup",
+      maxWidth: "320px",
+      offset: 18,
+    });
+    const root = document.createElement("div");
+    root.className = "map-cluster-list";
+    const title = document.createElement("div");
+    title.className = "map-cluster-list-title";
+    title.textContent = `${groupPins.length} memories here`;
+    root.appendChild(title);
+
+    groupPins
+      .slice()
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .forEach((pin) => {
+        const cat = getCategory(pin.category);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "map-cluster-memory";
+
+        const media = document.createElement("span");
+        media.className = "map-cluster-memory-media";
+        const cover = pin.images?.find((image) => !image.cloudinary_url.includes("/video/upload/"));
+        if (cover?.cloudinary_url) {
+          const img = document.createElement("img");
+          img.src = getImageUrl(cover.cloudinary_url, 96, 70);
+          img.alt = "";
+          media.appendChild(img);
+        } else {
+          media.textContent = pin.marker_emoji ?? cat?.emoji ?? "📍";
+        }
+
+        const copy = document.createElement("span");
+        copy.className = "map-cluster-memory-copy";
+        const name = document.createElement("strong");
+        name.textContent = pin.title;
+        const meta = document.createElement("small");
+        meta.textContent = `${cat?.emoji ?? pin.marker_emoji ?? "📍"} ${cat?.label ?? pin.category ?? "Memory"}`;
+        copy.append(name, meta);
+        btn.append(media, copy);
+        btn.addEventListener("click", () => {
+          popup.remove();
+          highlightedPinIdRef.current = pin.id;
+          rebuildMarkers();
+          onPinClickRef.current(pin);
+        });
+        root.appendChild(btn);
+      });
+
+    popup
+      .setLngLat([center.lng, center.lat])
+      .setDOMContent(root)
+      .addTo(map);
+  }
+
   function createClusterEl(
     count: number,
     _pins: Pin[],
     map: maplibregl.Map,
     center: { lat: number; lng: number },
     groupPins: Pin[],
+    highlighted: boolean,
   ) {
     const el = document.createElement("div");
     el.className = "cluster-bubble";
+    if (highlighted) el.classList.add("showing");
     // size + color tier based on count
     let tier = 0;
     if (count >= 50) tier = 3;
@@ -176,16 +273,13 @@ export function MapView({
     el.textContent = count > 999 ? "999+" : String(count);
     el.addEventListener("click", (e) => {
       e.stopPropagation();
+      if (pinsShareLocation(groupPins) || map.getZoom() >= 17.5) {
+        openClusterList(map, center, groupPins);
+        return;
+      }
       const bounds = new maplibregl.LngLatBounds();
       groupPins.forEach((p) => bounds.extend([p.lng, p.lat]));
-      if (groupPins.length === 1) {
-        map.easeTo({
-          center: [center.lng, center.lat],
-          zoom: Math.min(map.getZoom() + 2, 18),
-        });
-      } else {
-        map.fitBounds(bounds, { padding: 100, maxZoom: 18, duration: 600 });
-      }
+      map.fitBounds(bounds, { padding: 100, maxZoom: 18, duration: 600 });
     });
     return el;
   }
@@ -202,7 +296,7 @@ export function MapView({
       if (g.pins.length === 1) {
         el = createPinEl(g.pins[0]);
       } else {
-        el = createClusterEl(g.pins.length, g.pins, map, g.center, g.pins);
+        el = createClusterEl(g.pins.length, g.pins, map, g.center, g.pins, g.highlighted);
       }
       const m = new maplibregl.Marker({ element: el, anchor: "center" })
         .setLngLat([g.center.lng, g.center.lat])

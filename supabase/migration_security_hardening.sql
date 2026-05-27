@@ -39,32 +39,35 @@ security definer
 set search_path = public
 as $$
 declare
+  v_limit_key alias for $1;
+  v_window_seconds alias for $2;
+  v_max_requests alias for $3;
   bucket_start timestamptz;
   current_count integer;
 begin
-  if limit_key is null or length(trim(limit_key)) = 0 then
+  if v_limit_key is null or length(trim(v_limit_key)) = 0 then
     return false;
   end if;
-  if window_seconds <= 0 or max_requests <= 0 then
+  if v_window_seconds <= 0 or v_max_requests <= 0 then
     return false;
   end if;
 
   bucket_start := to_timestamp(
-    floor(extract(epoch from now()) / window_seconds) * window_seconds
+    floor(extract(epoch from now()) / v_window_seconds) * v_window_seconds
   );
 
-  delete from public.edge_rate_limits
-  where window_start < now() - make_interval(secs => window_seconds * 4);
+  delete from public.edge_rate_limits erl
+  where erl.window_start < now() - make_interval(secs => v_window_seconds * 4);
 
   insert into public.edge_rate_limits (limit_key, window_start, count)
-  values (limit_key, bucket_start, 1)
-  on conflict (limit_key, window_start)
+  values (v_limit_key, bucket_start, 1)
+  on conflict on constraint edge_rate_limits_pkey
   do update set
     count = public.edge_rate_limits.count + 1,
     updated_at = now()
   returning count into current_count;
 
-  return current_count <= max_requests;
+  return current_count <= v_max_requests;
 end;
 $$;
 

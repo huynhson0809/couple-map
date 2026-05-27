@@ -11,6 +11,7 @@ import { uploadToCloudinary, getImageUrl, MAX_VIDEO_BYTES } from '../../lib/clou
 import { reverseGeocode } from '../../lib/geocoding'
 import { searchPlaces, type PlaceSearchResult } from '../../lib/placeSearch'
 import { normalizeAddress, normalizeCityName, pickVietnamProvinceFromAddress } from '../../lib/locationNames'
+import { useToast } from '../../hooks/ToastContext'
 
 interface Props {
   coupleId: string
@@ -32,6 +33,7 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
   } = useCategoriesCtx()
   const { uploadFiles, uploading, progress } = useImageUpload(`pinly/${coupleId}`)
   const { t } = useI18n()
+  const { showToast } = useToast()
   const [title, setTitle] = useState('')
   const [note, setNote] = useState('')
   const [category, setCategory] = useState<string | null>(null)
@@ -253,9 +255,11 @@ export function CreatePinForm({ coupleId, userId, coords, onCreated, onCancel }:
         country,
         images,
       })
+      showToast({ type: 'success', title: t('toast.memoryCreated') })
       onCreated()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
+      showToast({ type: 'error', title: t('toast.actionFailed') })
     } finally {
       setSaving(false)
     }

@@ -10,6 +10,7 @@ import { uploadToCloudinary, getImageUrl, isVideoUrl, getVideoUrl, MAX_VIDEO_BYT
 import { supabase } from '../../lib/supabase'
 import { deletePinMedia, type CloudinaryDeleteAsset } from '../../lib/cloudinary-delete'
 import type { Pin, PinImage } from '../../types'
+import { useToast } from '../../hooks/ToastContext'
 
 interface Props {
   pin: Pin
@@ -28,6 +29,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     deleteCustomCategory,
   } = useCategoriesCtx()
   const { t } = useI18n()
+  const { showToast } = useToast()
   const [title, setTitle] = useState(pin.title)
   const [note, setNote] = useState(pin.note ?? '')
   const [category, setCategory] = useState<string | null>(pin.category)
@@ -217,9 +219,11 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         marker_emoji: markerEmoji,
         marker_image_url: markerImageUrl,
       })
+      showToast({ type: 'success', title: t('toast.memoryUpdated') })
       onSaved()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
+      showToast({ type: 'error', title: t('toast.actionFailed') })
     } finally {
       setSaving(false)
       setMediaUploading(false)

@@ -24,6 +24,7 @@ import { PinsProvider } from "./hooks/PinsContext";
 import { CategoriesProvider } from "./hooks/CategoriesContext";
 import { ThemeProvider } from "./hooks/ThemeContext";
 import { I18nProvider } from "./hooks/I18nContext";
+import { ToastProvider } from "./hooks/ToastContext";
 import { usePushSubscription } from "./hooks/usePushSubscription";
 import { useEffect } from "react";
 
@@ -154,10 +155,12 @@ export default function App() {
   return (
     <ThemeProvider>
       <I18nProvider>
-        <BrowserRouter>
-          <AppRoutes />
-          <UpdatePrompt />
-        </BrowserRouter>
+        <ToastProvider>
+          <BrowserRouter>
+            <AppRoutes />
+            <UpdatePrompt />
+          </BrowserRouter>
+        </ToastProvider>
       </I18nProvider>
     </ThemeProvider>
   );
