@@ -12,7 +12,12 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import type { Pin } from "../../types";
-import { getImageUrl, isVideoUrl, getVideoUrl, getVideoThumbnailUrl } from "../../lib/cloudinary";
+import {
+  getImageUrl,
+  isVideoUrl,
+  getVideoUrl,
+  getVideoThumbnailUrl,
+} from "../../lib/cloudinary";
 import { Button } from "../ui/Button";
 import { ImageLightbox } from "../ui/ImageLightbox";
 import { EditPinForm } from "./EditPinForm";
@@ -72,11 +77,20 @@ function formatCommentTime(value: string, lang: string) {
   return date.toLocaleDateString(lang === "vi" ? "vi-VN" : undefined, {
     day: "numeric",
     month: "short",
-    year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
+    year:
+      date.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
   });
 }
 
-export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpdated, onFavoriteUpdated, onShowOnMap }: Props) {
+export function PinDetail({
+  pin,
+  currentUserId,
+  currentUserName,
+  onDelete,
+  onUpdated,
+  onFavoriteUpdated,
+  onShowOnMap,
+}: Props) {
   const { t, lang } = useI18n();
   const { showToast } = useToast();
   const { getCategory } = useCategoriesCtx();
@@ -96,9 +110,15 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState("");
-  const [commentMenuOpenId, setCommentMenuOpenId] = useState<string | null>(null);
-  const [commentReactionPickerOpenId, setCommentReactionPickerOpenId] = useState<string | null>(null);
-  const [replyingToComment, setReplyingToComment] = useState<{ id: string; name: string } | null>(null);
+  const [commentMenuOpenId, setCommentMenuOpenId] = useState<string | null>(
+    null,
+  );
+  const [commentReactionPickerOpenId, setCommentReactionPickerOpenId] =
+    useState<string | null>(null);
+  const [replyingToComment, setReplyingToComment] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [pinActionMenuOpen, setPinActionMenuOpen] = useState(false);
   const longPressTimer = useRef<number | null>(null);
   const commentLongPressTimer = useRef<number | null>(null);
@@ -129,7 +149,9 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
   );
 
   const displayedFavorite =
-    favoriteOverride?.pinId === pin.id ? favoriteOverride.value : pin.is_favorite;
+    favoriteOverride?.pinId === pin.id
+      ? favoriteOverride.value
+      : pin.is_favorite;
 
   useEffect(() => {
     if (!reactionPickerOpen) return;
@@ -139,7 +161,8 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
       setReactionPickerOpen(false);
     }
     window.addEventListener("pointerdown", handleOutsidePointer);
-    return () => window.removeEventListener("pointerdown", handleOutsidePointer);
+    return () =>
+      window.removeEventListener("pointerdown", handleOutsidePointer);
   }, [reactionPickerOpen]);
 
   useEffect(() => {
@@ -150,7 +173,8 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
       setCommentMenuOpenId(null);
     }
     window.addEventListener("pointerdown", handleOutsidePointer);
-    return () => window.removeEventListener("pointerdown", handleOutsidePointer);
+    return () =>
+      window.removeEventListener("pointerdown", handleOutsidePointer);
   }, [commentMenuOpenId]);
 
   useEffect(() => {
@@ -161,7 +185,8 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
       setCommentReactionPickerOpenId(null);
     }
     window.addEventListener("pointerdown", handleOutsidePointer);
-    return () => window.removeEventListener("pointerdown", handleOutsidePointer);
+    return () =>
+      window.removeEventListener("pointerdown", handleOutsidePointer);
   }, [commentReactionPickerOpenId]);
 
   useEffect(() => {
@@ -172,7 +197,8 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
       setPinActionMenuOpen(false);
     }
     window.addEventListener("pointerdown", handleOutsidePointer);
-    return () => window.removeEventListener("pointerdown", handleOutsidePointer);
+    return () =>
+      window.removeEventListener("pointerdown", handleOutsidePointer);
   }, [pinActionMenuOpen]);
 
   async function handleDelete() {
@@ -220,7 +246,9 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
       onFavoriteUpdated?.(updated);
       showToast({
         type: "success",
-        title: updated.is_favorite ? t("toast.favoriteAdded") : t("toast.favoriteRemoved"),
+        title: updated.is_favorite
+          ? t("toast.favoriteAdded")
+          : t("toast.favoriteRemoved"),
       });
     } catch (err) {
       setFavoriteOverride({ pinId: pin.id, value: !nextFavorite });
@@ -316,7 +344,10 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     }
   }
 
-  async function handleCommentReaction(commentId: string, reaction: ReactionType) {
+  async function handleCommentReaction(
+    commentId: string,
+    reaction: ReactionType,
+  ) {
     setInteractionError(null);
     setCommentReactionPickerOpenId(null);
     try {
@@ -356,15 +387,25 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     return authorName || t("common.partner");
   }
 
-  function avatarInitial(userId: string, authorName: string | null | undefined) {
+  function avatarInitial(
+    userId: string,
+    authorName: string | null | undefined,
+  ) {
     const source = userId === currentUserId ? currentUserName : authorName;
     const trimmed = (source || displayName(userId, authorName)).trim();
     return (trimmed.match(/\p{L}/u)?.[0] ?? "?").toUpperCase();
   }
 
-  function startReply(commentId: string, userId: string, authorName: string | null | undefined) {
+  function startReply(
+    commentId: string,
+    parentCommentId: string | null,
+    userId: string,
+    authorName: string | null | undefined,
+  ) {
+    // Always reply to the top-level comment (keep threads flat)
+    const topLevelId = parentCommentId ?? commentId;
     setReplyingToComment({
-      id: commentId,
+      id: topLevelId,
       name: displayName(userId, authorName),
     });
   }
@@ -375,9 +416,9 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
   }
 
   const currentReaction = reactionMeta(myReaction);
-  const reactionSummary = REACTIONS
-    .filter((r) => reactions.some((item) => item.reaction === r.type))
-    .slice(0, 3);
+  const reactionSummary = REACTIONS.filter((r) =>
+    reactions.some((item) => item.reaction === r.type),
+  ).slice(0, 3);
   const topLevelComments = useMemo(
     () => comments.filter((comment) => !comment.parent_comment_id),
     [comments],
@@ -394,23 +435,26 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
   }, [comments]);
 
   function commentReactionCount(commentId: string) {
-    return commentReactions.filter((item) => item.comment_id === commentId).length;
+    return commentReactions.filter((item) => item.comment_id === commentId)
+      .length;
   }
 
   function myCommentReaction(commentId: string) {
-    return commentReactions.find(
-      (item) => item.comment_id === commentId && item.user_id === currentUserId,
-    )?.reaction ?? null;
+    return (
+      commentReactions.find(
+        (item) =>
+          item.comment_id === commentId && item.user_id === currentUserId,
+      )?.reaction ?? null
+    );
   }
 
   function commentReactionSummary(commentId: string) {
-    return REACTIONS
-      .filter((reaction) =>
-        commentReactions.some(
-          (item) => item.comment_id === commentId && item.reaction === reaction.type,
-        ),
-      )
-      .slice(0, 3);
+    return REACTIONS.filter((reaction) =>
+      commentReactions.some(
+        (item) =>
+          item.comment_id === commentId && item.reaction === reaction.type,
+      ),
+    ).slice(0, 3);
   }
 
   function renderComment(comment: (typeof comments)[number], isReply = false) {
@@ -427,11 +471,16 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
         </div>
         <div className="pin-comment-main">
           <div className="pin-comment-meta">
-            <strong>{displayName(comment.user_id, comment.author?.display_name)}</strong>
+            <strong>
+              {displayName(comment.user_id, comment.author?.display_name)}
+            </strong>
             <span>{formatCommentTime(comment.created_at, lang)}</span>
           </div>
           {editingCommentId === comment.id ? (
-            <form className="pin-comment-edit-form" onSubmit={handleSaveEditedComment}>
+            <form
+              className="pin-comment-edit-form"
+              onSubmit={handleSaveEditedComment}
+            >
               <input
                 type="text"
                 value={editingCommentText}
@@ -458,16 +507,24 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
             <>
               <p>{comment.body}</p>
               <div className="pin-comment-inline-actions">
-                <div className="pin-comment-reaction-wrap" data-comment-reaction-picker>
+                <div
+                  className="pin-comment-reaction-wrap"
+                  data-comment-reaction-picker
+                >
                   {commentReactionPickerOpenId === comment.id && (
-                    <div className="reaction-picker comment-reaction-picker" role="menu">
+                    <div
+                      className="reaction-picker comment-reaction-picker"
+                      role="menu"
+                    >
                       {REACTIONS.map((reaction) => (
                         <button
                           key={reaction.type}
                           type="button"
                           className="reaction-picker-btn"
                           onPointerDown={(e) => e.preventDefault()}
-                          onClick={() => handleCommentReaction(comment.id, reaction.type)}
+                          onClick={() =>
+                            handleCommentReaction(comment.id, reaction.type)
+                          }
                           aria-label={reaction.label}
                         >
                           {reaction.emoji}
@@ -478,7 +535,9 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
                   <button
                     type="button"
                     className={`pin-comment-reaction-btn ${myCommentReactionType ? "active" : ""}`}
-                    onPointerDown={(e) => startCommentReactionPress(comment.id, e)}
+                    onPointerDown={(e) =>
+                      startCommentReactionPress(comment.id, e)
+                    }
                     onPointerUp={(e) =>
                       endCommentReactionPress(
                         comment.id,
@@ -493,7 +552,9 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
                       if (e.detail === 0) {
                         void handleCommentReaction(
                           comment.id,
-                          myCommentReactionType ? myCommentReactionType : "love",
+                          myCommentReactionType
+                            ? myCommentReactionType
+                            : "love",
                         );
                       }
                     }}
@@ -504,7 +565,9 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
                     aria-expanded={commentReactionPickerOpenId === comment.id}
                   >
                     {currentCommentReaction ? (
-                      <span className="pin-comment-reaction-emoji">{currentCommentReaction.emoji}</span>
+                      <span className="pin-comment-reaction-emoji">
+                        {currentCommentReaction.emoji}
+                      </span>
                     ) : commentSummary.length > 0 ? (
                       <span className="pin-comment-reaction-stack">
                         {commentSummary.map((reaction) => (
@@ -517,14 +580,19 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
                     <span>{count > 0 ? count : t("pin.react")}</span>
                   </button>
                 </div>
-                {!isReply && (
-                  <button
-                    type="button"
-                    onClick={() => startReply(comment.id, comment.user_id, comment.author?.display_name)}
-                  >
-                    {t("pin.reply")}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    startReply(
+                      comment.id,
+                      comment.parent_comment_id,
+                      comment.user_id,
+                      comment.author?.display_name,
+                    )
+                  }
+                >
+                  {t("pin.reply")}
+                </button>
               </div>
             </>
           )}
@@ -586,7 +654,7 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
     <div className="pin-detail">
       {images.length > 0 && (
         <div className="image-strip">
-          {images.map((img) => (
+          {images.map((img) =>
             isVideoUrl(img.cloudinary_url) ? (
               <div key={img.id} className="image-strip-item video-item">
                 <video
@@ -607,8 +675,8 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
               >
                 <img src={getImageUrl(img.cloudinary_url, 800)} alt="" />
               </button>
-            )
-          ))}
+            ),
+          )}
         </div>
       )}
       {lightboxIndex !== null && (
@@ -669,9 +737,16 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
                   </button>
                 )}
                 {isMine && (
-                  <button type="button" className="danger" onClick={handleDelete} disabled={deleting}>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                  >
                     <Trash2 size={14} />
-                    <span>{deleting ? t("pin.deleting") : t("pin.delete")}</span>
+                    <span>
+                      {deleting ? t("pin.deleting") : t("pin.delete")}
+                    </span>
                   </button>
                 )}
               </div>
@@ -742,7 +817,9 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
               }}
             >
               {currentReaction ? (
-                <span className="reaction-action-emoji">{currentReaction.emoji}</span>
+                <span className="reaction-action-emoji">
+                  {currentReaction.emoji}
+                </span>
               ) : (
                 <Heart size={16} />
               )}
@@ -755,16 +832,29 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
             onClick={toggleFavorite}
             disabled={favoriteBusy}
           >
-            <Star size={16} fill={displayedFavorite ? "currentColor" : "none"} />
+            <Star
+              size={16}
+              fill={displayedFavorite ? "currentColor" : "none"}
+            />
             {displayedFavorite ? t("pin.favorited") : t("pin.favorite")}
           </Button>
           {onShowOnMap && (
-            <Button variant="secondary" className="pin-core-action" onClick={() => onShowOnMap(pin)} title={t("pin.showOnMap")}>
+            <Button
+              variant="secondary"
+              className="pin-core-action"
+              onClick={() => onShowOnMap(pin)}
+              title={t("pin.showOnMap")}
+            >
               <MapPin size={17} />
               <span>{t("pin.showOnMap")}</span>
             </Button>
           )}
-          <Button variant="secondary" className="pin-core-action" onClick={() => setShowShareCard(true)} title={t("share.card")}>
+          <Button
+            variant="secondary"
+            className="pin-core-action"
+            onClick={() => setShowShareCard(true)}
+            title={t("share.card")}
+          >
             <Image size={17} />
             <span>{t("share.card")}</span>
           </Button>
@@ -784,13 +874,17 @@ export function PinDetail({ pin, currentUserId, currentUserName, onDelete, onUpd
         <div className="pin-comments-head">
           <span>{t("pin.comments")}</span>
           <span className="muted small">
-            {interactionsLoading ? t("pin.loadingComments") : `${comments.length}`}
+            {interactionsLoading
+              ? t("pin.loadingComments")
+              : `${comments.length}`}
           </span>
         </div>
         {interactionError && <p className="error small">{interactionError}</p>}
         <div className="pin-comments-list">
           {topLevelComments.length === 0 && !interactionsLoading ? (
-            <p className="muted small pin-comments-empty">{t("pin.noComments")}</p>
+            <p className="muted small pin-comments-empty">
+              {t("pin.noComments")}
+            </p>
           ) : (
             topLevelComments.map((comment) => (
               <div key={comment.id} className="pin-comment-thread">

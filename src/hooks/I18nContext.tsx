@@ -75,6 +75,8 @@ const dict = {
     "pin.markerClear": "Use category default",
     "pin.emojiKeyboard": "Type emoji from keyboard…",
     "pin.addTag": "Custom tag",
+    "pin.showMore": "Show more",
+    "pin.showLess": "Show less",
     "pin.tagName": "Tag name",
     "pin.tagEmoji": "Emoji",
     "pin.saveTag": "Save tag",
@@ -109,6 +111,8 @@ const dict = {
     "toast.favoriteAdded": "Added to favorites",
     "toast.favoriteRemoved": "Removed from favorites",
     "toast.actionFailed": "Something went wrong",
+    "toast.photosUploaded": "Photos uploaded",
+    "toast.photoUploadFailed": "Photo upload failed",
     "timeline.favorites": "Favorites",
     "settings.anniversary": "Anniversary",
     "settings.setAnniversary": "Set anniversary date",
@@ -163,11 +167,15 @@ const dict = {
     "streak.best": "Best",
     "streak.loading": "Checking today's chain…",
     "streak.completed": "Today's memory pieces are here. The chain stays warm.",
-    "streak.youMissing": "Your partner saved a moment today. Add yours if there is something you want to keep.",
-    "streak.partnerMissing": "Your moment is saved. Pinly is holding a small space for your partner's piece.",
+    "streak.youMissing":
+      "Your partner saved a moment today. Add yours if there is something you want to keep.",
+    "streak.partnerMissing":
+      "Your moment is saved. Pinly is holding a small space for your partner's piece.",
     "streak.bothMissing": "Today still has room for a small shared memory.",
-    "streak.startToday": "Save a small moment together whenever today gives you one.",
-    "streak.howTo": "The streak continues when both of you save at least one memory before the day ends.",
+    "streak.startToday":
+      "Save a small moment together whenever today gives you one.",
+    "streak.howTo":
+      "The streak continues when both of you save at least one memory before the day ends.",
     "streak.pendingToday": "Today is still waiting for both memory pieces.",
 
     "stats.title": "Our journey",
@@ -180,7 +188,8 @@ const dict = {
     "stats.placesBeen": "Places we've been",
 
     "wish.title": "Streak & wishlist",
-    "wish.subtitle": "Keep the daily chain alive and plan dream places together.",
+    "wish.subtitle":
+      "Keep the daily chain alive and plan dream places together.",
     "wish.add": "Add a dream place",
     "wish.adding": "Add a dream place",
     "wish.empty": "No dreams yet — add somewhere you both want to visit.",
@@ -286,6 +295,8 @@ const dict = {
     "pin.markerClear": "Dùng emoji mặc định",
     "pin.emojiKeyboard": "Nhập emoji từ bàn phím…",
     "pin.addTag": "Tạo tag",
+    "pin.showMore": "Xem thêm",
+    "pin.showLess": "Thu gọn",
     "pin.tagName": "Tên tag",
     "pin.tagEmoji": "Emoji",
     "pin.saveTag": "Lưu tag",
@@ -320,6 +331,8 @@ const dict = {
     "toast.favoriteAdded": "Đã thêm vào yêu thích",
     "toast.favoriteRemoved": "Đã bỏ yêu thích",
     "toast.actionFailed": "Có lỗi xảy ra",
+    "toast.photosUploaded": "Đã tải ảnh lên",
+    "toast.photoUploadFailed": "Tải ảnh thất bại",
     "timeline.favorites": "Yêu thích",
     "settings.anniversary": "Kỷ niệm",
     "settings.setAnniversary": "Đặt ngày bên nhau",
@@ -344,8 +357,7 @@ const dict = {
     "notif.comments": "Bình luận",
     "notif.commentsHint": "Khi người ấy bình luận kỷ niệm của bạn",
     "notif.streakReminders": "Chuỗi mỗi ngày",
-    "notif.streakRemindersHint":
-      "Nhắc vào buổi tối nếu hôm nay chưa nối chuỗi",
+    "notif.streakRemindersHint": "Nhắc vào buổi tối nếu hôm nay chưa nối chuỗi",
     "notif.streakEmailReminders": "Nhắc chuỗi qua email",
     "notif.streakEmailRemindersHint":
       "Gửi email nếu hôm nay vẫn còn thiếu một kỷ niệm",
@@ -372,11 +384,16 @@ const dict = {
     "streak.best": "Kỷ lục",
     "streak.loading": "Đang kiểm tra chuỗi hôm nay…",
     "streak.completed": "Hôm nay đã có đủ mảnh kỷ niệm. Chuỗi vẫn ấm.",
-    "streak.youMissing": "Người ấy đã lưu một khoảnh khắc hôm nay. Nếu bạn có một mẩu của mình, thêm vào cho ngày này tròn hơn.",
-    "streak.partnerMissing": "Bạn đã lưu một khoảnh khắc hôm nay. Pinly đang giữ thêm một chỗ nhỏ cho người ấy.",
-    "streak.bothMissing": "Hôm nay vẫn còn chỗ cho một khoảnh khắc nhỏ của hai bạn.",
-    "streak.startToday": "Khi hôm nay có điều đáng nhớ, cất nhẹ vào Pinly để bắt đầu một chuỗi mới.",
-    "streak.howTo": "Chuỗi tiếp tục khi cả hai đều lưu ít nhất một khoảnh khắc trước khi ngày kết thúc.",
+    "streak.youMissing":
+      "Người ấy đã lưu một khoảnh khắc hôm nay. Nếu bạn có một mẩu của mình, thêm vào cho ngày này tròn hơn.",
+    "streak.partnerMissing":
+      "Bạn đã lưu một khoảnh khắc hôm nay. Pinly đang giữ thêm một chỗ nhỏ cho người ấy.",
+    "streak.bothMissing":
+      "Hôm nay vẫn còn chỗ cho một khoảnh khắc nhỏ của hai bạn.",
+    "streak.startToday":
+      "Khi hôm nay có điều đáng nhớ, cất nhẹ vào Pinly để bắt đầu một chuỗi mới.",
+    "streak.howTo":
+      "Chuỗi tiếp tục khi cả hai đều lưu ít nhất một khoảnh khắc trước khi ngày kết thúc.",
     "streak.pendingToday": "Hôm nay chuỗi vẫn đang chờ hai bạn.",
 
     "stats.title": "Hành trình của tụi mình",

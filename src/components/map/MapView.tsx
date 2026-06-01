@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Pin } from "../../types";
@@ -72,6 +72,8 @@ export function MapView({
   const newestPinIdRef = useRef(newestPinId);
   const highlightedPinIdRef = useRef<string | null>(null);
   const pendingFlyToRef = useRef<Props["flyTo"]>(null);
+  const getCategoryRef = useRef(getCategory);
+  const [clusterPinIds, setClusterPinIds] = useState<string[] | null>(null);
 
   useEffect(() => {
     pinsRef.current = pins;
@@ -79,7 +81,15 @@ export function MapView({
     onUserLocationRef.current = onUserLocation;
     onMapCenterChangeRef.current = onMapCenterChange;
     newestPinIdRef.current = newestPinId;
-  }, [pins, onPinClick, onUserLocation, onMapCenterChange, newestPinId]);
+    getCategoryRef.current = getCategory;
+  }, [
+    pins,
+    onPinClick,
+    onUserLocation,
+    onMapCenterChange,
+    newestPinId,
+    getCategory,
+  ]);
 
   function pinColor(p: Pin) {
     if (p.created_by === currentUserId) return COLOR_USER_A;
@@ -116,14 +126,15 @@ export function MapView({
           ? `pin:${groupPins[0].id}`
           : `cl:${groupPins
               .map((p) => p.id)
-              .sort()
+              .sort((a, b) => a.localeCompare(b))
               .join(",")}`;
       groups.push({
         key,
         center: { lat: sumLat / n, lng: sumLng / n },
         pins: groupPins,
         highlighted: Boolean(
-          highlightedPinId && groupPins.some((pin) => pin.id === highlightedPinId),
+          highlightedPinId &&
+          groupPins.some((pin) => pin.id === highlightedPinId),
         ),
       });
     }
@@ -143,13 +154,11 @@ export function MapView({
     return 2 * earthRadius * Math.asin(Math.sqrt(h));
   }
 
-  function shouldClusterPins(
-    a: ProjectedPin,
-    b: ProjectedPin,
-  ) {
+  function shouldClusterPins(a: ProjectedPin, b: ProjectedPin) {
     const dx = a.pt.x - b.pt.x;
     const dy = a.pt.y - b.pt.y;
-    const closeOnScreen = dx * dx + dy * dy < CLUSTER_RADIUS_PX * CLUSTER_RADIUS_PX;
+    const closeOnScreen =
+      dx * dx + dy * dy < CLUSTER_RADIUS_PX * CLUSTER_RADIUS_PX;
     if (closeOnScreen) return true;
     return distanceMeters(a.pin, b.pin) <= VENUE_CLUSTER_RADIUS_METERS;
   }
@@ -162,7 +171,7 @@ export function MapView({
     if (highlightedPinIdRef.current && p.id === highlightedPinIdRef.current)
       el.classList.add("showing");
     el.style.borderColor = pinColor(p);
-    const cat = getCategory(p.category);
+    const cat = getCategoryRef.current(p.category);
     if (p.marker_image_url) {
       const img = document.createElement("img");
       img.src = getImageUrl(p.marker_image_url, 80);
@@ -190,77 +199,25 @@ export function MapView({
     );
   }
 
-  function openClusterList(
-    map: maplibregl.Map,
-    center: { lat: number; lng: number },
-    groupPins: Pin[],
-  ) {
-    const popup = new maplibregl.Popup({
-      closeButton: true,
-      closeOnClick: true,
-      className: "memory-cluster-popup",
-      maxWidth: "320px",
-      offset: 18,
-    });
-    const root = document.createElement("div");
-    root.className = "map-cluster-list";
-    const title = document.createElement("div");
-    title.className = "map-cluster-list-title";
-    title.textContent = `${groupPins.length} memories here`;
-    root.appendChild(title);
-
-    groupPins
-      .slice()
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .forEach((pin) => {
-        const cat = getCategory(pin.category);
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "map-cluster-memory";
-
-        const media = document.createElement("span");
-        media.className = "map-cluster-memory-media";
-        const cover = pin.images?.find((image) => !image.cloudinary_url.includes("/video/upload/"));
-        if (cover?.cloudinary_url) {
-          const img = document.createElement("img");
-          img.src = getImageUrl(cover.cloudinary_url, 96, 70);
-          img.alt = "";
-          media.appendChild(img);
-        } else {
-          media.textContent = pin.marker_emoji ?? cat?.emoji ?? "📍";
-        }
-
-        const copy = document.createElement("span");
-        copy.className = "map-cluster-memory-copy";
-        const name = document.createElement("strong");
-        name.textContent = pin.title;
-        const meta = document.createElement("small");
-        meta.textContent = `${cat?.emoji ?? pin.marker_emoji ?? "📍"} ${cat?.label ?? pin.category ?? "Memory"}`;
-        copy.append(name, meta);
-        btn.append(media, copy);
-        btn.addEventListener("click", () => {
-          popup.remove();
-          highlightedPinIdRef.current = pin.id;
-          rebuildMarkers();
-          onPinClickRef.current(pin);
-        });
-        root.appendChild(btn);
-      });
-
-    popup
-      .setLngLat([center.lng, center.lat])
-      .setDOMContent(root)
-      .addTo(map);
+  function openClusterList(pinIds: string[]) {
+    setClusterPinIds(pinIds);
   }
+
+  const closeClusterList = useCallback(() => {
+    setClusterPinIds(null);
+  }, []);
 
   function createClusterEl(
     count: number,
     _pins: Pin[],
     map: maplibregl.Map,
-    center: { lat: number; lng: number },
+    _center: { lat: number; lng: number },
     groupPins: Pin[],
     highlighted: boolean,
   ) {
+    // Store pin IDs to look up fresh data at click time
+    const pinIds = groupPins.map((p) => p.id);
+
     const el = document.createElement("div");
     el.className = "cluster-bubble";
     if (highlighted) el.classList.add("showing");
@@ -273,12 +230,19 @@ export function MapView({
     el.textContent = count > 999 ? "999+" : String(count);
     el.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (pinsShareLocation(groupPins) || map.getZoom() >= 17.5) {
-        openClusterList(map, center, groupPins);
+      // Look up current pins at click time
+      const currentPins = pinIds
+        .map((id) => pinsRef.current.find((p) => p.id === id))
+        .filter((p): p is Pin => p !== undefined);
+
+      if (currentPins.length === 0) return;
+
+      if (pinsShareLocation(currentPins) || map.getZoom() >= 17.5) {
+        openClusterList(pinIds);
         return;
       }
       const bounds = new maplibregl.LngLatBounds();
-      groupPins.forEach((p) => bounds.extend([p.lng, p.lat]));
+      currentPins.forEach((p) => bounds.extend([p.lng, p.lat]));
       map.fitBounds(bounds, { padding: 100, maxZoom: 18, duration: 600 });
     });
     return el;
@@ -296,12 +260,19 @@ export function MapView({
       if (g.pins.length === 1) {
         el = createPinEl(g.pins[0]);
       } else {
-        el = createClusterEl(g.pins.length, g.pins, map, g.center, g.pins, g.highlighted);
+        el = createClusterEl(
+          g.pins.length,
+          g.pins,
+          map,
+          g.center,
+          g.pins,
+          g.highlighted,
+        );
       }
-      const m = new maplibregl.Marker({ element: el, anchor: "center" })
+      const marker = new maplibregl.Marker({ element: el, anchor: "center" })
         .setLngLat([g.center.lng, g.center.lat])
         .addTo(map);
-      markersRef.current.set(g.key, m);
+      markersRef.current.set(g.key, marker);
     }
     for (const [key, m] of markersRef.current) {
       if (!keep.has(key)) {
@@ -374,7 +345,11 @@ export function MapView({
       "top-right",
     );
     const geolocateControl = new maplibregl.GeolocateControl({
-      positionOptions: { enableHighAccuracy: true, maximumAge: 60_000, timeout: 12_000 },
+      positionOptions: {
+        enableHighAccuracy: true,
+        maximumAge: 60_000,
+        timeout: 12_000,
+      },
       trackUserLocation: false,
     });
     geolocateControl.on("geolocate", (event) => {
@@ -591,5 +566,96 @@ export function MapView({
     else map.once("load", syncHeatmap);
   }, [pins, showHeatmap]);
 
-  return <div ref={containerRef} className="map-container" />;
+  // Resolve cluster pins from IDs
+  const clusterPins = clusterPinIds
+    ? clusterPinIds
+        .map((id) => pins.find((p) => p.id === id))
+        .filter((p): p is Pin => p !== undefined)
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        )
+    : null;
+
+  return (
+    <div className="map-container-wrapper">
+      <div ref={containerRef} className="map-container" />
+      {clusterPins && clusterPins.length > 0 && (
+        <ClusterListOverlay
+          pins={clusterPins}
+          getCategory={getCategory}
+          onPinClick={(pin) => {
+            closeClusterList();
+            highlightedPinIdRef.current = pin.id;
+            rebuildMarkers();
+            onPinClick(pin);
+          }}
+          onClose={closeClusterList}
+        />
+      )}
+    </div>
+  );
+}
+
+function ClusterListOverlay({
+  pins,
+  getCategory,
+  onPinClick,
+  onClose,
+}: {
+  pins: Pin[];
+  getCategory: (
+    id: string | null | undefined,
+  ) => { emoji: string; label: string } | undefined;
+  onPinClick: (pin: Pin) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="cluster-overlay-backdrop" onClick={onClose}>
+      <div
+        className="cluster-overlay-card"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="map-cluster-list-title">
+          {pins.length} memories here
+          <button className="cluster-overlay-close" onClick={onClose}>
+            ×
+          </button>
+        </div>
+        {pins.map((pin) => {
+          const cat = getCategory(pin.category);
+          const cover = pin.images?.find(
+            (img) => !img.cloudinary_url.includes("/video/upload/"),
+          );
+          const categoryLabel =
+            cat?.label ??
+            (pin.category?.startsWith("custom_")
+              ? "Memory"
+              : (pin.category ?? "Memory"));
+          return (
+            <button
+              key={pin.id}
+              type="button"
+              className="map-cluster-memory"
+              onClick={() => onPinClick(pin)}
+            >
+              <span className="map-cluster-memory-media">
+                {cover?.cloudinary_url ? (
+                  <img src={getImageUrl(cover.cloudinary_url, 96, 70)} alt="" />
+                ) : (
+                  (pin.marker_emoji ?? cat?.emoji ?? "📍")
+                )}
+              </span>
+              <span className="map-cluster-memory-copy">
+                <strong>{pin.title}</strong>
+                <small>
+                  {cat?.emoji ?? pin.marker_emoji ?? "📍"} {categoryLabel}
+                </small>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
