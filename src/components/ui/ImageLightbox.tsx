@@ -58,6 +58,7 @@ export function ImageLightbox({ images, startIndex, onClose }: Props) {
   const isGesturingRef = useRef(false);
   const swipeOffsetRef = useRef(0);
   const animFrameRef = useRef<number>(0);
+  const lastTapRef = useRef(0);
 
   const applyTransform = useCallback(() => {
     if (!imgRef.current) return;
@@ -334,8 +335,6 @@ export function ImageLightbox({ images, startIndex, onClose }: Props) {
     }
   }
 
-  // Double-tap detection
-  const lastTapRef = useRef(0);
   function handleTap(e: React.TouchEvent) {
     if (e.touches.length > 1) return;
     const now = Date.now();

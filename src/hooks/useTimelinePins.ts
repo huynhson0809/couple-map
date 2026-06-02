@@ -59,7 +59,7 @@ function applyFilters(
   return next
 }
 
-export function useTimelinePins(coupleId: string | null | undefined, filters: TimelinePinFilters) {
+export function useTimelinePins(coupleId: string | null | undefined, filters: TimelinePinFilters, version = 0) {
   const [pins, setPins] = useState<Pin[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -102,7 +102,8 @@ export function useTimelinePins(coupleId: string | null | undefined, filters: Ti
       setLoading(false)
       setLoadingMore(false)
     },
-    [coupleId, filters],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [coupleId, filters, version],
   )
 
   useEffect(() => {

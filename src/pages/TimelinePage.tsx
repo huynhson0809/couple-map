@@ -11,6 +11,7 @@ import { getImageUrl, getVideoThumbnailUrl, isVideoUrl } from '../lib/cloudinary
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { PinDetail } from '../components/pins/PinDetail'
 import type { Pin } from '../types'
+import type { UploadingPinInfo } from '../hooks/PinsContext'
 
 function monthKey(d: string, lang: string) {
   const dt = new Date(d)
@@ -56,6 +57,7 @@ interface TimelineRowProps {
   favoritesLabel: string
   loadingMore: boolean
   loadingMoreLabel: string
+  uploadingPins: Map<string, UploadingPinInfo>
   getCategory: ReturnType<typeof useCategoriesCtx>['getCategory']
   openPinDetail: (pin: Pin) => void
 }
@@ -71,6 +73,7 @@ function TimelineRowItem({
   favoritesLabel,
   loadingMore,
   loadingMoreLabel,
+  uploadingPins,
   getCategory,
   openPinDetail,
 }: TimelineRowProps & { index: number; style: CSSProperties }) {
@@ -94,6 +97,7 @@ function TimelineRowItem({
   }
 
   const p = row.pin
+  const uploadInfo = uploadingPins.get(p.id)
   const cover = p.images?.[0]?.cloudinary_url
   const coverThumb = cover
     ? isVideoUrl(cover)
@@ -117,7 +121,16 @@ function TimelineRowItem({
               fetchPriority="low"
             />
           ) : (
-            <div className="timeline-thumb empty">{cat?.emoji ?? '📷'}</div>
+            <div className="timeline-thumb empty">
+              {uploadInfo ? (
+                <div className="timeline-upload-progress">
+                  <div className="timeline-upload-spinner" />
+                  <span className="timeline-upload-pct">{uploadInfo.progress}%</span>
+                </div>
+              ) : (
+                cat?.emoji ?? '📷'
+              )}
+            </div>
           )}
           <div className={`timeline-content ${p.is_favorite ? 'has-favorite-action' : ''}`}>
             <div className="timeline-title-row">
@@ -136,6 +149,11 @@ function TimelineRowItem({
               <MapPin size={12} /> {p.city ?? '—'} · {who} ·{' '}
               {new Date(p.created_at).toLocaleDateString(lang === 'vi' ? 'vi-VN' : undefined)}
             </div>
+            {uploadInfo && (
+              <div className="timeline-upload-bar">
+                <div className="timeline-upload-bar-fill" style={{ width: `${uploadInfo.progress}%` }} />
+              </div>
+            )}
           </div>
         </button>
         {p.is_favorite && (
@@ -149,7 +167,7 @@ function TimelineRowItem({
 }
 
 export function TimelinePage() {
-  const { pins: livePins, deletePin } = usePinsCtx()
+  const { pins: livePins, deletePin, uploadingPins, pinsVersion } = usePinsCtx()
   const { couple, profile, partner } = useCoupleCtx()
   const { t, lang } = useI18n()
   const { allCategories, getCategory } = useCategoriesCtx()
@@ -194,7 +212,7 @@ export function TimelinePage() {
     hasMore,
     loadMore,
     refresh,
-  } = useTimelinePins(couple?.id, timelineFilters)
+  } = useTimelinePins(couple?.id, timelineFilters, pinsVersion)
 
   const favoriteCount = livePins.filter((p) => p.is_favorite).length
 
@@ -558,6 +576,7 @@ export function TimelinePage() {
             favoritesLabel: t('timeline.favorites'),
             loadingMore,
             loadingMoreLabel: lang === 'vi' ? 'Đang tải thêm...' : 'Loading more...',
+            uploadingPins,
             getCategory,
             openPinDetail,
           }}
@@ -581,6 +600,7 @@ export function TimelinePage() {
             onDelete={async (id) => {
               await deletePin(id)
               setSelectedPin(null)
+              refresh()
             }}
             onUpdated={() => {
               refresh()

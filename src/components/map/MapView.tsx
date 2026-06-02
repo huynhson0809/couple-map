@@ -585,7 +585,6 @@ export function MapView({
           pins={clusterPins}
           getCategory={getCategory}
           onPinClick={(pin) => {
-            closeClusterList();
             highlightedPinIdRef.current = pin.id;
             rebuildMarkers();
             onPinClick(pin);

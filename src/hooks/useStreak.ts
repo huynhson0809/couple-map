@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Couple, CoupleStreak, CoupleStreakDay } from '../types'
 
@@ -28,10 +28,15 @@ export function useStreak(couple: Couple | null, userId: string | undefined) {
   const [today, setToday] = useState<CoupleStreakDay | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const fetchRequestRef = useRef(0)
+  const refreshTimerRef = useRef<number | null>(null)
 
   const coupleId = couple?.id
 
   const fetchStreak = useCallback(async () => {
+    const requestId = fetchRequestRef.current + 1
+    fetchRequestRef.current = requestId
+
     if (!coupleId) {
       setStreak(null)
       setToday(null)
@@ -46,6 +51,8 @@ export function useStreak(couple: Couple | null, userId: string | undefined) {
       .select('*')
       .eq('couple_id', coupleId)
       .maybeSingle()
+
+    if (requestId !== fetchRequestRef.current) return
 
     if (streakError) {
       setError(streakError.message)
@@ -64,17 +71,30 @@ export function useStreak(couple: Couple | null, userId: string | undefined) {
       .eq('streak_date', streakDate)
       .maybeSingle()
 
+    if (requestId !== fetchRequestRef.current) return
+
     if (dayError) setError(dayError.message)
     setToday((dayData as CoupleStreakDay | null) ?? null)
     setLoading(false)
   }, [coupleId])
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
+  const scheduleFetchStreak = useCallback((delayMs = 250) => {
+    if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current)
+    refreshTimerRef.current = window.setTimeout(() => {
+      refreshTimerRef.current = null
       void fetchStreak()
-    }, 0)
-    return () => window.clearTimeout(timer)
+    }, delayMs)
   }, [fetchStreak])
+
+  useEffect(() => {
+    scheduleFetchStreak(0)
+    return () => {
+      if (refreshTimerRef.current) {
+        window.clearTimeout(refreshTimerRef.current)
+        refreshTimerRef.current = null
+      }
+    }
+  }, [scheduleFetchStreak])
 
   useEffect(() => {
     if (!coupleId) return
@@ -83,19 +103,14 @@ export function useStreak(couple: Couple | null, userId: string | undefined) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'couple_streaks', filter: `couple_id=eq.${coupleId}` },
-        () => void fetchStreak(),
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'couple_streak_days', filter: `couple_id=eq.${coupleId}` },
-        () => void fetchStreak(),
+        () => scheduleFetchStreak(),
       )
       .subscribe()
 
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [coupleId, fetchStreak])
+  }, [coupleId, scheduleFetchStreak])
 
   const state = useMemo(() => {
     const localToday = dateInTimeZone(new Date(), streak?.timezone ?? DEFAULT_TIMEZONE)

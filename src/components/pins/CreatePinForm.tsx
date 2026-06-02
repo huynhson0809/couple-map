@@ -33,6 +33,7 @@ import {
   pickVietnamProvinceFromAddress,
 } from "../../lib/locationNames";
 import { useToast } from "../../hooks/ToastContext";
+import { usePinsCtx } from "../../hooks/PinsContext";
 import { supabase } from "../../lib/supabase";
 
 interface Props {
@@ -80,6 +81,7 @@ export function CreatePinForm({
   );
   const { t } = useI18n();
   const { showToast } = useToast();
+  const { setUploadProgress, clearUploadProgress, fetchPins, bumpPinsVersion } = usePinsCtx();
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
   const [category, setCategory] = useState<string | null>(null);
@@ -328,7 +330,8 @@ export function CreatePinForm({
 
       // Upload images in background and attach to pin
       if (files.length > 0) {
-        uploadFiles(files)
+        setUploadProgress(pin.id, 0);
+        uploadFiles(files, (pct) => setUploadProgress(pin.id, pct))
           .then(async (uploaded) => {
             if (uploaded.length > 0) {
               const rows = uploaded.map((img, i) => ({
@@ -344,16 +347,22 @@ export function CreatePinForm({
                 .insert(rows);
               if (imgErr)
                 console.warn("Background image upload failed:", imgErr.message);
-              else
+              else {
                 showToast({
                   type: "success",
                   title: t("toast.photosUploaded"),
                 });
+                fetchPins();
+                bumpPinsVersion();
+              }
             }
           })
           .catch((err) => {
             console.warn("Background upload error:", err);
             showToast({ type: "error", title: t("toast.photoUploadFailed") });
+          })
+          .finally(() => {
+            clearUploadProgress(pin.id);
           });
       }
     } catch (e) {

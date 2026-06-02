@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { reverseGeocode } from '../lib/geocoding'
 import { normalizeAddress, normalizeCityName, normalizeCountryName } from '../lib/locationNames'
+import { deletePinMedia } from '../lib/cloudinary-delete'
+import { isVideoUrl } from '../lib/cloudinary'
 import type { Pin, PinImage } from '../types'
 import type { CloudinaryUploadResult } from '../lib/cloudinary'
 
@@ -122,6 +124,26 @@ export function usePins(coupleId: string | null | undefined, userId: string | un
   )
 
   const deletePin = useCallback(async (id: string) => {
+    // Fetch images before deleting so we can clean up Cloudinary
+    const { data: images } = await supabase
+      .from('pin_images')
+      .select('id, cloudinary_public_id, cloudinary_url')
+      .eq('pin_id', id)
+
+    // Delete Cloudinary assets BEFORE deleting the pin (edge function verifies ownership via pin_images rows)
+    const assets = (images ?? [])
+      .filter((img) => img.cloudinary_public_id)
+      .map((img) => ({
+        id: img.id,
+        publicId: img.cloudinary_public_id!,
+        resourceType: isVideoUrl(img.cloudinary_url) ? 'video' as const : 'image' as const,
+      }))
+    if (assets.length > 0) {
+      await deletePinMedia(assets).catch((err) =>
+        console.warn('Failed to delete Cloudinary assets:', err),
+      )
+    }
+
     const { error } = await supabase.from('pins').delete().eq('id', id)
     if (error) throw error
     setPins((prev) => prev.filter((p) => p.id !== id))

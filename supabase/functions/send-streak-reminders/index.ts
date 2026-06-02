@@ -22,6 +22,8 @@ const corsHeaders = {
 
 const REMINDER_HOURS = [12, 20, 22, 23];
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+const DEFAULT_GEMINI_TIMEOUT_MS = 3500;
+const DEFAULT_RESEND_TIMEOUT_MS = 6000;
 
 type PushSubscriptionRow = {
   endpoint: string;
@@ -40,6 +42,12 @@ type EmailSendResult = {
   reason?: string;
   toEmail?: string;
   emailSource?: "public_users" | "auth_users";
+};
+
+type PushSendResult = {
+  sent: number;
+  skipped: boolean;
+  reason?: string;
 };
 
 type CoupleStreakRow = {
@@ -86,6 +94,7 @@ type DebugRecipient = {
   gemini: GeminiReminderResult;
   sent: number;
   skipped: boolean;
+  pushReason?: string;
   emailSent: number;
   emailSkipped: boolean;
   emailReason?: string;
@@ -125,6 +134,25 @@ function localParts(date = new Date(), timeZone = "Asia/Ho_Chi_Minh") {
 
 function envFlag(name: string) {
   return ["1", "true", "yes", "on"].includes((Deno.env.get(name) ?? "").toLowerCase());
+}
+
+function envNumber(name: string, fallback: number) {
+  const parsed = Number(Deno.env.get(name));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function requestValue(
@@ -235,14 +263,16 @@ async function sendToUser(
   supabase: ReturnType<typeof createClient>,
   userId: string,
   payload: string,
-) {
+): Promise<PushSendResult> {
   const { data: pref } = await supabase
     .from("notification_preferences")
     .select("streak_reminders")
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (pref && pref.streak_reminders === false) return { sent: 0, skipped: true };
+  if (pref && pref.streak_reminders === false) {
+    return { sent: 0, skipped: true, reason: "preference_disabled" };
+  }
 
   const { data: subscriptions } = await supabase
     .from("push_subscriptions")
@@ -250,7 +280,9 @@ async function sendToUser(
     .eq("user_id", userId);
 
   const rows = (subscriptions ?? []) as PushSubscriptionRow[];
-  if (rows.length === 0) return { sent: 0, skipped: true };
+  if (rows.length === 0) {
+    return { sent: 0, skipped: true, reason: "no_push_subscriptions" };
+  }
 
   const results = await Promise.allSettled(
     rows.map((sub) =>
@@ -274,9 +306,26 @@ async function sendToUser(
     }
   }
 
+  const failed = results
+    .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+    .map((result) => ({
+      statusCode: result.reason?.statusCode ?? null,
+      body: result.reason?.body ?? null,
+      message: result.reason?.message ?? String(result.reason),
+    }));
+  const sent = results.filter((result) => result.status === "fulfilled").length;
+  if (failed.length > 0) {
+    console.error("Streak push send failures:", {
+      userId,
+      sent,
+      failed,
+    });
+  }
+
   return {
-    sent: results.filter((result) => result.status === "fulfilled").length,
-    skipped: false,
+    sent,
+    skipped: sent === 0,
+    reason: sent === 0 ? "all_push_sends_failed" : undefined,
   };
 }
 
@@ -330,32 +379,52 @@ async function sendEmailToUser(
     return { sent: 0, skipped: true, reason: "missing_user_email" };
   }
 
+  const baseUrl = Deno.env.get("APP_URL") || "https://pinly-app.vercel.app";
+  const appUrl = baseUrl;
   const text = [
     body,
     "",
     "Mở Pinly để lưu một mẩu ký ức hôm nay:",
-    `${Deno.env.get("APP_URL") || ""}/wishlist`,
+    appUrl,
   ].join("\n");
-  const appUrl = `${Deno.env.get("APP_URL") || ""}/wishlist`;
   const html = [
     `<p>${escapeHtml(body)}</p>`,
     `<p><a href="${appUrl}">Mở Pinly</a> để lưu một mẩu ký ức hôm nay.</p>`,
   ].join("");
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${resendApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: [toEmail],
-      subject,
-      text,
-      html,
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(
+      "https://api.resend.com/emails",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from,
+          to: [toEmail],
+          subject,
+          text,
+          html,
+        }),
+      },
+      envNumber("RESEND_TIMEOUT_MS", DEFAULT_RESEND_TIMEOUT_MS),
+    );
+  } catch (err) {
+    console.error("Resend streak email timeout/error:", {
+      userId,
+      message: (err as Error).message,
+    });
+    return {
+      sent: 0,
+      skipped: true,
+      reason: "resend_timeout_or_error",
+      toEmail: maskEmail(toEmail),
+      emailSource,
+    };
+  }
 
   if (!response.ok) {
     const rawText = await response.text();
@@ -543,7 +612,9 @@ async function geminiReminderBody(
           "Lần trước câu quá ngắn. Lần này bắt buộc trả câu hoàn chỉnh 12-15 từ.",
           "Chỉ trả về câu cuối cùng, không thêm chữ Tuyệt, OK, hay giải thích.",
         ].join(" ");
-    const response = await fetch(
+    let response: Response;
+    try {
+      response = await fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent`,
       {
         method: "POST",
@@ -562,7 +633,19 @@ async function geminiReminderBody(
           },
         }),
       },
-    );
+        envNumber("GEMINI_TIMEOUT_MS", DEFAULT_GEMINI_TIMEOUT_MS),
+      );
+    } catch (err) {
+      const result: GeminiReminderResult = {
+        ok: false,
+        model,
+        reason: "gemini_timeout_or_error",
+        attempt,
+        error: (err as Error).message,
+      };
+      console.error("Gemini reminder timeout/error:", result);
+      return result;
+    }
 
     if (!response.ok) {
       const rawText = await response.text();
@@ -760,13 +843,16 @@ serve(async (req) => {
       ),
     );
 
-    const { data: streakRows, error: streakError } = await supabase
+    let streakQuery = supabase
       .from("couple_streaks")
       .select(
         "couple_id,current_count,today_date,today_user_a_posted,today_user_b_posted,today_completed",
       )
-      .eq("today_date", reminderDate)
-      .eq("today_completed", false);
+      .eq("today_date", reminderDate);
+    if (!force) {
+      streakQuery = streakQuery.eq("today_completed", false);
+    }
+    const { data: streakRows, error: streakError } = await streakQuery;
 
     if (streakError) throw streakError;
 
@@ -881,6 +967,7 @@ serve(async (req) => {
           gemini: notificationBody.gemini,
           sent: result.sent,
           skipped: result.skipped,
+          pushReason: result.reason,
           emailSent: emailResult.sent,
           emailSkipped: emailResult.skipped,
           emailReason: emailResult.reason,

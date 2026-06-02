@@ -6,9 +6,16 @@ import type { Pin } from '../types'
 
 type PinsHook = ReturnType<typeof usePins>
 
+export type UploadingPinInfo = { progress: number }
+
 interface Ctx extends PinsHook {
   latestPartnerPin: Pin | null
   clearLatestPartnerPin: () => void
+  uploadingPins: Map<string, UploadingPinInfo>
+  setUploadProgress: (pinId: string, progress: number) => void
+  clearUploadProgress: (pinId: string) => void
+  pinsVersion: number
+  bumpPinsVersion: () => void
 }
 
 const PinsCtx = createContext<Ctx | null>(null)
@@ -36,6 +43,25 @@ export function PinsProvider({
 
   const [latestPartnerPin, setLatestPartnerPin] = useState<Pin | null>(null)
   const clearLatestPartnerPin = useCallback(() => setLatestPartnerPin(null), [])
+
+  const [uploadingPins, setUploadingPins] = useState<Map<string, UploadingPinInfo>>(() => new Map())
+  const setUploadProgress = useCallback((pinId: string, progress: number) => {
+    setUploadingPins((prev) => {
+      const next = new Map(prev)
+      next.set(pinId, { progress })
+      return next
+    })
+  }, [])
+  const clearUploadProgress = useCallback((pinId: string) => {
+    setUploadingPins((prev) => {
+      const next = new Map(prev)
+      next.delete(pinId)
+      return next
+    })
+  }, [])
+
+  const [pinsVersion, setPinsVersion] = useState(0)
+  const bumpPinsVersion = useCallback(() => setPinsVersion((v) => v + 1), [])
 
   useCoupleRealtime({
     coupleId,
@@ -66,7 +92,7 @@ export function PinsProvider({
   }, [coupleId])
 
   return (
-    <PinsCtx.Provider value={{ ...value, latestPartnerPin, clearLatestPartnerPin }}>
+    <PinsCtx.Provider value={{ ...value, latestPartnerPin, clearLatestPartnerPin, uploadingPins, setUploadProgress, clearUploadProgress, pinsVersion, bumpPinsVersion }}>
       {children}
     </PinsCtx.Provider>
   )
