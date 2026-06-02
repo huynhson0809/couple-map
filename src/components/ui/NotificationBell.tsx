@@ -1,49 +1,74 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { Bell, CheckCheck, MessageCircle, Flame, Heart, MapPin, X } from 'lucide-react'
-import { useNotificationFeed } from '../../hooks/useNotificationFeed'
-import { useCoupleCtx } from '../../hooks/CoupleContext'
-import type { AppNotification } from '../../types'
+import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  Bell,
+  CheckCheck,
+  MessageCircle,
+  Flame,
+  Heart,
+  MapPin,
+  X,
+} from "lucide-react";
+import { useNotificationFeed } from "../../hooks/useNotificationFeed";
+import { useCoupleCtx } from "../../hooks/CoupleContext";
+import type { AppNotification } from "../../types";
 
 function timeAgo(dateStr: string): string {
-  const now = Date.now()
-  const then = new Date(dateStr).getTime()
-  const diff = now - then
-  const minutes = Math.floor(diff / 60_000)
-  if (minutes < 1) return 'Vừa xong'
-  if (minutes < 60) return `${minutes} phút trước`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours} giờ trước`
-  const days = Math.floor(hours / 24)
-  if (days < 7) return `${days} ngày trước`
-  return new Date(dateStr).toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' })
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = now - then;
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return "Vừa xong";
+  if (minutes < 60) return `${minutes} phút trước`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} ngày trước`;
+  return new Date(dateStr).toLocaleDateString("vi-VN", {
+    day: "numeric",
+    month: "short",
+  });
 }
 
-function notifIcon(type: AppNotification['type']) {
+function notifIcon(type: AppNotification["type"]) {
   switch (type) {
-    case 'new_pin': return <MapPin size={18} />
-    case 'reaction': return <Heart size={18} />
-    case 'comment': return <MessageCircle size={18} />
-    case 'streak_reminder': return <Flame size={18} />
-    case 'streak_complete': return <Flame size={18} />
-    case 'streak_broken': return <Flame size={18} />
-    default: return <Bell size={18} />
+    case "new_pin":
+      return <MapPin size={18} />;
+    case "reaction":
+      return <Heart size={18} />;
+    case "comment":
+      return <MessageCircle size={18} />;
+    case "streak_reminder":
+      return <Flame size={18} />;
+    case "streak_complete":
+      return <Flame size={18} />;
+    case "streak_broken":
+      return <Flame size={18} />;
+    default:
+      return <Bell size={18} />;
   }
 }
 
-function notifColor(type: AppNotification['type']) {
+function notifColor(type: AppNotification["type"]) {
   switch (type) {
-    case 'new_pin': return 'var(--coral, #ff676d)'
-    case 'reaction': return '#e91e63'
-    case 'comment': return '#2196f3'
-    case 'streak_reminder': return '#ff9800'
-    case 'streak_complete': return '#4caf50'
-    case 'streak_broken': return '#f44336'
-    default: return 'var(--fg)'
+    case "new_pin":
+      return "var(--coral, #ff676d)";
+    case "reaction":
+      return "#e91e63";
+    case "comment":
+      return "#2196f3";
+    case "streak_reminder":
+      return "#ff9800";
+    case "streak_complete":
+      return "#4caf50";
+    case "streak_broken":
+      return "#f44336";
+    default:
+      return "var(--fg)";
   }
 }
 
 export function TopBar() {
-  const { profile } = useCoupleCtx()
+  const { profile } = useCoupleCtx();
   const {
     notifications,
     unreadCount,
@@ -52,30 +77,30 @@ export function TopBar() {
     fetchMore,
     markAsRead,
     markAllAsRead,
-  } = useNotificationFeed(profile?.id)
-  const [open, setOpen] = useState(false)
-  const panelRef = useRef<HTMLDivElement>(null)
-  const listRef = useRef<HTMLDivElement>(null)
+  } = useNotificationFeed(profile?.id);
+  const [open, setOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     function handleClick(e: MouseEvent) {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        setOpen(false)
+        setOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
 
   const handleScroll = useCallback(() => {
-    if (!listRef.current || loading || !hasMore) return
-    const el = listRef.current
+    if (!listRef.current || loading || !hasMore) return;
+    const el = listRef.current;
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100) {
-      fetchMore()
+      fetchMore();
     }
-  }, [loading, hasMore, fetchMore])
+  }, [loading, hasMore, fetchMore]);
 
   return (
     <header className="top-bar">
@@ -94,7 +119,7 @@ export function TopBar() {
           <Bell size={20} />
           {unreadCount > 0 && (
             <span className="notif-bell-badge">
-              {unreadCount > 99 ? '99+' : unreadCount}
+              {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
         </button>
@@ -122,7 +147,11 @@ export function TopBar() {
               </button>
             </div>
 
-            <div className="notif-panel-list" ref={listRef} onScroll={handleScroll}>
+            <div
+              className="notif-panel-list"
+              ref={listRef}
+              onScroll={handleScroll}
+            >
               {notifications.length === 0 && !loading && (
                 <div className="notif-empty">
                   <Bell size={32} strokeWidth={1.5} />
@@ -133,18 +162,25 @@ export function TopBar() {
                 <button
                   key={n.id}
                   type="button"
-                  className={`notif-item ${n.read ? '' : 'unread'}`}
+                  className={`notif-item ${n.read ? "" : "unread"}`}
                   onClick={() => {
-                    if (!n.read) markAsRead(n.id)
+                    if (!n.read) markAsRead(n.id);
                   }}
                 >
-                  <span className="notif-item-icon" style={{ color: notifColor(n.type) }}>
+                  <span
+                    className="notif-item-icon"
+                    style={{ color: notifColor(n.type) }}
+                  >
                     {notifIcon(n.type)}
                   </span>
                   <span className="notif-item-content">
                     <span className="notif-item-title">{n.title}</span>
-                    {n.body && <span className="notif-item-body">{n.body}</span>}
-                    <span className="notif-item-time">{timeAgo(n.created_at)}</span>
+                    {n.body && (
+                      <span className="notif-item-body">{n.body}</span>
+                    )}
+                    <span className="notif-item-time">
+                      {timeAgo(n.created_at)}
+                    </span>
                   </span>
                   {!n.read && <span className="notif-item-dot" />}
                 </button>
@@ -155,6 +191,5 @@ export function TopBar() {
         )}
       </div>
     </header>
-  )
+  );
 }
-
