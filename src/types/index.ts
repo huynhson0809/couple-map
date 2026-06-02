@@ -125,3 +125,17 @@ export interface BucketListItem {
   completed_pin_id: string | null
   created_at: string
 }
+
+export type NotificationType = 'new_pin' | 'reaction' | 'comment' | 'streak_reminder' | 'streak_complete' | 'streak_broken'
+
+export interface AppNotification {
+  id: string
+  user_id: string
+  couple_id: string | null
+  type: NotificationType
+  title: string
+  body: string | null
+  data: Record<string, unknown>
+  read: boolean
+  created_at: string
+}

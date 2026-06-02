@@ -340,10 +340,6 @@ export function MapView({
       zoom: 12,
       ...({ preserveDrawingBuffer: true } as Record<string, unknown>),
     } as ConstructorParameters<typeof maplibregl.Map>[0]);
-    map.addControl(
-      new maplibregl.NavigationControl({ showCompass: false }),
-      "top-right",
-    );
     const geolocateControl = new maplibregl.GeolocateControl({
       positionOptions: {
         enableHighAccuracy: true,

@@ -17,6 +17,7 @@ import { BottomNav } from "./components/ui/BottomNav";
 import { UpdatePrompt } from "./components/ui/UpdatePrompt";
 import { AnniversaryPrompt } from "./components/onboard/AnniversaryPrompt";
 import { NotificationToast } from "./components/ui/NotificationToast";
+import { TopBar } from "./components/ui/NotificationBell";
 import { getImageUrl } from "./lib/cloudinary";
 import { useAuth } from "./hooks/useAuth";
 import { CoupleProvider, useCoupleCtx } from "./hooks/CoupleContext";
@@ -74,6 +75,7 @@ function PairedShell() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <TopBar />
       <BottomNav />
       <AnniversaryPrompt />
       <NotificationToast />
