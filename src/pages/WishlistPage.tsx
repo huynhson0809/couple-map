@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Trash2, MapPin, Search, Check } from 'lucide-react'
+import { Plus, Trash2, MapPin, Search, Check, Sparkles, Globe2, CalendarHeart, Plane } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useCoupleCtx } from '../hooks/CoupleContext'
+import { usePinsCtx } from '../hooks/PinsContext'
 import { useBucket } from '../hooks/useBucket'
 import { useI18n } from '../hooks/I18nContext'
 import { useStreak } from '../hooks/useStreak'
+import { useStats } from '../hooks/useStats'
 import { Button } from '../components/ui/Button'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { StreakCard } from '../components/streak/StreakCard'
@@ -14,9 +16,11 @@ import { searchPlaces, type PlaceSearchResult } from '../lib/placeSearch'
 export function WishlistPage() {
   const { user } = useAuth()
   const { couple, profile, partner } = useCoupleCtx()
+  const { pins } = usePinsCtx()
   const { items, addItem, removeItem, markDone, markDream } = useBucket(couple?.id, user?.id)
   const { t } = useI18n()
   const streak = useStreak(couple, profile?.id ?? user?.id)
+  const stats = useStats(pins, couple)
   const navigate = useNavigate()
 
   const [adding, setAdding] = useState(false)
@@ -114,6 +118,34 @@ export function WishlistPage() {
           partner={partner}
         />
       )}
+
+      <div className="stat-grid">
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#ff5a5f1a', color: '#ff5a5f' }}><Sparkles size={20} /></div>
+          <div className="stat-value">{stats.totalPins}</div>
+          <div className="stat-label">{t('stats.memories')}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#378add1a', color: '#378add' }}><MapPin size={20} /></div>
+          <div className="stat-value">{stats.cities}</div>
+          <div className="stat-label">{t('stats.cities')}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#9333ea1a', color: '#9333ea' }}><Globe2 size={20} /></div>
+          <div className="stat-value">{stats.countries}</div>
+          <div className="stat-label">{t('stats.countries')}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#ff4d571a', color: '#ff4d57' }}><CalendarHeart size={20} /></div>
+          <div className="stat-value">{stats.daysTogether ?? '—'}</div>
+          <div className="stat-label">{t('stats.daysTogether')}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#f59e0b1a', color: '#f59e0b' }}><Plane size={20} /></div>
+          <div className="stat-value">{stats.farthestKm} km</div>
+          <div className="stat-label">{t('stats.farthest')}</div>
+        </div>
+      </div>
 
       <Button onClick={openAdd} style={{ width: '100%' }}>
         <Plus size={18} /> {t('wish.add')}

@@ -10,14 +10,13 @@ import { RegisterPage } from "./components/auth/RegisterPage";
 import { CoupleSetup } from "./components/auth/CoupleSetup";
 import { MapPage } from "./pages/MapPage";
 import { TimelinePage } from "./pages/TimelinePage";
-import { StatsPage } from "./pages/StatsPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 import { WishlistPage } from "./pages/WishlistPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { BottomNav } from "./components/ui/BottomNav";
 import { UpdatePrompt } from "./components/ui/UpdatePrompt";
 import { AnniversaryPrompt } from "./components/onboard/AnniversaryPrompt";
 import { NotificationToast } from "./components/ui/NotificationToast";
-import { TopBar } from "./components/ui/NotificationBell";
 import { getImageUrl } from "./lib/cloudinary";
 import { useAuth } from "./hooks/useAuth";
 import { CoupleProvider, useCoupleCtx } from "./hooks/CoupleContext";
@@ -71,11 +70,10 @@ function PairedShell() {
         <Route path="/" element={<MapPage />} />
         <Route path="/timeline" element={<TimelinePage />} />
         <Route path="/wishlist" element={<WishlistPage />} />
-        <Route path="/stats" element={<StatsPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      <TopBar />
       <BottomNav />
       <AnniversaryPrompt />
       <NotificationToast />

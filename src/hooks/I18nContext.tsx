@@ -15,7 +15,7 @@ const dict = {
     "nav.map": "Map",
     "nav.timeline": "Timeline",
     "nav.wishlist": "Streak",
-    "nav.stats": "Stats",
+    "nav.notifications": "Alerts",
     "nav.settings": "Settings",
 
     "auth.welcome": "Welcome back",
@@ -235,7 +235,7 @@ const dict = {
     "nav.map": "Bản đồ",
     "nav.timeline": "Dòng thời gian",
     "nav.wishlist": "Chuỗi",
-    "nav.stats": "Thống kê",
+    "nav.notifications": "Thông báo",
     "nav.settings": "Cài đặt",
 
     "auth.welcome": "Chào mừng quay lại",

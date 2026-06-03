@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import type { AppNotification } from "../types";
 
 const PAGE_SIZE = 30;
 
 export function useNotificationFeed(userId: string | undefined) {
+  const instanceId = useId();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -79,7 +80,7 @@ export function useNotificationFeed(userId: string | undefined) {
     if (!userId) return;
 
     const channel = supabase
-      .channel(`notifications:${userId}`)
+      .channel(`notifications:${userId}:${instanceId}`)
       .on(
         "postgres_changes",
         {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { List } from 'react-window'
 import { Calendar, Check, ChevronDown, MapPin, Search, SlidersHorizontal, Star, X } from 'lucide-react'
 import { usePinsCtx } from '../hooks/PinsContext'
@@ -172,6 +172,7 @@ export function TimelinePage() {
   const { t, lang } = useI18n()
   const { allCategories, getCategory } = useCategoriesCtx()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [categoryFilters, setCategoryFilters] = useState<string[]>([])
   const [favoriteOnly, setFavoriteOnly] = useState(false)
@@ -262,6 +263,18 @@ export function TimelinePage() {
   function openPinDetail(p: Pin) {
     setSelectedPin(p)
   }
+
+  // Open pin from notification navigation
+  useEffect(() => {
+    const state = location.state as { openPinId?: string } | null
+    if (!state?.openPinId) return
+    const pin = livePins.find((p) => p.id === state.openPinId) ?? timelinePins.find((p) => p.id === state.openPinId)
+    if (pin) {
+      setSelectedPin(pin)
+      // Clear the state so it doesn't re-open on re-render
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+  }, [location.state, livePins, timelinePins, navigate, location.pathname])
 
   function clearAdvancedFilters() {
     setCategoryFilters([])
