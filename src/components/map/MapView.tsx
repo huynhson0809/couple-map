@@ -338,6 +338,7 @@ export function MapView({
       style: mapStyleUrl,
       center: [106.6297, 10.8231],
       zoom: 12,
+      attributionControl: false,
       ...({ preserveDrawingBuffer: true } as Record<string, unknown>),
     } as ConstructorParameters<typeof maplibregl.Map>[0]);
     const geolocateControl = new maplibregl.GeolocateControl({
@@ -361,7 +362,7 @@ export function MapView({
     geolocateControl.on("error", () => {
       /* The browser may report POSITION_UNAVAILABLE while GPS is warming up. */
     });
-    map.addControl(geolocateControl, "top-right");
+    map.addControl(geolocateControl, "bottom-right");
 
     function startLongPress(
       e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent,

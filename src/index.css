@@ -352,6 +352,47 @@ body { -webkit-tap-highlight-color: transparent; }
 .map-container-wrapper { position: absolute; inset: 0; z-index: 0; }
 .map-container { position: absolute; inset: 0; }
 .maplibregl-canvas { filter: var(--map-filter); }
+
+/* Position MapLibre geolocate control above FAB */
+.map-container .maplibregl-ctrl-bottom-right {
+  bottom: calc(148px + env(safe-area-inset-bottom));
+  right: 20px;
+}
+.map-container .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
+  margin: 0;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.5),
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    0 1px 4px rgba(0, 0, 0, 0.06);
+  border: none;
+  overflow: hidden;
+}
+.map-container .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group button {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.map-container .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  width: 22px;
+  height: 22px;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+/* Hide attribution bar */
+.map-container .maplibregl-ctrl-attrib {
+  display: none;
+}
+/* Hide globe/terrain control if auto-added by style */
+.map-container .maplibregl-ctrl-top-right {
+  display: none;
+}
 .pin-marker {
   width: 28px; height: 28px;
   border-radius: 50% 50% 50% 0;
