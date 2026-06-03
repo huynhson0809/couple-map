@@ -27,6 +27,7 @@ import { I18nProvider } from "./hooks/I18nContext";
 import { ToastProvider } from "./hooks/ToastContext";
 import { usePushSubscription } from "./hooks/usePushSubscription";
 import { NotificationFeedProvider } from "./hooks/NotificationFeedContext";
+import { SubscriptionProvider } from "./hooks/useSubscription";
 import { useEffect } from "react";
 
 function PairedShell() {
@@ -64,22 +65,22 @@ function PairedShell() {
       : undefined;
   return (
     <NotificationFeedProvider>
-    <div
-      className={`app-shell ${isMap ? "shell-map" : "shell-page"} ${bgUrl ? "has-bg" : ""}`}
-      style={shellStyle}
-    >
-      <Routes>
-        <Route path="/" element={<MapPage />} />
-        <Route path="/timeline" element={<TimelinePage />} />
-        <Route path="/wishlist" element={<WishlistPage />} />
-        <Route path="/notifications" element={<NotificationsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      <BottomNav />
-      <AnniversaryPrompt />
-      <NotificationToast />
-    </div>
+      <div
+        className={`app-shell ${isMap ? "shell-map" : "shell-page"} ${bgUrl ? "has-bg" : ""}`}
+        style={shellStyle}
+      >
+        <Routes>
+          <Route path="/" element={<MapPage />} />
+          <Route path="/timeline" element={<TimelinePage />} />
+          <Route path="/wishlist" element={<WishlistPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <BottomNav />
+        <AnniversaryPrompt />
+        <NotificationToast />
+      </div>
     </NotificationFeedProvider>
   );
 }
@@ -88,11 +89,13 @@ function PinsScope() {
   const { couple, profile } = useCoupleCtx();
 
   return (
-    <PinsProvider coupleId={couple?.id} userId={profile?.id}>
-      <CategoriesProvider coupleId={couple?.id} userId={profile?.id}>
-        <RoutedShell />
-      </CategoriesProvider>
-    </PinsProvider>
+    <SubscriptionProvider coupleId={couple?.id ?? null}>
+      <PinsProvider coupleId={couple?.id} userId={profile?.id}>
+        <CategoriesProvider coupleId={couple?.id} userId={profile?.id}>
+          <RoutedShell />
+        </CategoriesProvider>
+      </PinsProvider>
+    </SubscriptionProvider>
   );
 }
 

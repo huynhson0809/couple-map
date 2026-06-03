@@ -34,13 +34,6 @@ export const MAP_STYLES: MapStyleOption[] = [
     colors: ["#f8f4f0", "#aad3df", "#ffffff"],
   },
   {
-    id: "romantic",
-    url: "/styles/romantic.json",
-    labelEn: "Romantic",
-    labelVi: "Lãng mạn",
-    colors: ["#fcd6e3", "#c8dff0", "#e4879e"],
-  },
-  {
     id: "candy",
     url: "/styles/candy.json",
     labelEn: "Candy",
@@ -53,6 +46,13 @@ export const MAP_STYLES: MapStyleOption[] = [
     labelEn: "Midnight",
     labelVi: "Nửa đêm",
     colors: ["#0d1117", "#0a1628", "#bb86fc"],
+  },
+  {
+    id: "romantic",
+    url: "/styles/romantic.json",
+    labelEn: "Romantic",
+    labelVi: "Lãng mạn",
+    colors: ["#fcd6e3", "#c8dff0", "#e4879e"],
   },
   {
     id: "vintage",

@@ -5,6 +5,7 @@ import { getImageUrl } from "../../lib/cloudinary";
 import { useI18n } from "../../hooks/I18nContext";
 import { useCoupleCtx } from "../../hooks/CoupleContext";
 import { useCategoriesCtx } from "../../hooks/CategoriesContext";
+import { useSubscription } from "../../hooks/useSubscription";
 import { Button } from "../ui/Button";
 import { Logo } from "../ui/Logo";
 
@@ -76,7 +77,12 @@ interface ShareTag {
 }
 
 /** Draw the Pinly logo at (x, y) with given size */
-function drawLogo(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+function drawLogo(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+) {
   const s = size / 72;
   ctx.save();
   ctx.translate(x, y);
@@ -244,6 +250,7 @@ async function drawCardWithPhoto(
   location: string,
   dateStr: string,
   coupleNames: string,
+  showWatermark = true,
 ): Promise<string> {
   const canvas = document.createElement("canvas");
   canvas.width = CARD_W;
@@ -336,11 +343,13 @@ async function drawCardWithPhoto(
   ctx.fillStyle = "#555555";
   ctx.textAlign = "left";
   ctx.fillText(coupleNames, PAD, footerY);
-  ctx.textAlign = "right";
-  ctx.fillStyle = "#ff5a5f";
-  const pinlyW = ctx.measureText("Pinly").width;
-  ctx.fillText("Pinly", CARD_W - PAD, footerY);
-  drawLogo(ctx, CARD_W - PAD - pinlyW - 40, footerY - 28, 32);
+  if (showWatermark) {
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#ff5a5f";
+    const pinlyW = ctx.measureText("Pinly").width;
+    ctx.fillText("Pinly", CARD_W - PAD, footerY);
+    drawLogo(ctx, CARD_W - PAD - pinlyW - 40, footerY - 28, 32);
+  }
   ctx.textAlign = "left";
 
   ctx.restore(); // restore outer rounded clip
@@ -356,6 +365,7 @@ async function drawCardNoPhoto(
   location: string,
   dateStr: string,
   coupleNames: string,
+  showWatermark = true,
 ): Promise<string> {
   const canvas = document.createElement("canvas");
   canvas.width = CARD_W;
@@ -439,11 +449,13 @@ async function drawCardNoPhoto(
   ctx.fillStyle = "#555555";
   ctx.textAlign = "left";
   ctx.fillText(coupleNames, PAD, footerY);
-  ctx.textAlign = "right";
-  ctx.fillStyle = "#ff5a5f";
-  const pinlyW = ctx.measureText("Pinly").width;
-  ctx.fillText("Pinly", CARD_W - PAD, footerY);
-  drawLogo(ctx, CARD_W - PAD - pinlyW - 40, footerY - 28, 32);
+  if (showWatermark) {
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#ff5a5f";
+    const pinlyW = ctx.measureText("Pinly").width;
+    ctx.fillText("Pinly", CARD_W - PAD, footerY);
+    drawLogo(ctx, CARD_W - PAD - pinlyW - 40, footerY - 28, 32);
+  }
 
   return canvas.toDataURL("image/png");
 }
@@ -454,6 +466,7 @@ export function ShareCard({ pin, onClose }: Props) {
   const { lang, t } = useI18n();
   const { profile, partner } = useCoupleCtx();
   const { getCategory } = useCategoriesCtx();
+  const { hasWatermark } = useSubscription();
   const [generating, setGenerating] = useState(false);
 
   const images = pin.images ?? [];
@@ -488,6 +501,7 @@ export function ShareCard({ pin, onClose }: Props) {
           location,
           dateStr,
           coupleNames,
+          hasWatermark,
         );
       } else {
         return await drawCardNoPhoto(
@@ -498,6 +512,7 @@ export function ShareCard({ pin, onClose }: Props) {
           location,
           dateStr,
           coupleNames,
+          hasWatermark,
         );
       }
     } catch (err) {
@@ -523,7 +538,9 @@ export function ShareCard({ pin, onClose }: Props) {
           await navigator.share({ files: [file] });
           return;
         }
-      } catch { /* fall through */ }
+      } catch {
+        /* fall through */
+      }
       // Fallback: open image in new tab so user can long-press to save
       const win = window.open();
       if (win) {
@@ -559,7 +576,9 @@ export function ShareCard({ pin, onClose }: Props) {
         });
         return;
       }
-    } catch { /* cancelled or unsupported */ }
+    } catch {
+      /* cancelled or unsupported */
+    }
 
     // Fallback
     handleDownload();
@@ -605,10 +624,12 @@ export function ShareCard({ pin, onClose }: Props) {
                 </div>
                 <div className="share-card-footer">
                   <span className="share-card-couple">{coupleNames}</span>
-                  <span className="share-card-brand">
-                    <Logo size={16} className="share-card-brand-logo" />
-                    Pinly
-                  </span>
+                  {hasWatermark && (
+                    <span className="share-card-brand">
+                      <Logo size={16} className="share-card-brand-logo" />
+                      Pinly
+                    </span>
+                  )}
                 </div>
               </div>
             </>
@@ -619,7 +640,10 @@ export function ShareCard({ pin, onClose }: Props) {
                 <div className="share-card-gradient-content">
                   <div className="share-card-emoji">
                     {pin.marker_image_url ? (
-                      <img src={getImageUrl(pin.marker_image_url, 160)} alt="" />
+                      <img
+                        src={getImageUrl(pin.marker_image_url, 160)}
+                        alt=""
+                      />
                     ) : (
                       markerEmoji
                     )}
@@ -641,10 +665,12 @@ export function ShareCard({ pin, onClose }: Props) {
               <div className="share-card-info">
                 <div className="share-card-footer">
                   <span className="share-card-couple">{coupleNames}</span>
-                  <span className="share-card-brand">
-                    <Logo size={16} className="share-card-brand-logo" />
-                    Pinly
-                  </span>
+                  {hasWatermark && (
+                    <span className="share-card-brand">
+                      <Logo size={16} className="share-card-brand-logo" />
+                      Pinly
+                    </span>
+                  )}
                 </div>
               </div>
             </>

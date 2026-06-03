@@ -19,6 +19,7 @@ import { usePins } from "../../hooks/usePins";
 import { isBuiltInCategory, type Category } from "../../lib/categories";
 import { useCategoriesCtx } from "../../hooks/CategoriesContext";
 import { useI18n } from "../../hooks/I18nContext";
+import { useSubscription } from "../../hooks/useSubscription";
 import { compressImage } from "../../lib/imageCompress";
 import {
   uploadToCloudinary,
@@ -72,6 +73,7 @@ export function CreatePinForm({
   const { createPin } = usePins(coupleId, userId);
   const {
     allCategories,
+    customCategories,
     getCategory,
     saveCustomCategory,
     deleteCustomCategory,
@@ -79,9 +81,12 @@ export function CreatePinForm({
   const { uploadFiles, uploading, progress } = useImageUpload(
     `pinly/${coupleId}`,
   );
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const { canUploadVideo, canCreateCategory, canAddPhoto, limits } =
+    useSubscription();
   const { showToast } = useToast();
-  const { setUploadProgress, clearUploadProgress, fetchPins, bumpPinsVersion } = usePinsCtx();
+  const { setUploadProgress, clearUploadProgress, fetchPins, bumpPinsVersion } =
+    usePinsCtx();
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
   const [category, setCategory] = useState<string | null>(null);
@@ -170,6 +175,15 @@ export function CreatePinForm({
         : file.type.startsWith("image/");
     });
     if (incoming.length === 0) return;
+    // Gate: already at limit
+    if (files.length >= limits.photosPerPin) {
+      setError(
+        lang === "vi"
+          ? `Giới hạn ${limits.photosPerPin} ảnh/video. Nâng cấp để thêm.`
+          : `Limit ${limits.photosPerPin} photos/videos. Upgrade to add more.`,
+      );
+      return;
+    }
     // Validate video size
     for (const f of incoming) {
       if (f.type.startsWith("video/") && f.size > MAX_VIDEO_BYTES) {
@@ -177,11 +191,13 @@ export function CreatePinForm({
         return;
       }
     }
-    setFiles((prev) => [...prev, ...incoming].slice(0, 5));
+    setError(null);
+    setFiles((prev) => [...prev, ...incoming].slice(0, limits.photosPerPin));
   }
 
   function removeFile(i: number) {
     setFiles((prev) => prev.filter((_, idx) => idx !== i));
+    setError(null);
   }
 
   async function handleMarkerUpload(file: File | undefined) {
@@ -226,6 +242,15 @@ export function CreatePinForm({
 
   async function handleSaveCustomTag() {
     if (!customTagName.trim()) return;
+    // Gate: check custom category limit (only for new categories, not edits)
+    if (!editingTagId && !canCreateCategory(customCategories.length)) {
+      setError(
+        lang === "vi"
+          ? "Giới hạn danh mục tuỳ chỉnh. Nâng cấp để tạo thêm."
+          : "Custom category limit reached. Upgrade your plan.",
+      );
+      return;
+    }
     const id =
       editingTagId ??
       `custom_${typeof crypto.randomUUID === "function" ? crypto.randomUUID() : Date.now()}`;
@@ -599,7 +624,11 @@ export function CreatePinForm({
             <button
               type="button"
               className="address-clear-btn"
-              onClick={() => { setAddress(""); setAddressEdited(true); setAddressResults([]); }}
+              onClick={() => {
+                setAddress("");
+                setAddressEdited(true);
+                setAddressResults([]);
+              }}
               aria-label="Clear address"
             >
               <X size={14} />
@@ -630,7 +659,7 @@ export function CreatePinForm({
 
       <div>
         <div className="field-label">
-          {t("pin.media")} ({files.length}/5)
+          {t("pin.media")} ({files.length}/{limits.photosPerPin})
         </div>
         <div className="photo-buttons">
           <button
@@ -640,7 +669,7 @@ export function CreatePinForm({
               if (cameraInput.current) cameraInput.current.value = "";
               cameraInput.current?.click();
             }}
-            disabled={files.length >= 5}
+            disabled={files.length >= limits.photosPerPin}
           >
             <Camera size={20} /> {t("pin.takePhoto")}
           </button>
@@ -651,7 +680,7 @@ export function CreatePinForm({
               if (libraryInput.current) libraryInput.current.value = "";
               libraryInput.current?.click();
             }}
-            disabled={files.length >= 5}
+            disabled={files.length >= limits.photosPerPin}
           >
             <ImagePlus size={20} /> {t("pin.fromLibrary")}
           </button>
@@ -659,12 +688,20 @@ export function CreatePinForm({
             type="button"
             className="photo-btn"
             onClick={() => {
+              if (!canUploadVideo) {
+                setError(
+                  lang === "vi"
+                    ? "Video cần gói Plus hoặc Pro"
+                    : "Video requires Plus or Pro plan",
+                );
+                return;
+              }
               if (videoInput.current) videoInput.current.value = "";
               videoInput.current?.click();
             }}
-            disabled={files.length >= 5}
+            disabled={files.length >= limits.photosPerPin}
           >
-            <Video size={20} /> {t("pin.addVideo")}
+            <Video size={20} /> {t("pin.addVideo")} {!canUploadVideo && "🔒"}
           </button>
         </div>
         <input

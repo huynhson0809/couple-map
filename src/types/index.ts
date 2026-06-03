@@ -14,6 +14,7 @@ export interface Couple {
   user_b: string | null;
   anniversary_date: string | null;
   background_image_url: string | null;
+  plan?: "free" | "plus" | "pro";
   created_at: string;
 }
 
@@ -140,6 +141,19 @@ export type NotificationType =
   | "streak_reminder"
   | "streak_complete"
   | "streak_broken";
+
+export type PlanType = "free" | "plus" | "pro";
+
+export interface Subscription {
+  id: string;
+  couple_id: string;
+  plan: PlanType;
+  billing_cycle: "monthly" | "annual";
+  status: "active" | "canceled" | "past_due" | "expired";
+  current_period_start: string;
+  current_period_end: string;
+  created_at: string;
+}
 
 export interface AppNotification {
   id: string;

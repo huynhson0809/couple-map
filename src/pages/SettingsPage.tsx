@@ -13,6 +13,7 @@ import {
   BellOff,
   RefreshCw,
   CheckCircle2,
+  Crown,
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
@@ -23,6 +24,9 @@ import { useNotifications } from "../hooks/useNotifications";
 import { usePushSubscription } from "../hooks/usePushSubscription";
 import { useNotificationPreferences } from "../hooks/useNotificationPreferences";
 import { useMapStyle, MAP_STYLES } from "../hooks/useMapStyle";
+import { useSubscription } from "../hooks/useSubscription";
+import { PricingPage } from "./PricingPage";
+import { UpgradePrompt } from "../components/ui/UpgradePrompt";
 import { Button } from "../components/ui/Button";
 import { compressImage } from "../lib/imageCompress";
 import { uploadToCloudinary, getImageUrl } from "../lib/cloudinary";
@@ -36,6 +40,9 @@ export function SettingsPage() {
   const push = usePushSubscription(user?.id);
   const notifPrefs = useNotificationPreferences(user?.id);
   const { styleId, setStyleId } = useMapStyle();
+  const { plan, subscription, canUseMapStyle } = useSubscription();
+  const [showPricing, setShowPricing] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [annivDate, setAnnivDate] = useState(couple?.anniversary_date ?? "");
   const [annivSaving, setAnnivSaving] = useState(false);
@@ -92,6 +99,56 @@ export function SettingsPage() {
       <header className="page-header">
         <h1>{t("settings.title")}</h1>
       </header>
+
+      {/* Subscription section */}
+      <section className="setting-section">
+        <div className="setting-section-title">
+          <Crown
+            size={14}
+            style={{ display: "inline", verticalAlign: "-2px" }}
+          />{" "}
+          {lang === "vi" ? "Gói của bạn" : "Your Plan"}
+        </div>
+        <div className="setting-row compact">
+          <span style={{ fontWeight: 700 }}>
+            {plan === "free" ? "Free" : plan === "plus" ? "Plus" : "Pro"}
+          </span>
+          {plan === "free" ? (
+            <Button
+              variant="primary"
+              onClick={() => setShowPricing(true)}
+              style={{ padding: "6px 14px", fontSize: 13 }}
+            >
+              {lang === "vi" ? "Nâng cấp" : "Upgrade"}
+            </Button>
+          ) : (
+            <span className="muted" style={{ fontSize: 12 }}>
+              {subscription
+                ? `${lang === "vi" ? "Hết hạn" : "Expires"}: ${new Date(subscription.current_period_end).toLocaleDateString("vi-VN")}`
+                : "Active"}
+            </span>
+          )}
+        </div>
+        {plan !== "free" && (
+          <button
+            type="button"
+            onClick={() => setShowPricing(true)}
+            style={{
+              fontSize: 12,
+              marginTop: 6,
+              marginBottom: 4,
+              padding: "6px 12px",
+              borderRadius: 8,
+              border: "1px solid var(--border)",
+              background: "var(--card)",
+              color: "var(--text)",
+              cursor: "pointer",
+            }}
+          >
+            {lang === "vi" ? "Quản lý gói" : "Manage plan"}
+          </button>
+        )}
+      </section>
 
       <section className="setting-section">
         <div className="setting-section-title">
@@ -152,27 +209,41 @@ export function SettingsPage() {
       <section className="setting-section">
         <div className="setting-section-title">{t("settings.mapStyle")}</div>
         <div className="map-style-grid">
-          {MAP_STYLES.map((s) => (
-            <button
-              key={s.id}
-              className={`map-style-card ${styleId === s.id ? "active" : ""}`}
-              onClick={() => setStyleId(s.id)}
-            >
-              <div className="map-style-swatch">
-                <span style={{ background: s.colors[0] }} />
-                <span style={{ background: s.colors[1] }} />
-                <span style={{ background: s.colors[2] }} />
-              </div>
-              <div className="map-style-label">
-                {lang === "vi" ? s.labelVi : s.labelEn}
-              </div>
-              {styleId === s.id && (
-                <span className="map-style-selected" aria-hidden="true">
-                  <CheckCircle2 size={16} />
-                </span>
-              )}
-            </button>
-          ))}
+          {MAP_STYLES.map((s) => {
+            const locked = !canUseMapStyle(s.id);
+            return (
+              <button
+                key={s.id}
+                className={`map-style-card ${styleId === s.id ? "active" : ""} ${locked ? "locked" : ""}`}
+                onClick={() => {
+                  if (locked) {
+                    setUpgradeFeature(
+                      lang === "vi"
+                        ? "Map styles premium"
+                        : "Premium map styles",
+                    );
+                  } else {
+                    setStyleId(s.id);
+                  }
+                }}
+              >
+                <div className="map-style-swatch">
+                  <span style={{ background: s.colors[0] }} />
+                  <span style={{ background: s.colors[1] }} />
+                  <span style={{ background: s.colors[2] }} />
+                </div>
+                <div className="map-style-label">
+                  {lang === "vi" ? s.labelVi : s.labelEn}
+                  {locked && " 🔒"}
+                </div>
+                {styleId === s.id && (
+                  <span className="map-style-selected" aria-hidden="true">
+                    <CheckCircle2 size={16} />
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -275,7 +346,9 @@ export function SettingsPage() {
                   checked={notifPrefs.prefs.streak_reminders}
                   disabled={notifPrefs.loading}
                   onChange={(e) =>
-                    notifPrefs.updatePrefs({ streak_reminders: e.target.checked })
+                    notifPrefs.updatePrefs({
+                      streak_reminders: e.target.checked,
+                    })
                   }
                 />
               </label>
@@ -291,7 +364,9 @@ export function SettingsPage() {
               checked={notifPrefs.prefs.streak_email_reminders}
               disabled={notifPrefs.loading}
               onChange={(e) =>
-                notifPrefs.updatePrefs({ streak_email_reminders: e.target.checked })
+                notifPrefs.updatePrefs({
+                  streak_email_reminders: e.target.checked,
+                })
               }
             />
           </label>
@@ -426,6 +501,23 @@ export function SettingsPage() {
           <LogOut size={16} /> {t("settings.signOut")}
         </Button>
       </div>
+
+      {upgradeFeature && (
+        <UpgradePrompt
+          feature={upgradeFeature}
+          onUpgrade={() => {
+            setUpgradeFeature(null);
+            setShowPricing(true);
+          }}
+          onDismiss={() => setUpgradeFeature(null)}
+        />
+      )}
+
+      {showPricing && (
+        <div className="pricing-overlay">
+          <PricingPage onClose={() => setShowPricing(false)} />
+        </div>
+      )}
     </div>
   );
 }

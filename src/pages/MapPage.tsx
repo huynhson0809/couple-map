@@ -6,6 +6,7 @@ import { MapView } from "../components/map/MapView";
 import { BottomSheet } from "../components/ui/BottomSheet";
 import { CreatePinForm } from "../components/pins/CreatePinForm";
 import { PinDetail } from "../components/pins/PinDetail";
+import { UpgradePrompt } from "../components/ui/UpgradePrompt";
 import { useAuth } from "../hooks/useAuth";
 import { useCoupleCtx } from "../hooks/CoupleContext";
 import { usePinsCtx } from "../hooks/PinsContext";
@@ -13,6 +14,7 @@ import { useBucket } from "../hooks/useBucket";
 import { useLocation as useGeo } from "../hooks/useLocation";
 import { useMapStyle } from "../hooks/useMapStyle";
 import { useStreak } from "../hooks/useStreak";
+import { useSubscription } from "../hooks/useSubscription";
 import type { Pin } from "../types";
 
 interface FlyToState {
@@ -21,15 +23,17 @@ interface FlyToState {
 
 export function MapPage() {
   const { user } = useAuth();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { couple, profile, partner } = useCoupleCtx();
   const { pins, deletePin, fetchPins, onViewportChange } = usePinsCtx();
   const { items: bucketItems } = useBucket(couple?.id, user?.id);
   const { getCurrentPosition } = useGeo();
   const { styleUrl } = useMapStyle();
   const streak = useStreak(couple, profile?.id ?? user?.id);
+  const { canCreatePin } = useSubscription();
   const routeLocation = useLocation();
   const navigate = useNavigate();
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
 
   const newestPinId =
     pins.length > 0
@@ -66,12 +70,19 @@ export function MapPage() {
 
     flyKey.current += 1;
     setFlyTo({ ...s.flyTo, key: flyKey.current });
-    pendingPinIdRef.current = s.flyTo.openDetail === false ? null : (s.flyTo.pinId ?? null);
+    pendingPinIdRef.current =
+      s.flyTo.openDetail === false ? null : (s.flyTo.pinId ?? null);
     navigate(`${routeLocation.pathname}${routeLocation.search}`, {
       replace: true,
       state: null,
     });
-  }, [navigate, routeLocation.key, routeLocation.pathname, routeLocation.search, routeLocation.state]);
+  }, [
+    navigate,
+    routeLocation.key,
+    routeLocation.pathname,
+    routeLocation.search,
+    routeLocation.state,
+  ]);
 
   useEffect(() => {
     const pinId = new URLSearchParams(routeLocation.search).get("pin");
@@ -85,7 +96,12 @@ export function MapPage() {
     }
 
     flyKey.current += 1;
-    setFlyTo({ lat: pin.lat, lng: pin.lng, pinId: pin.id, key: flyKey.current });
+    setFlyTo({
+      lat: pin.lat,
+      lng: pin.lng,
+      pinId: pin.id,
+      key: flyKey.current,
+    });
     setSelectedPin(pin);
     navigate(routeLocation.pathname, { replace: true, state: null });
   }, [fetchPins, navigate, pins, routeLocation.pathname, routeLocation.search]);
@@ -101,15 +117,26 @@ export function MapPage() {
     pendingPinIdRef.current = null;
   }, [pins]);
 
-  const handleLongPress = useCallback((c: { lat: number; lng: number }) => {
-    setNewPinCoords(c);
-  }, []);
+  const handleLongPress = useCallback(
+    (c: { lat: number; lng: number }) => {
+      if (!canCreatePin(pins.length)) {
+        setShowUpgradePrompt(true);
+        return;
+      }
+      setNewPinCoords(c);
+    },
+    [canCreatePin, pins.length],
+  );
 
   const handlePinClick = useCallback((p: Pin) => {
     setSelectedPin(p);
   }, []);
 
   async function handleFabClick() {
+    if (!canCreatePin(pins.length)) {
+      setShowUpgradePrompt(true);
+      return;
+    }
     if (lastUserLocation && Date.now() - lastUserLocation.receivedAt < 60_000) {
       setNewPinCoords({
         lat: lastUserLocation.lat,
@@ -125,7 +152,7 @@ export function MapPage() {
       const c = await Promise.race([
         getCurrentPosition(),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("timeout")), GPS_QUICK_MS)
+          setTimeout(() => reject(new Error("timeout")), GPS_QUICK_MS),
         ),
       ]);
       setLastUserLocation({ ...c, receivedAt: Date.now() });
@@ -220,6 +247,17 @@ export function MapPage() {
           />
         )}
       </BottomSheet>
+
+      {showUpgradePrompt && (
+        <UpgradePrompt
+          feature={lang === "vi" ? "Tạo kỷ niệm" : "Create memories"}
+          onUpgrade={() => {
+            setShowUpgradePrompt(false);
+            navigate("/settings");
+          }}
+          onDismiss={() => setShowUpgradePrompt(false)}
+        />
+      )}
     </div>
   );
 }
