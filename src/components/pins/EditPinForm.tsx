@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ImageUp, Eraser, Plus, Trash2, Video, Pencil } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { usePinsCtx } from '../../hooks/PinsContext'
@@ -21,7 +21,7 @@ interface Props {
 const CUSTOM_EMOJIS = ['❤️', '🌸', '⭐', '🎈', '🍕', '🐱', '🐶', '🌈', '🎵', '⚽', '📸', '✨', '🏠', '🎂', '🍷']
 
 export function EditPinForm({ pin, onSaved, onCancel }: Props) {
-  const { updatePin } = usePinsCtx()
+  const { updatePin, fetchPinImages } = usePinsCtx()
   const {
     allCategories,
     getCategory,
@@ -47,6 +47,11 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
 
   // --- Media management ---
   const [existingImages, setExistingImages] = useState<PinImage[]>(pin.images ?? [])
+
+  // Lazy-load full image details for editing
+  useEffect(() => {
+    fetchPinImages(pin.id).then((imgs) => setExistingImages(imgs))
+  }, [pin.id, fetchPinImages])
   const [removedImages, setRemovedImages] = useState<CloudinaryDeleteAsset[]>([])
   const [newFiles, setNewFiles] = useState<File[]>([])
   const [mediaUploading, setMediaUploading] = useState(false)

@@ -595,6 +595,16 @@ export function CreatePinForm({
                 : t("pin.addressPlaceholder")
             }
           />
+          {address && (
+            <button
+              type="button"
+              className="address-clear-btn"
+              onClick={() => { setAddress(""); setAddressEdited(true); setAddressResults([]); }}
+              aria-label="Clear address"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
         {addressSearching && (
           <div className="muted small address-status">

@@ -23,7 +23,7 @@ export function MapPage() {
   const { user } = useAuth();
   const { t } = useI18n();
   const { couple, profile, partner } = useCoupleCtx();
-  const { pins, deletePin, fetchPins } = usePinsCtx();
+  const { pins, deletePin, fetchPins, onViewportChange } = usePinsCtx();
   const { items: bucketItems } = useBucket(couple?.id, user?.id);
   const { getCurrentPosition } = useGeo();
   const { styleUrl } = useMapStyle();
@@ -119,12 +119,26 @@ export function MapPage() {
       return;
     }
 
+    // Race GPS against a short timeout so FAB never blocks more than 3s
+    const GPS_QUICK_MS = 3000;
     try {
-      const c = await getCurrentPosition();
+      const c = await Promise.race([
+        getCurrentPosition(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("timeout")), GPS_QUICK_MS)
+        ),
+      ]);
       setLastUserLocation({ ...c, receivedAt: Date.now() });
       setNewPinCoords(c);
     } catch {
+      // GPS too slow or failed — use map center, let GPS update in background
       setNewPinCoords({ ...mapCenter, accuracy: null });
+      getCurrentPosition()
+        .then((c) => {
+          setLastUserLocation({ ...c, receivedAt: Date.now() });
+          setNewPinCoords(c);
+        })
+        .catch(() => {});
     }
   }
 
@@ -143,6 +157,7 @@ export function MapPage() {
           setLastUserLocation({ ...coords, receivedAt: Date.now() })
         }
         onMapCenterChange={setMapCenter}
+        onBoundsChange={onViewportChange}
         flyTo={flyTo}
         bucketItems={bucketItems
           .filter((b) => b.status === "dream")

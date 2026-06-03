@@ -1,13 +1,11 @@
 import { NavLink } from 'react-router-dom'
 import { Map, Clock, Bell, Flame, Settings } from 'lucide-react'
 import { useI18n } from '../../hooks/I18nContext'
-import { useNotificationFeed } from '../../hooks/useNotificationFeed'
-import { useCoupleCtx } from '../../hooks/CoupleContext'
+import { useNotifFeed } from '../../hooks/NotificationFeedContext'
 
 export function BottomNav() {
   const { t } = useI18n()
-  const { profile } = useCoupleCtx()
-  const { unreadCount } = useNotificationFeed(profile?.id)
+  const { unreadCount } = useNotifFeed()
   return (
     <nav className="bottom-nav">
       <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>

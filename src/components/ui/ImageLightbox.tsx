@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Download, X } from "lucide-react";
 
@@ -8,13 +8,6 @@ interface Props {
   onClose: () => void;
 }
 
-type Point = { x: number; y: number };
-
-const MIN_SCALE = 1;
-const MAX_SCALE = 5;
-const SWIPE_THRESHOLD = 50;
-const SWIPE_VELOCITY_THRESHOLD = 0.3;
-
 function buildDownloadUrl(url: string): string {
   if (url.includes("/upload/")) {
     return url.replace("/upload/", "/upload/fl_attachment/");
@@ -22,331 +15,215 @@ function buildDownloadUrl(url: string): string {
   return url;
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function dist(a: Point, b: Point) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
-
-function midpoint(a: Point, b: Point): Point {
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-}
-
 export function ImageLightbox({ images, startIndex, onClose }: Props) {
   const [index, setIndex] = useState(startIndex);
   const [downloading, setDownloading] = useState(false);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const slideImgRef = useRef<HTMLImageElement | null>(null);
+  const startXRef = useRef(0);
+  const startYRef = useRef(0);
+  const startTimeRef = useRef(0);
+  const draggingRef = useRef(false);
+  const dragOffsetRef = useRef(0);
 
-  // Use refs for transform to avoid re-renders during gestures
+  // Pinch-zoom state
   const scaleRef = useRef(1);
-  const offsetRef = useRef<Point>({ x: 0, y: 0 });
-  const imgRef = useRef<HTMLImageElement | null>(null);
-  const stageRef = useRef<HTMLDivElement | null>(null);
-
-  // Gesture tracking refs
-  const touchesRef = useRef<Map<number, Point>>(new Map());
-  const gestureStartRef = useRef<{
-    scale: number;
-    offset: Point;
-    pinchDist: number | null;
-    pinchMid: Point | null;
-    panStart: Point | null;
-    time: number;
-    startX: number;
-  } | null>(null);
-  const isGesturingRef = useRef(false);
-  const swipeOffsetRef = useRef(0);
-  const animFrameRef = useRef<number>(0);
+  const panRef = useRef({ x: 0, y: 0 });
+  const pinchStartDistRef = useRef(0);
+  const pinchStartScaleRef = useRef(1);
+  const pinchStartPanRef = useRef({ x: 0, y: 0 });
+  const pinchStartMidRef = useRef({ x: 0, y: 0 });
+  const isPinchingRef = useRef(false);
   const lastTapRef = useRef(0);
 
-  const applyTransform = useCallback(() => {
-    if (!imgRef.current) return;
-    const s = scaleRef.current;
-    const o = offsetRef.current;
-    imgRef.current.style.transform = `translate3d(${o.x}px, ${o.y}px, 0) scale(${s})`;
-  }, []);
+  const screenW = typeof window !== "undefined" ? window.innerWidth : 375;
 
-  const applySwipeTransform = useCallback(() => {
-    if (!stageRef.current) return;
-    stageRef.current.style.transform = `translateX(${swipeOffsetRef.current}px)`;
-  }, []);
-
-  function resetTransform(animate = true) {
-    scaleRef.current = 1;
-    offsetRef.current = { x: 0, y: 0 };
-    if (imgRef.current) {
-      if (animate) {
-        imgRef.current.style.transition = "transform 0.2s ease-out";
-        setTimeout(() => {
-          if (imgRef.current) imgRef.current.style.transition = "";
-        }, 200);
-      }
-      applyTransform();
+  function applyImgTransform(animate = false) {
+    if (!slideImgRef.current) return;
+    if (animate) {
+      slideImgRef.current.style.transition = "transform 0.25s ease-out";
+    } else {
+      slideImgRef.current.style.transition = "none";
     }
+    slideImgRef.current.style.transform = `translate(${panRef.current.x}px, ${panRef.current.y}px) scale(${scaleRef.current})`;
   }
 
-  function goTo(nextIndex: number) {
-    resetTransform(false);
-    swipeOffsetRef.current = 0;
-    if (stageRef.current) stageRef.current.style.transform = "";
-    setIndex(nextIndex);
+  function resetZoom(animate = true) {
+    scaleRef.current = 1;
+    panRef.current = { x: 0, y: 0 };
+    applyImgTransform(animate);
   }
 
-  // Lock body scroll
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
-    const prevTouchAction = document.body.style.touchAction;
+    const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    document.body.style.touchAction = "none";
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      document.body.style.touchAction = prevTouchAction;
-    };
+    return () => { document.body.style.overflow = prev; };
   }, []);
 
-  // Keyboard nav
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowLeft" && index > 0) goTo(index - 1);
-      else if (e.key === "ArrowRight" && index < images.length - 1)
-        goTo(index + 1);
+      else if (e.key === "ArrowLeft" && index > 0) setIndex(index - 1);
+      else if (e.key === "ArrowRight" && index < images.length - 1) setIndex(index + 1);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [images.length, index, onClose]);
 
-  // Reset transform on index change
+  // Reset zoom when switching slides
   useEffect(() => {
     scaleRef.current = 1;
-    offsetRef.current = { x: 0, y: 0 };
-    swipeOffsetRef.current = 0;
-    if (imgRef.current) {
-      imgRef.current.style.transition = "";
-      imgRef.current.style.transform = "translate3d(0,0,0) scale(1)";
+    panRef.current = { x: 0, y: 0 };
+    if (slideImgRef.current) {
+      slideImgRef.current.style.transition = "none";
+      slideImgRef.current.style.transform = "";
     }
-    if (stageRef.current) stageRef.current.style.transform = "";
   }, [index]);
 
-  if (images.length === 0) return null;
-  const current = images[index];
-
   function handleTouchStart(e: React.TouchEvent) {
-    e.stopPropagation();
-    if (imgRef.current) imgRef.current.style.transition = "";
-    if (stageRef.current) stageRef.current.style.transition = "";
+    if (e.touches.length === 2) {
+      // Pinch start
+      isPinchingRef.current = true;
+      draggingRef.current = false;
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      pinchStartDistRef.current = Math.hypot(dx, dy);
+      pinchStartScaleRef.current = scaleRef.current;
+      pinchStartPanRef.current = { ...panRef.current };
+      pinchStartMidRef.current = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+      };
+      if (trackRef.current) trackRef.current.style.transition = "none";
+      return;
+    }
+    if (e.touches.length !== 1) return;
 
-    const touches = e.touches;
-    touchesRef.current.clear();
-    for (let i = 0; i < touches.length; i++) {
-      touchesRef.current.set(touches[i].identifier, {
-        x: touches[i].clientX,
-        y: touches[i].clientY,
-      });
+    // Double-tap detection
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      lastTapRef.current = 0;
+      if (scaleRef.current > 1) {
+        resetZoom(true);
+      } else {
+        scaleRef.current = 2.5;
+        applyImgTransform(true);
+      }
+      return;
+    }
+    lastTapRef.current = now;
+
+    // If zoomed, start pan instead of slide
+    if (scaleRef.current > 1) {
+      draggingRef.current = false;
+      isPinchingRef.current = false;
+      startXRef.current = e.touches[0].clientX;
+      startYRef.current = e.touches[0].clientY;
+      pinchStartPanRef.current = { ...panRef.current };
+      if (slideImgRef.current) slideImgRef.current.style.transition = "none";
+      return;
     }
 
-    let pinchDist: number | null = null;
-    let pinchMid: Point | null = null;
-    if (touches.length >= 2) {
-      const pts = Array.from(touchesRef.current.values());
-      pinchDist = dist(pts[0], pts[1]);
-      pinchMid = midpoint(pts[0], pts[1]);
-    }
-
-    gestureStartRef.current = {
-      scale: scaleRef.current,
-      offset: { ...offsetRef.current },
-      pinchDist,
-      pinchMid,
-      panStart:
-        touches.length === 1
-          ? { x: touches[0].clientX, y: touches[0].clientY }
-          : null,
-      time: Date.now(),
-      startX: touches.length === 1 ? touches[0].clientX : 0,
-    };
-    isGesturingRef.current = true;
+    draggingRef.current = true;
+    isPinchingRef.current = false;
+    dragOffsetRef.current = 0;
+    startXRef.current = e.touches[0].clientX;
+    startYRef.current = e.touches[0].clientY;
+    startTimeRef.current = Date.now();
+    if (trackRef.current) trackRef.current.style.transition = "none";
   }
 
   function handleTouchMove(e: React.TouchEvent) {
-    e.stopPropagation();
     e.preventDefault();
-    if (!gestureStartRef.current) return;
 
-    const touches = e.touches;
-    touchesRef.current.clear();
-    for (let i = 0; i < touches.length; i++) {
-      touchesRef.current.set(touches[i].identifier, {
-        x: touches[i].clientX,
-        y: touches[i].clientY,
-      });
+    if (e.touches.length === 2 && isPinchingRef.current) {
+      // Pinch zoom
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      const currentDist = Math.hypot(dx, dy);
+      const ratio = currentDist / Math.max(pinchStartDistRef.current, 1);
+      scaleRef.current = Math.min(5, Math.max(1, pinchStartScaleRef.current * ratio));
+
+      // Pan follows midpoint
+      const mid = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+      };
+      panRef.current = {
+        x: pinchStartPanRef.current.x + (mid.x - pinchStartMidRef.current.x),
+        y: pinchStartPanRef.current.y + (mid.y - pinchStartMidRef.current.y),
+      };
+      applyImgTransform(false);
+      return;
     }
 
-    cancelAnimationFrame(animFrameRef.current);
-    animFrameRef.current = requestAnimationFrame(() => {
-      if (!gestureStartRef.current) return;
+    if (e.touches.length !== 1) return;
 
-      if (touches.length >= 2) {
-        // Pinch zoom
-        const pts = Array.from(touchesRef.current.values());
-        const currentDist = dist(pts[0], pts[1]);
-        const startDist = gestureStartRef.current.pinchDist;
+    // Pan when zoomed
+    if (scaleRef.current > 1 && !draggingRef.current) {
+      const dx = e.touches[0].clientX - startXRef.current;
+      const dy = e.touches[0].clientY - startYRef.current;
+      panRef.current = {
+        x: pinchStartPanRef.current.x + dx,
+        y: pinchStartPanRef.current.y + dy,
+      };
+      applyImgTransform(false);
+      return;
+    }
 
-        if (startDist && startDist > 0) {
-          const ratio = currentDist / startDist;
-          scaleRef.current = clamp(
-            gestureStartRef.current.scale * ratio,
-            MIN_SCALE,
-            MAX_SCALE,
-          );
-        }
+    if (!draggingRef.current) return;
 
-        // Pan during pinch
-        const currentMid = midpoint(pts[0], pts[1]);
-        const startMid = gestureStartRef.current.pinchMid;
-        if (startMid) {
-          offsetRef.current = {
-            x: gestureStartRef.current.offset.x + (currentMid.x - startMid.x),
-            y: gestureStartRef.current.offset.y + (currentMid.y - startMid.y),
-          };
-        }
-        applyTransform();
-      } else if (touches.length === 1 && gestureStartRef.current.panStart) {
-        const dx = touches[0].clientX - gestureStartRef.current.panStart.x;
-        const dy = touches[0].clientY - gestureStartRef.current.panStart.y;
-
-        if (scaleRef.current > 1) {
-          // Pan when zoomed
-          offsetRef.current = {
-            x: gestureStartRef.current.offset.x + dx,
-            y: gestureStartRef.current.offset.y + dy,
-          };
-          applyTransform();
-        } else {
-          // Swipe to navigate when not zoomed
-          swipeOffsetRef.current = dx;
-          applySwipeTransform();
-        }
-      }
-    });
+    const dx = e.touches[0].clientX - startXRef.current;
+    // Rubber band at edges
+    let offset = dx;
+    if ((dx > 0 && index === 0) || (dx < 0 && index === images.length - 1)) {
+      offset = dx * 0.3;
+    }
+    dragOffsetRef.current = offset;
+    if (trackRef.current) {
+      const base = -index * screenW;
+      trackRef.current.style.transform = `translateX(${base + offset}px)`;
+    }
   }
 
   function handleTouchEnd(e: React.TouchEvent) {
-    e.stopPropagation();
-    if (!gestureStartRef.current) return;
-    cancelAnimationFrame(animFrameRef.current);
-
-    const start = gestureStartRef.current;
-
-    if (e.touches.length === 0) {
-      isGesturingRef.current = false;
-
-      // Handle swipe navigation (only when not zoomed)
-      if (scaleRef.current <= 1 && start.panStart) {
-        const swipeDx = swipeOffsetRef.current;
-        const elapsed = Date.now() - start.time;
-        const velocity = Math.abs(swipeDx) / Math.max(elapsed, 1);
-
-        const shouldSwipe =
-          Math.abs(swipeDx) > SWIPE_THRESHOLD ||
-          velocity > SWIPE_VELOCITY_THRESHOLD;
-
-        if (shouldSwipe && swipeDx > 0 && index > 0) {
-          // Swipe right → previous
-          if (stageRef.current) {
-            stageRef.current.style.transition = "transform 0.2s ease-out";
-            stageRef.current.style.transform = `translateX(${window.innerWidth}px)`;
-            setTimeout(() => goTo(index - 1), 200);
-          } else {
-            goTo(index - 1);
-          }
-          gestureStartRef.current = null;
-          return;
-        } else if (shouldSwipe && swipeDx < 0 && index < images.length - 1) {
-          // Swipe left → next
-          if (stageRef.current) {
-            stageRef.current.style.transition = "transform 0.2s ease-out";
-            stageRef.current.style.transform = `translateX(-${window.innerWidth}px)`;
-            setTimeout(() => goTo(index + 1), 200);
-          } else {
-            goTo(index + 1);
-          }
-          gestureStartRef.current = null;
-          return;
-        } else {
-          // Snap back
-          swipeOffsetRef.current = 0;
-          if (stageRef.current) {
-            stageRef.current.style.transition = "transform 0.2s ease-out";
-            stageRef.current.style.transform = "";
-            setTimeout(() => {
-              if (stageRef.current) stageRef.current.style.transition = "";
-            }, 200);
-          }
-        }
-      }
-
-      // Snap back if scale dropped below 1
+    // End pinch
+    if (isPinchingRef.current && e.touches.length < 2) {
+      isPinchingRef.current = false;
       if (scaleRef.current <= 1.05) {
-        resetTransform(true);
+        resetZoom(true);
       }
-
-      gestureStartRef.current = null;
-    } else {
-      // Finger lifted but others remain - update gesture start for remaining finger
-      const remaining = e.touches;
-      touchesRef.current.clear();
-      for (let i = 0; i < remaining.length; i++) {
-        touchesRef.current.set(remaining[i].identifier, {
-          x: remaining[i].clientX,
-          y: remaining[i].clientY,
-        });
-      }
-      gestureStartRef.current = {
-        scale: scaleRef.current,
-        offset: { ...offsetRef.current },
-        pinchDist: null,
-        pinchMid: null,
-        panStart:
-          remaining.length === 1
-            ? { x: remaining[0].clientX, y: remaining[0].clientY }
-            : null,
-        time: Date.now(),
-        startX: remaining.length === 1 ? remaining[0].clientX : 0,
-      };
+      return;
     }
-  }
 
-  function handleDoubleTap(e: React.TouchEvent) {
-    e.stopPropagation();
-    e.preventDefault();
-    if (scaleRef.current > 1) {
-      resetTransform(true);
-    } else {
-      scaleRef.current = 2.5;
-      if (imgRef.current) {
-        imgRef.current.style.transition = "transform 0.2s ease-out";
-        applyTransform();
-        setTimeout(() => {
-          if (imgRef.current) imgRef.current.style.transition = "";
-        }, 200);
-      }
+    // End pan when zoomed
+    if (scaleRef.current > 1 && !draggingRef.current) {
+      return;
     }
-  }
 
-  function handleTap(e: React.TouchEvent) {
-    if (e.touches.length > 1) return;
-    const now = Date.now();
-    if (now - lastTapRef.current < 300) {
-      handleDoubleTap(e);
-      lastTapRef.current = 0;
-    } else {
-      lastTapRef.current = now;
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    const dx = dragOffsetRef.current;
+    const elapsed = Date.now() - startTimeRef.current;
+    const velocity = Math.abs(dx) / Math.max(elapsed, 1);
+
+    let newIndex = index;
+    if ((dx < -40 || (velocity > 0.3 && dx < 0)) && index < images.length - 1) {
+      newIndex = index + 1;
+    } else if ((dx > 40 || (velocity > 0.3 && dx > 0)) && index > 0) {
+      newIndex = index - 1;
+    }
+
+    setIndex(newIndex);
+    resetZoom(false);
+    if (trackRef.current) {
+      trackRef.current.style.transition = "transform 0.3s ease-out";
+      trackRef.current.style.transform = `translateX(${-newIndex * screenW}px)`;
     }
   }
 
   async function handleDownload() {
+    const current = images[index];
     if (!current) return;
     setDownloading(true);
     try {
@@ -361,11 +238,13 @@ export function ImageLightbox({ images, startIndex, onClose }: Props) {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     } catch {
-      window.open(buildDownloadUrl(current.url), "_blank");
+      window.open(buildDownloadUrl(images[index].url), "_blank");
     } finally {
       setDownloading(false);
     }
   }
+
+  if (images.length === 0) return null;
 
   return createPortal(
     <div className="lightbox" role="dialog" aria-label="Image viewer">
@@ -395,27 +274,31 @@ export function ImageLightbox({ images, startIndex, onClose }: Props) {
       </div>
 
       <div
-        ref={stageRef}
         className="lightbox-stage"
-        onTouchStart={(e) => {
-          handleTap(e);
-          handleTouchStart(e);
-        }}
+        onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
       >
-        <img
-          ref={imgRef}
-          key={current.id}
-          src={current.url}
-          alt=""
-          className="lightbox-img"
-          draggable={false}
-        />
+        <div
+          ref={trackRef}
+          className="lightbox-track"
+          style={{
+            transform: `translateX(${-index * screenW}px)`,
+            transition: "transform 0.3s ease-out",
+          }}
+        >
+          {images.map((img, i) => (
+            <div key={img.id} className="lightbox-slide">
+              <img
+                ref={i === index ? slideImgRef : undefined}
+                src={img.url}
+                alt=""
+                draggable={false}
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
       {images.length > 1 && (

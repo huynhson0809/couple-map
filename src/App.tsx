@@ -26,6 +26,7 @@ import { ThemeProvider } from "./hooks/ThemeContext";
 import { I18nProvider } from "./hooks/I18nContext";
 import { ToastProvider } from "./hooks/ToastContext";
 import { usePushSubscription } from "./hooks/usePushSubscription";
+import { NotificationFeedProvider } from "./hooks/NotificationFeedContext";
 import { useEffect } from "react";
 
 function PairedShell() {
@@ -62,6 +63,7 @@ function PairedShell() {
         } as React.CSSProperties)
       : undefined;
   return (
+    <NotificationFeedProvider>
     <div
       className={`app-shell ${isMap ? "shell-map" : "shell-page"} ${bgUrl ? "has-bg" : ""}`}
       style={shellStyle}
@@ -78,6 +80,7 @@ function PairedShell() {
       <AnniversaryPrompt />
       <NotificationToast />
     </div>
+    </NotificationFeedProvider>
   );
 }
 

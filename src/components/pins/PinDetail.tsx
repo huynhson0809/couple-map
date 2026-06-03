@@ -94,7 +94,7 @@ export function PinDetail({
   const { t, lang } = useI18n();
   const { showToast } = useToast();
   const { getCategory } = useCategoriesCtx();
-  const { updatePin } = usePinsCtx();
+  const { updatePin, fetchPinImages } = usePinsCtx();
   const [deleting, setDeleting] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
@@ -143,6 +143,15 @@ export function PinDetail({
   const withinEditWindow = ageMs < EDIT_WINDOW_MS;
   const canEdit = isMine && withinEditWindow;
   const images = useMemo(() => pin.images ?? [], [pin.images]);
+  const [fullImagesLoaded, setFullImagesLoaded] = useState(false);
+
+  // Lazy-load full image details (width, height, public_id) when pin detail opens
+  useEffect(() => {
+    if (!fullImagesLoaded && pin.id) {
+      fetchPinImages(pin.id).then(() => setFullImagesLoaded(true));
+    }
+  }, [pin.id, fullImagesLoaded, fetchPinImages]);
+
   const photoImages = useMemo(
     () => images.filter((img) => !isVideoUrl(img.cloudinary_url)),
     [images],

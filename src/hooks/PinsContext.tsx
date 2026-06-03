@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { usePins } from './usePins'
+import { useViewportPins, type Viewport } from './useViewportPins'
 import { useCoupleRealtime } from './useCoupleRealtime'
 import { supabase } from '../lib/supabase'
-import type { Pin } from '../types'
+import type { Pin, PinImage } from '../types'
 
 type PinsHook = ReturnType<typeof usePins>
 
@@ -16,6 +17,9 @@ interface Ctx extends PinsHook {
   clearUploadProgress: (pinId: string) => void
   pinsVersion: number
   bumpPinsVersion: () => void
+  onViewportChange: (viewport: Viewport) => void
+  loadAllPins: () => Promise<void>
+  allPinsLoaded: boolean
 }
 
 const PinsCtx = createContext<Ctx | null>(null)
@@ -29,17 +33,28 @@ export function PinsProvider({
   userId: string | undefined
   children: ReactNode
 }) {
-  const value = usePins(coupleId, userId)
-  const { fetchPins, setPins } = value
-  const fetchRef = useRef(fetchPins)
-  const setPinsRef = useRef(setPins)
+  const pinsHook = usePins(coupleId, userId)
+  const viewport = useViewportPins(coupleId)
   const userIdRef = useRef(userId)
 
+  // Images cache: stores fetched images keyed by pin ID
+  const [imagesCache, setImagesCache] = useState<Record<string, PinImage[]>>({})
+
+  // Override fetchPinImages to also update our cache
+  const fetchPinImages = useCallback(async (pinId: string): Promise<PinImage[]> => {
+    const images = await pinsHook.fetchPinImages(pinId)
+    setImagesCache((prev) => ({ ...prev, [pinId]: images }))
+    return images
+  }, [pinsHook.fetchPinImages]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Merge viewport pins with images cache
+  const pins = viewport.pins.map((p) =>
+    imagesCache[p.id] ? { ...p, images: imagesCache[p.id] } : p,
+  )
+
   useEffect(() => {
-    fetchRef.current = fetchPins
-    setPinsRef.current = setPins
     userIdRef.current = userId
-  }, [fetchPins, setPins, userId])
+  }, [userId])
 
   const [latestPartnerPin, setLatestPartnerPin] = useState<Pin | null>(null)
   const clearLatestPartnerPin = useCallback(() => setLatestPartnerPin(null), [])
@@ -66,9 +81,8 @@ export function PinsProvider({
   useCoupleRealtime({
     coupleId,
     onInsert: async (pin) => {
-      fetchRef.current()
+      viewport.addPin(pin)
       if (pin.created_by && pin.created_by !== userIdRef.current) {
-        // Fetch full pin with images for the toast/notification
         try {
           const { data } = await supabase
             .from('pins')
@@ -82,17 +96,51 @@ export function PinsProvider({
         }
       }
     },
-    onUpdate: () => fetchRef.current(),
-    onDelete: (id) => setPinsRef.current((prev) => prev.filter((p) => p.id !== id)),
+    onUpdate: async (pin) => {
+      viewport.updatePinLocal(pin.id, pin)
+    },
+    onDelete: (id) => viewport.removePin(id),
   })
 
-  // refresh once when coupleId becomes available
-  useEffect(() => {
-    if (coupleId) fetchRef.current()
-  }, [coupleId])
+  // Wrap create/delete to also update viewport state
+  const createPin = useCallback(async (...args: Parameters<typeof pinsHook.createPin>) => {
+    const newPin = await pinsHook.createPin(...args)
+    viewport.addPin(newPin)
+    return newPin
+  }, [pinsHook.createPin, viewport.addPin]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const deletePin = useCallback(async (id: string) => {
+    await pinsHook.deletePin(id)
+    viewport.removePin(id)
+  }, [pinsHook.deletePin, viewport.removePin]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const updatePin = useCallback(async (...args: Parameters<typeof pinsHook.updatePin>) => {
+    const updated = await pinsHook.updatePin(...args)
+    viewport.updatePinLocal(updated.id, updated)
+    return updated
+  }, [pinsHook.updatePin, viewport.updatePinLocal]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const value: Ctx = {
+    ...pinsHook,
+    pins,
+    fetchPinImages,
+    createPin,
+    deletePin,
+    updatePin,
+    latestPartnerPin,
+    clearLatestPartnerPin,
+    uploadingPins,
+    setUploadProgress,
+    clearUploadProgress,
+    pinsVersion,
+    bumpPinsVersion,
+    onViewportChange: viewport.onViewportChange,
+    loadAllPins: viewport.loadAll,
+    allPinsLoaded: viewport.allLoaded,
+  }
 
   return (
-    <PinsCtx.Provider value={{ ...value, latestPartnerPin, clearLatestPartnerPin, uploadingPins, setUploadProgress, clearUploadProgress, pinsVersion, bumpPinsVersion }}>
+    <PinsCtx.Provider value={value}>
       {children}
     </PinsCtx.Provider>
   )

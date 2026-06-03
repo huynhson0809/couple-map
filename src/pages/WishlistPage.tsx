@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Trash2, MapPin, Search, Check, Sparkles, Globe2, CalendarHeart, Plane } from 'lucide-react'
+import { Plus, Trash2, MapPin, Search, Check, Sparkles, Globe2, CalendarHeart, Plane, X } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useCoupleCtx } from '../hooks/CoupleContext'
-import { usePinsCtx } from '../hooks/PinsContext'
 import { useBucket } from '../hooks/useBucket'
 import { useI18n } from '../hooks/I18nContext'
 import { useStreak } from '../hooks/useStreak'
-import { useStats } from '../hooks/useStats'
+import { useStatsApi } from '../hooks/useStatsApi'
 import { Button } from '../components/ui/Button'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { StreakCard } from '../components/streak/StreakCard'
@@ -16,11 +16,10 @@ import { searchPlaces, type PlaceSearchResult } from '../lib/placeSearch'
 export function WishlistPage() {
   const { user } = useAuth()
   const { couple, profile, partner } = useCoupleCtx()
-  const { pins } = usePinsCtx()
   const { items, addItem, removeItem, markDone, markDream } = useBucket(couple?.id, user?.id)
   const { t } = useI18n()
   const streak = useStreak(couple, profile?.id ?? user?.id)
-  const stats = useStats(pins, couple)
+  const { stats } = useStatsApi(couple?.id, couple)
   const navigate = useNavigate()
 
   const [adding, setAdding] = useState(false)
@@ -31,6 +30,7 @@ export function WishlistPage() {
   const [selected, setSelected] = useState<PlaceSearchResult | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [statDetail, setStatDetail] = useState<'cities' | 'countries' | null>(null)
   const debounceRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -125,12 +125,12 @@ export function WishlistPage() {
           <div className="stat-value">{stats.totalPins}</div>
           <div className="stat-label">{t('stats.memories')}</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card clickable" onClick={() => setStatDetail('cities')}>
           <div className="stat-icon" style={{ background: '#378add1a', color: '#378add' }}><MapPin size={20} /></div>
           <div className="stat-value">{stats.cities}</div>
           <div className="stat-label">{t('stats.cities')}</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card clickable" onClick={() => setStatDetail('countries')}>
           <div className="stat-icon" style={{ background: '#9333ea1a', color: '#9333ea' }}><Globe2 size={20} /></div>
           <div className="stat-value">{stats.countries}</div>
           <div className="stat-label">{t('stats.countries')}</div>
@@ -146,6 +146,30 @@ export function WishlistPage() {
           <div className="stat-label">{t('stats.farthest')}</div>
         </div>
       </div>
+
+      {statDetail && createPortal(
+        <div className="stat-detail-overlay" onClick={() => setStatDetail(null)}>
+          <div className="stat-detail-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="stat-detail-header">
+              <h3>{statDetail === 'cities' ? t('stats.cities') : t('stats.countries')}</h3>
+              <button type="button" className="stat-detail-close" onClick={() => setStatDetail(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="stat-detail-list">
+              {(statDetail === 'cities' ? stats.cityList : stats.countryList).length === 0 && (
+                <p className="muted">Chưa có dữ liệu</p>
+              )}
+              {(statDetail === 'cities' ? stats.cityList : stats.countryList).map((item, i) => (
+                <div key={i} className="stat-detail-item">
+                  <span className="stat-detail-item-main">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       <Button onClick={openAdd} style={{ width: '100%' }}>
         <Plus size={18} /> {t('wish.add')}

@@ -3,6 +3,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Pin } from "../../types";
 import { getImageUrl } from "../../lib/cloudinary";
+import { supabase } from "../../lib/supabase";
 import { useCategoriesCtx } from "../../hooks/CategoriesContext";
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
     accuracy?: number | null;
   }) => void;
   onMapCenterChange?: (coords: { lat: number; lng: number }) => void;
+  onBoundsChange?: (bounds: { north: number; south: number; east: number; west: number }) => void;
   flyTo?: { lat: number; lng: number; key: number; pinId?: string } | null;
   showHeatmap?: boolean;
   bucketItems?: { id: string; lat: number; lng: number }[];
@@ -50,6 +52,7 @@ export function MapView({
   onPinClick,
   onUserLocation,
   onMapCenterChange,
+  onBoundsChange,
   flyTo,
   showHeatmap = false,
   bucketItems = [],
@@ -69,6 +72,7 @@ export function MapView({
   const onPinClickRef = useRef(onPinClick);
   const onUserLocationRef = useRef(onUserLocation);
   const onMapCenterChangeRef = useRef(onMapCenterChange);
+  const onBoundsChangeRef = useRef(onBoundsChange);
   const newestPinIdRef = useRef(newestPinId);
   const highlightedPinIdRef = useRef<string | null>(null);
   const pendingFlyToRef = useRef<Props["flyTo"]>(null);
@@ -80,6 +84,7 @@ export function MapView({
     onPinClickRef.current = onPinClick;
     onUserLocationRef.current = onUserLocation;
     onMapCenterChangeRef.current = onMapCenterChange;
+    onBoundsChangeRef.current = onBoundsChange;
     newestPinIdRef.current = newestPinId;
     getCategoryRef.current = getCategory;
   }, [
@@ -87,6 +92,7 @@ export function MapView({
     onPinClick,
     onUserLocation,
     onMapCenterChange,
+    onBoundsChange,
     newestPinId,
     getCategory,
   ]);
@@ -301,6 +307,13 @@ export function MapView({
   function emitMapCenter(map: maplibregl.Map) {
     const center = map.getCenter();
     onMapCenterChangeRef.current?.({ lat: center.lat, lng: center.lng });
+    const bounds = map.getBounds();
+    onBoundsChangeRef.current?.({
+      north: bounds.getNorth(),
+      south: bounds.getSouth(),
+      east: bounds.getEast(),
+      west: bounds.getWest(),
+    });
   }
 
   function rebuildMarkers() {
@@ -584,6 +597,7 @@ export function MapView({
           onPinClick={(pin) => {
             highlightedPinIdRef.current = pin.id;
             rebuildMarkers();
+            closeClusterList();
             onPinClick(pin);
           }}
           onClose={closeClusterList}
@@ -606,6 +620,69 @@ function ClusterListOverlay({
   onPinClick: (pin: Pin) => void;
   onClose: () => void;
 }) {
+  const PAGE_SIZE = 10;
+  const [loadedPins, setLoadedPins] = useState<(Pin & { coverUrl?: string })[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const offsetRef = useRef(0);
+  const hasMore = loadedPins.length < pins.length;
+
+  const fetchBatch = useCallback(async (offset: number) => {
+    const batch = pins.slice(offset, offset + PAGE_SIZE);
+    if (batch.length === 0) return;
+
+    const batchIds = batch.map((p) => p.id);
+    // Fetch cover images for this batch
+    const { data: imgData } = await supabase
+      .from('pin_images')
+      .select('pin_id, cloudinary_url')
+      .in('pin_id', batchIds)
+      .not('cloudinary_url', 'ilike', '%/video/upload/%')
+      .order('sort_order', { ascending: true });
+
+    const coverMap: Record<string, string> = {};
+    if (imgData) {
+      for (const img of imgData) {
+        if (!coverMap[img.pin_id]) {
+          coverMap[img.pin_id] = img.cloudinary_url;
+        }
+      }
+    }
+
+    const enriched = batch.map((p) => ({
+      ...p,
+      coverUrl: coverMap[p.id] || undefined,
+    }));
+
+    setLoadedPins((prev) => [...prev, ...enriched]);
+    offsetRef.current = offset + batch.length;
+  }, [pins]);
+
+  // Initial load
+  useEffect(() => {
+    setLoading(true);
+    fetchBatch(0).finally(() => setLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Infinite scroll via IntersectionObserver
+  useEffect(() => {
+    if (!hasMore || loading) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !loadingMore) {
+          setLoadingMore(true);
+          fetchBatch(offsetRef.current).finally(() => setLoadingMore(false));
+        }
+      },
+      { threshold: 0.1 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadingMore, fetchBatch, loadedPins.length]);
+
   return (
     <div className="cluster-overlay-backdrop" onClick={onClose}>
       <div
@@ -618,39 +695,48 @@ function ClusterListOverlay({
             ×
           </button>
         </div>
-        {pins.map((pin) => {
-          const cat = getCategory(pin.category);
-          const cover = pin.images?.find(
-            (img) => !img.cloudinary_url.includes("/video/upload/"),
-          );
-          const categoryLabel =
-            cat?.label ??
-            (pin.category?.startsWith("custom_")
-              ? "Memory"
-              : (pin.category ?? "Memory"));
-          return (
-            <button
-              key={pin.id}
-              type="button"
-              className="map-cluster-memory"
-              onClick={() => onPinClick(pin)}
-            >
-              <span className="map-cluster-memory-media">
-                {cover?.cloudinary_url ? (
-                  <img src={getImageUrl(cover.cloudinary_url, 96, 70)} alt="" />
-                ) : (
-                  (pin.marker_emoji ?? cat?.emoji ?? "📍")
-                )}
-              </span>
-              <span className="map-cluster-memory-copy">
-                <strong>{pin.title}</strong>
-                <small>
-                  {cat?.emoji ?? pin.marker_emoji ?? "📍"} {categoryLabel}
-                </small>
-              </span>
-            </button>
-          );
-        })}
+        <div className="cluster-overlay-scroll">
+          {loading && (
+            <div className="cluster-scroll-sentinel">
+              <span className="cluster-img-loading" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+            </div>
+          )}
+          {loadedPins.map((pin) => {
+            const cat = getCategory(pin.category);
+            const categoryLabel =
+              cat?.label ??
+              (pin.category?.startsWith("custom_")
+                ? "Memory"
+                : (pin.category ?? "Memory"));
+            return (
+              <button
+                key={pin.id}
+                type="button"
+                className="map-cluster-memory"
+                onClick={() => onPinClick(pin)}
+              >
+                <span className="map-cluster-memory-media">
+                  {pin.coverUrl ? (
+                    <img src={getImageUrl(pin.coverUrl, 96, 70)} alt="" />
+                  ) : (
+                    (pin.marker_emoji ?? cat?.emoji ?? "📍")
+                  )}
+                </span>
+                <span className="map-cluster-memory-copy">
+                  <strong>{pin.title}</strong>
+                  <small>
+                    {cat?.emoji ?? pin.marker_emoji ?? "📍"} {categoryLabel}
+                  </small>
+                </span>
+              </button>
+            );
+          })}
+          {hasMore && !loading && (
+            <div ref={sentinelRef} className="cluster-scroll-sentinel">
+              <span className="cluster-img-loading" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

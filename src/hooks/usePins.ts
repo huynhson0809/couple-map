@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { reverseGeocode } from '../lib/geocoding'
 import { normalizeAddress, normalizeCityName, normalizeCountryName } from '../lib/locationNames'
@@ -33,22 +33,29 @@ export function usePins(coupleId: string | null | undefined, userId: string | un
     }
     setLoading(true)
     setError(null)
+
+    // Only fetch fields needed for map markers and stats
     const { data, error } = await supabase
       .from('pins')
-      .select('*, images:pin_images(*)')
+      .select('id, couple_id, created_by, title, note, lat, lng, address, city, country, category, marker_emoji, marker_image_url, is_favorite, created_at, updated_at')
       .eq('couple_id', coupleId)
       .order('created_at', { ascending: false })
     if (error) setError(error.message)
-    setPins((data as Pin[]) ?? [])
+    setPins(((data as Pin[]) ?? []).map((p) => ({ ...p, images: undefined })))
     setLoading(false)
   }, [coupleId])
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void fetchPins()
-    }, 0)
-    return () => window.clearTimeout(timer)
-  }, [fetchPins])
+  /** Fetch images for a single pin on-demand */
+  const fetchPinImages = useCallback(async (pinId: string): Promise<PinImage[]> => {
+    const { data } = await supabase
+      .from('pin_images')
+      .select('*')
+      .eq('pin_id', pinId)
+      .order('sort_order', { ascending: true })
+    const images = (data as PinImage[]) ?? []
+    setPins((prev) => prev.map((p) => (p.id === pinId ? { ...p, images } : p)))
+    return images
+  }, [])
 
   const createPin = useCallback(
     async (input: CreatePinInput): Promise<Pin> => {
@@ -167,5 +174,5 @@ export function usePins(coupleId: string | null | undefined, userId: string | un
     [],
   )
 
-  return { pins, loading, error, fetchPins, createPin, updatePin, deletePin, setPins }
+  return { pins, loading, error, fetchPins, fetchPinImages, createPin, updatePin, deletePin, setPins }
 }
