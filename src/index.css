@@ -3893,10 +3893,12 @@ body { -webkit-tap-highlight-color: transparent; }
 }
 .cluster-overlay-card {
   position: relative;
+  display: flex;
+  flex-direction: column;
   width: min(340px, calc(100vw - 32px));
-  max-height: min(380px, 55vh);
+  max-height: min(55vh, calc(100vh - 200px));
   padding: 14px 16px;
-  overflow: auto;
+  overflow: hidden;
   border: 0;
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.18);
@@ -3996,9 +3998,11 @@ body { -webkit-tap-highlight-color: transparent; }
   background: rgba(255, 90, 95, 0.06);
 }
 .cluster-overlay-scroll {
-  max-height: 60vh;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 .cluster-scroll-sentinel {
   display: flex;

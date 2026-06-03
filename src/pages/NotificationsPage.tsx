@@ -12,17 +12,49 @@ import { useNotifFeed } from "../hooks/NotificationFeedContext";
 import { useI18n } from "../hooks/I18nContext";
 import type { AppNotification } from "../types";
 
-function timeAgo(dateStr: string): string {
+const VI_ACTIONS = [
+  " đã thêm một kỷ niệm mới",
+  " đã bày tỏ cảm xúc",
+  " đã bình luận",
+  " đã hoàn thành streak",
+  " streak đã bị mất",
+];
+
+function extractActorName(title: string): string {
+  for (const action of VI_ACTIONS) {
+    if (title.includes(action)) return title.split(action)[0];
+  }
+  // Fallback: take everything before last " đã "
+  const idx = title.lastIndexOf(" đã ");
+  if (idx > 0) return title.substring(0, idx);
+  return title;
+}
+
+function notifTitle(n: AppNotification, t: (k: string) => string): string {
+  const name = extractActorName(n.title);
+  switch (n.type) {
+    case "new_pin":
+      return `${name} ${t("notif.actionNewPin")}`;
+    case "reaction":
+      return `${name} ${t("notif.actionReaction")}`;
+    case "comment":
+      return `${name} ${t("notif.actionComment")}`;
+    default:
+      return n.title;
+  }
+}
+
+function timeAgo(dateStr: string, t: (k: string) => string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
   const diff = now - then;
   const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return "Vừa xong";
-  if (minutes < 60) return `${minutes} phút trước`;
+  if (minutes < 1) return t("notif.justNow");
+  if (minutes < 60) return `${minutes}${t("notif.minutesAgo")}`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} giờ trước`;
+  if (hours < 24) return `${hours}${t("notif.hoursAgo")}`;
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} ngày trước`;
+  if (days < 7) return `${days}${t("notif.daysAgo")}`;
   return new Date(dateStr).toLocaleDateString("vi-VN", {
     day: "numeric",
     month: "short",
@@ -69,7 +101,10 @@ function notifColor(type: AppNotification["type"]) {
 
 type Section = { label: string; items: AppNotification[] };
 
-function groupByTime(items: AppNotification[]): Section[] {
+function groupByTime(
+  items: AppNotification[],
+  t: (k: string) => string,
+): Section[] {
   const now = new Date();
   const startOfToday = new Date(
     now.getFullYear(),
@@ -83,12 +118,12 @@ function groupByTime(items: AppNotification[]): Section[] {
   const earlierItems: AppNotification[] = [];
 
   for (const n of items) {
-    const t = new Date(n.created_at).getTime();
-    if (t >= startOfToday && !n.read) {
+    const ts = new Date(n.created_at).getTime();
+    if (ts >= startOfToday && !n.read) {
       newItems.push(n);
-    } else if (t >= startOfToday) {
+    } else if (ts >= startOfToday) {
       todayItems.push(n);
-    } else if (t >= startOfYesterday) {
+    } else if (ts >= startOfYesterday) {
       todayItems.push(n);
     } else {
       earlierItems.push(n);
@@ -96,10 +131,12 @@ function groupByTime(items: AppNotification[]): Section[] {
   }
 
   const sections: Section[] = [];
-  if (newItems.length) sections.push({ label: "Mới", items: newItems });
-  if (todayItems.length) sections.push({ label: "Hôm nay", items: todayItems });
+  if (newItems.length)
+    sections.push({ label: t("notif.sectionNew"), items: newItems });
+  if (todayItems.length)
+    sections.push({ label: t("notif.sectionToday"), items: todayItems });
   if (earlierItems.length)
-    sections.push({ label: "Trước đó", items: earlierItems });
+    sections.push({ label: t("notif.sectionEarlier"), items: earlierItems });
   return sections;
 }
 
@@ -124,7 +161,7 @@ export function NotificationsPage() {
     [tab, notifications],
   );
 
-  const sections = useMemo(() => groupByTime(filtered), [filtered]);
+  const sections = useMemo(() => groupByTime(filtered, t), [filtered, t]);
 
   const handleScroll = useCallback(() => {
     if (!listRef.current || loading || !hasMore) return;
@@ -159,7 +196,7 @@ export function NotificationsPage() {
             onClick={markAllAsRead}
           >
             <CheckCheck size={16} />
-            <span>Đánh dấu đã đọc</span>
+            <span>{t("notif.markRead")}</span>
           </button>
         )}
       </header>
@@ -170,14 +207,14 @@ export function NotificationsPage() {
           className={`notif-tab ${tab === "all" ? "active" : ""}`}
           onClick={() => setTab("all")}
         >
-          Tất cả
+          {t("notif.all")}
         </button>
         <button
           type="button"
           className={`notif-tab ${tab === "unread" ? "active" : ""}`}
           onClick={() => setTab("unread")}
         >
-          Chưa đọc
+          {t("notif.unread")}
         </button>
       </div>
 
@@ -185,9 +222,7 @@ export function NotificationsPage() {
         <div className="empty-state">
           <Bell size={40} strokeWidth={1.5} className="muted" />
           <p className="muted">
-            {tab === "unread"
-              ? "Không có thông báo chưa đọc"
-              : "Chưa có thông báo nào"}
+            {tab === "unread" ? t("notif.noUnread") : t("notif.noNotif")}
           </p>
         </div>
       )}
@@ -213,10 +248,10 @@ export function NotificationsPage() {
                   {notifIcon(n.type)}
                 </span>
                 <span className="notif-item-content">
-                  <span className="notif-item-title">{n.title}</span>
+                  <span className="notif-item-title">{notifTitle(n, t)}</span>
                   {n.body && <span className="notif-item-body">{n.body}</span>}
                   <span className="notif-item-time">
-                    {timeAgo(n.created_at)}
+                    {timeAgo(n.created_at, t)}
                   </span>
                 </span>
                 {!n.read && <span className="notif-item-dot" />}
@@ -224,7 +259,7 @@ export function NotificationsPage() {
             ))}
           </div>
         ))}
-        {loading && <div className="notif-loading">Đang tải...</div>}
+        {loading && <div className="notif-loading">{t("notif.loading")}</div>}
       </div>
     </div>
   );

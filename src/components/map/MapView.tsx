@@ -18,7 +18,12 @@ interface Props {
     accuracy?: number | null;
   }) => void;
   onMapCenterChange?: (coords: { lat: number; lng: number }) => void;
-  onBoundsChange?: (bounds: { north: number; south: number; east: number; west: number }) => void;
+  onBoundsChange?: (bounds: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  }) => void;
   flyTo?: { lat: number; lng: number; key: number; pinId?: string } | null;
   showHeatmap?: boolean;
   bucketItems?: { id: string; lat: number; lng: number }[];
@@ -620,68 +625,44 @@ function ClusterListOverlay({
   onPinClick: (pin: Pin) => void;
   onClose: () => void;
 }) {
-  const PAGE_SIZE = 10;
-  const [loadedPins, setLoadedPins] = useState<(Pin & { coverUrl?: string })[]>([]);
+  const [loadedPins, setLoadedPins] = useState<(Pin & { coverUrl?: string })[]>(
+    [],
+  );
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const offsetRef = useRef(0);
-  const hasMore = loadedPins.length < pins.length;
 
-  const fetchBatch = useCallback(async (offset: number) => {
-    const batch = pins.slice(offset, offset + PAGE_SIZE);
-    if (batch.length === 0) return;
+  // Load all cover images in one batch
+  useEffect(() => {
+    let cancelled = false;
+    async function loadCovers() {
+      const batchIds = pins.map((p) => p.id);
+      const { data: imgData } = await supabase
+        .from("pin_images")
+        .select("pin_id, cloudinary_url")
+        .in("pin_id", batchIds)
+        .not("cloudinary_url", "ilike", "%/video/upload/%")
+        .order("sort_order", { ascending: true });
 
-    const batchIds = batch.map((p) => p.id);
-    // Fetch cover images for this batch
-    const { data: imgData } = await supabase
-      .from('pin_images')
-      .select('pin_id, cloudinary_url')
-      .in('pin_id', batchIds)
-      .not('cloudinary_url', 'ilike', '%/video/upload/%')
-      .order('sort_order', { ascending: true });
+      if (cancelled) return;
 
-    const coverMap: Record<string, string> = {};
-    if (imgData) {
-      for (const img of imgData) {
-        if (!coverMap[img.pin_id]) {
-          coverMap[img.pin_id] = img.cloudinary_url;
+      const coverMap: Record<string, string> = {};
+      if (imgData) {
+        for (const img of imgData) {
+          if (!coverMap[img.pin_id]) {
+            coverMap[img.pin_id] = img.cloudinary_url;
+          }
         }
       }
+
+      setLoadedPins(
+        pins.map((p) => ({ ...p, coverUrl: coverMap[p.id] || undefined })),
+      );
+      setLoading(false);
     }
-
-    const enriched = batch.map((p) => ({
-      ...p,
-      coverUrl: coverMap[p.id] || undefined,
-    }));
-
-    setLoadedPins((prev) => [...prev, ...enriched]);
-    offsetRef.current = offset + batch.length;
+    loadCovers();
+    return () => {
+      cancelled = true;
+    };
   }, [pins]);
-
-  // Initial load
-  useEffect(() => {
-    setLoading(true);
-    fetchBatch(0).finally(() => setLoading(false));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Infinite scroll via IntersectionObserver
-  useEffect(() => {
-    if (!hasMore || loading) return;
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && !loadingMore) {
-          setLoadingMore(true);
-          fetchBatch(offsetRef.current).finally(() => setLoadingMore(false));
-        }
-      },
-      { threshold: 0.1 },
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasMore, loading, loadingMore, fetchBatch, loadedPins.length]);
 
   return (
     <div className="cluster-overlay-backdrop" onClick={onClose}>
@@ -698,7 +679,10 @@ function ClusterListOverlay({
         <div className="cluster-overlay-scroll">
           {loading && (
             <div className="cluster-scroll-sentinel">
-              <span className="cluster-img-loading" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+              <span
+                className="cluster-img-loading"
+                style={{ width: 32, height: 32, borderRadius: "50%" }}
+              />
             </div>
           )}
           {loadedPins.map((pin) => {
@@ -731,11 +715,6 @@ function ClusterListOverlay({
               </button>
             );
           })}
-          {hasMore && !loading && (
-            <div ref={sentinelRef} className="cluster-scroll-sentinel">
-              <span className="cluster-img-loading" style={{ width: 32, height: 32, borderRadius: '50%' }} />
-            </div>
-          )}
         </div>
       </div>
     </div>
