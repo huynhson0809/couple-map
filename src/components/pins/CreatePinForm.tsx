@@ -82,8 +82,7 @@ export function CreatePinForm({
     `pinly/${coupleId}`,
   );
   const { t, lang } = useI18n();
-  const { canUploadVideo, canCreateCategory, canAddPhoto, limits } =
-    useSubscription();
+  const { canUploadVideo, canCreateCategory, limits } = useSubscription();
   const { showToast } = useToast();
   const { setUploadProgress, clearUploadProgress, fetchPins, bumpPinsVersion } =
     usePinsCtx();
