@@ -30,7 +30,8 @@ function extractActorName(title: string): string {
   return title;
 }
 
-function notifTitle(n: AppNotification, t: (k: string) => string): string {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function notifTitle(n: AppNotification, t: (k: any) => string): string {
   const name = extractActorName(n.title);
   switch (n.type) {
     case "new_pin":
@@ -44,7 +45,8 @@ function notifTitle(n: AppNotification, t: (k: string) => string): string {
   }
 }
 
-function timeAgo(dateStr: string, t: (k: string) => string): string {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function timeAgo(dateStr: string, t: (k: any) => string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
   const diff = now - then;
@@ -101,9 +103,10 @@ function notifColor(type: AppNotification["type"]) {
 
 type Section = { label: string; items: AppNotification[] };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function groupByTime(
   items: AppNotification[],
-  t: (k: string) => string,
+  t: (k: any) => string,
 ): Section[] {
   const now = new Date();
   const startOfToday = new Date(
