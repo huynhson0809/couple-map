@@ -67,6 +67,7 @@ html, body, #root {
   height: 100%;
   width: 100%;
   overscroll-behavior: none;
+  background: var(--bg);
 }
 
 #root {
@@ -74,6 +75,7 @@ html, body, #root {
   margin: 0 auto;
   position: relative;
   overflow-x: hidden;
+  background: var(--bg);
   /* transform creates a new containing block for fixed-position descendants,
      constraining all modals/overlays to the app width */
   transform: translateZ(0);
@@ -358,7 +360,7 @@ body { -webkit-tap-highlight-color: transparent; }
 .text-slate-700 { color: var(--fg-secondary); }
 .bg-transparent { background: transparent; }
 
-.map-page { position: relative; height: 100vh; width: 100%; overflow: hidden; }
+.map-page { position: relative; height: 100dvh; width: 100%; overflow: hidden; }
 .map-container-wrapper { position: absolute; inset: 0; z-index: 0; }
 .map-container { position: absolute; inset: 0; }
 .maplibregl-canvas { filter: var(--map-filter); }
@@ -1567,7 +1569,7 @@ body { -webkit-tap-highlight-color: transparent; }
 }
 
 /* App shell + bottom nav */
-.app-shell { position: relative; height: 100vh; width: 100%; overflow: hidden; }
+.app-shell { position: relative; height: 100dvh; width: 100%; overflow: hidden; }
 .shell-map .page { display: none; }
 
 /* Notification nav badge */
@@ -4484,7 +4486,7 @@ body { -webkit-tap-highlight-color: transparent; }
    Pricing Page
    ============================================ */
 .pricing-page {
-  padding: 24px 16px 40px;
+  padding: calc(24px + env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom));
   max-width: 440px;
   margin: 0 auto;
 }
