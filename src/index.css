@@ -61,7 +61,7 @@
 
 * { box-sizing: border-box; }
 
-html, body, #root {
+html, body {
   margin: 0;
   padding: 0;
   height: 100%;
@@ -71,10 +71,10 @@ html, body, #root {
 }
 
 #root {
+  position: fixed;
+  inset: 0;
   max-width: 430px;
   margin: 0 auto;
-  position: relative;
-  height: 100dvh;
   overflow-x: hidden;
   background: var(--bg);
   /* transform creates a new containing block for fixed-position descendants,
