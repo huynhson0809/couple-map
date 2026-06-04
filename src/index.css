@@ -71,15 +71,12 @@ html, body {
 }
 
 #root {
-  position: fixed;
-  inset: 0;
+  position: relative;
   max-width: 430px;
   margin: 0 auto;
+  height: 100%;
   overflow-x: hidden;
   background: var(--bg);
-  /* transform creates a new containing block for fixed-position descendants,
-     constraining all modals/overlays to the app width */
-  transform: translateZ(0);
 }
 
 body { -webkit-tap-highlight-color: transparent; }
