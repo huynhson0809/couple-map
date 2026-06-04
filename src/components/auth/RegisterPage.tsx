@@ -129,7 +129,7 @@ function ResendButton({ email }: { email: string }) {
   const [cooldown, setCooldown] = useState(0);
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval>>();
+  const timer = useRef<ReturnType<typeof setInterval>>(undefined);
 
   async function handleResend() {
     if (cooldown > 0 || sending) return;

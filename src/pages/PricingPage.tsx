@@ -3,7 +3,10 @@ import { Check, Crown, Sparkles, Zap } from "lucide-react";
 import { useSubscription, PLAN_LIMITS } from "../hooks/useSubscription";
 import { useI18n } from "../hooks/I18nContext";
 
-const PLAN_FEATURES = {
+const PLAN_FEATURES: Record<
+  string,
+  { key: string; value: string | boolean }[]
+> = {
   free: [
     { key: "pins", value: "100" },
     { key: "photos", value: "3" },
@@ -31,7 +34,7 @@ const PLAN_FEATURES = {
     { key: "grace", value: "3" },
     { key: "watermark", value: false },
   ],
-} as const;
+};
 
 const FEATURE_LABELS: Record<string, { vi: string; en: string }> = {
   pins: { vi: "Kỷ niệm", en: "Memories" },
