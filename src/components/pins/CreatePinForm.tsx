@@ -399,14 +399,17 @@ export function CreatePinForm({
 
   return (
     <form onSubmit={handleSubmit} className="pin-form create-pin-form">
-      <input
-        type="text"
-        placeholder={t("pin.title")}
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        maxLength={120}
-        required
-      />
+      <div className="field-with-count">
+        <input
+          type="text"
+          placeholder={t("pin.title")}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={60}
+          required
+        />
+        <span className="char-count">{title.length}/60</span>
+      </div>
 
       <div>
         <div className="field-label">{t("pin.category")}</div>
@@ -553,7 +556,7 @@ export function CreatePinForm({
                     handleCustomEmojiCommit();
                   }
                 }}
-                maxLength={8}
+                maxLength={4}
               />
             </div>
             <div className="row">

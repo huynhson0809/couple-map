@@ -7,6 +7,8 @@ import {
 } from "react-router-dom";
 import { LoginPage } from "./components/auth/LoginPage";
 import { RegisterPage } from "./components/auth/RegisterPage";
+import { ForgotPasswordPage } from "./components/auth/ForgotPasswordPage";
+import { ResetPasswordPage } from "./components/auth/ResetPasswordPage";
 import { CoupleSetup } from "./components/auth/CoupleSetup";
 import { MapPage } from "./pages/MapPage";
 import { TimelinePage } from "./pages/TimelinePage";
@@ -136,15 +138,26 @@ function RoutedShell() {
 }
 
 function AppRoutes() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isRecovery } = useAuth();
 
   if (authLoading) return <div className="full-center muted">Loading…</div>;
+
+  // Show reset password page when user clicked recovery link
+  if (isRecovery && user) {
+    return (
+      <Routes>
+        <Route path="*" element={<ResetPasswordPage />} />
+      </Routes>
+    );
+  }
 
   if (!user) {
     return (
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );

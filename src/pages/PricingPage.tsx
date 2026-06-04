@@ -11,17 +11,15 @@ const PLAN_FEATURES = {
     { key: "styles", value: "3" },
     { key: "categories", value: false },
     { key: "grace", value: "0" },
-    { key: "collections", value: false },
     { key: "watermark", value: true },
   ],
   plus: [
     { key: "pins", value: "500" },
     { key: "photos", value: "5" },
-    { key: "video", value: true },
-    { key: "styles", value: "15" },
+    { key: "video", value: false },
+    { key: "styles", value: "10" },
     { key: "categories", value: "5" },
     { key: "grace", value: "1" },
-    { key: "collections", value: "3" },
     { key: "watermark", value: false },
   ],
   pro: [
@@ -31,7 +29,6 @@ const PLAN_FEATURES = {
     { key: "styles", value: "15" },
     { key: "categories", value: "∞" },
     { key: "grace", value: "3" },
-    { key: "collections", value: "∞" },
     { key: "watermark", value: false },
   ],
 } as const;
@@ -43,7 +40,6 @@ const FEATURE_LABELS: Record<string, { vi: string; en: string }> = {
   styles: { vi: "Map styles", en: "Map styles" },
   categories: { vi: "Danh mục tùy chỉnh", en: "Custom categories" },
   grace: { vi: "Streak grace (ngày)", en: "Streak grace (days)" },
-  collections: { vi: "Collections", en: "Collections" },
   watermark: { vi: "Share card watermark", en: "Share card watermark" },
 };
 
@@ -95,6 +91,11 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
           {lang === "vi"
             ? "Mở khóa tất cả tính năng cho kỷ niệm của hai bạn"
             : "Unlock all features for your memories together"}
+        </p>
+        <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          {lang === "vi"
+            ? "🎁 Chỉ cần 1 người mua, cả 2 cùng dùng được!"
+            : "🎁 One purchase covers both of you!"}
         </p>
       </header>
 

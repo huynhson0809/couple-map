@@ -69,6 +69,16 @@ html, body, #root {
   overscroll-behavior: none;
 }
 
+#root {
+  max-width: 430px;
+  margin: 0 auto;
+  position: relative;
+  overflow-x: hidden;
+  /* transform creates a new containing block for fixed-position descendants,
+     constraining all modals/overlays to the app width */
+  transform: translateZ(0);
+}
+
 body { -webkit-tap-highlight-color: transparent; }
 
 /* Liquid Glass material system */
@@ -348,7 +358,7 @@ body { -webkit-tap-highlight-color: transparent; }
 .text-slate-700 { color: var(--fg-secondary); }
 .bg-transparent { background: transparent; }
 
-.map-page { position: relative; height: 100vh; width: 100vw; overflow: hidden; }
+.map-page { position: relative; height: 100vh; width: 100%; overflow: hidden; }
 .map-container-wrapper { position: absolute; inset: 0; z-index: 0; }
 .map-container { position: absolute; inset: 0; }
 .maplibregl-canvas { filter: var(--map-filter); }
@@ -549,6 +559,19 @@ body { -webkit-tap-highlight-color: transparent; }
 }
 
 .pin-form { display: flex; flex-direction: column; gap: 12px; }
+.field-with-count {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.field-with-count input {
+  width: 100%;
+}
+.char-count {
+  align-self: flex-end;
+  font-size: 11px;
+  color: var(--muted);
+}
 .create-pin-form {
   gap: 8px;
 }
@@ -597,6 +620,8 @@ body { -webkit-tap-highlight-color: transparent; }
 .pin-note {
   margin: 0; font-size: 15px; line-height: 1.5;
   color: var(--fg-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .pin-meta {
   display: flex; flex-direction: column; gap: 6px;
@@ -1238,8 +1263,8 @@ body { -webkit-tap-highlight-color: transparent; }
   will-change: transform;
 }
 .lightbox-slide {
-  flex: 0 0 100vw;
-  width: 100vw;
+  flex: 0 0 100%;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1542,7 +1567,7 @@ body { -webkit-tap-highlight-color: transparent; }
 }
 
 /* App shell + bottom nav */
-.app-shell { position: relative; height: 100vh; width: 100vw; overflow: hidden; }
+.app-shell { position: relative; height: 100vh; width: 100%; overflow: hidden; }
 .shell-map .page { display: none; }
 
 /* Notification nav badge */
@@ -1702,7 +1727,8 @@ body { -webkit-tap-highlight-color: transparent; }
 [data-theme="dark"] .notif-item-time { color: #777; }
 
 .bottom-nav {
-  position: fixed; bottom: 0; left: 0; right: 0;
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 430px;
   display: flex; justify-content: space-around;
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(60px) saturate(2.2) brightness(1.05);
@@ -4042,6 +4068,18 @@ body { -webkit-tap-highlight-color: transparent; }
   overflow: hidden;
   position: relative;
   transition: box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.circle-marker > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: inherit;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 .circle-marker:hover {
   z-index: 2;

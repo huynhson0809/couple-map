@@ -1,29 +1,81 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../hooks/useAuth'
-import { useI18n } from '../../hooks/I18nContext'
-import { Button } from '../ui/Button'
-import { Logo } from '../ui/Logo'
-import { LangSwitch } from '../ui/LangSwitch'
+import { useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
+import { useI18n } from "../../hooks/I18nContext";
+import { supabase } from "../../lib/supabase";
+import { Button } from "../ui/Button";
+import { Logo } from "../ui/Logo";
+import { LangSwitch } from "../ui/LangSwitch";
+
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 60_000; // 1 minute
 
 export function RegisterPage() {
-  const { signUp } = useAuth()
-  const { t } = useI18n()
-  const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [displayName, setDisplayName] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const { signUp } = useAuth();
+  const { t } = useI18n();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
+  const attempts = useRef(0);
+  const lockedUntil = useRef(0);
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-    const { error } = await signUp(email, password, displayName || undefined)
-    setLoading(false)
-    if (error) setError(error.message)
-    else navigate('/')
+    e.preventDefault();
+
+    // Client-side rate limiting
+    if (Date.now() < lockedUntil.current) {
+      setError(t("auth.tooManyAttempts"));
+      return;
+    }
+    attempts.current++;
+    if (attempts.current > MAX_ATTEMPTS) {
+      lockedUntil.current = Date.now() + LOCKOUT_MS;
+      attempts.current = 0;
+      setError(t("auth.tooManyAttempts"));
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const { error } = await signUp(email, password, displayName || undefined);
+    setLoading(false);
+    if (error) {
+      setError(error.message);
+    } else {
+      // Always show "check your email" regardless of whether email already exists
+      // This prevents email enumeration attacks
+      setRegistered(true);
+    }
+  }
+
+  if (registered) {
+    return (
+      <div className="auth-page">
+        <div className="auth-topbar">
+          <LangSwitch />
+        </div>
+        <div className="auth-brand">
+          <Logo size={72} />
+          <h1>{t("auth.checkEmailTitle")}</h1>
+        </div>
+        <p className="muted" style={{ textAlign: "center", lineHeight: 1.6 }}>
+          {t("auth.checkEmailDesc")}
+        </p>
+        <p className="muted" style={{ textAlign: "center", fontWeight: 600 }}>
+          {email}
+        </p>
+        <div className="auth-form">
+          <ResendButton email={email} />
+          <Link to="/login">
+            <Button>{t("auth.goToLogin")}</Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -33,19 +85,19 @@ export function RegisterPage() {
       </div>
       <div className="auth-brand">
         <Logo size={72} />
-        <h1>{t('auth.createAccount')}</h1>
+        <h1>{t("auth.createAccount")}</h1>
       </div>
-      <p className="muted">{t('auth.startMapping')}</p>
+      <p className="muted">{t("auth.startMapping")}</p>
       <form onSubmit={handleSubmit} className="auth-form">
         <input
           type="text"
-          placeholder={t('auth.name')}
+          placeholder={t("auth.name")}
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
         />
         <input
           type="email"
-          placeholder={t('auth.email')}
+          placeholder={t("auth.email")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -53,7 +105,7 @@ export function RegisterPage() {
         />
         <input
           type="password"
-          placeholder={t('auth.password')}
+          placeholder={t("auth.password")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -62,12 +114,56 @@ export function RegisterPage() {
         />
         {error && <p className="error">{error}</p>}
         <Button type="submit" disabled={loading}>
-          {loading ? t('auth.creating') : t('auth.signup')}
+          {loading ? t("auth.creating") : t("auth.signup")}
         </Button>
       </form>
       <p className="muted">
-        {t('auth.haveAccount')} <Link to="/login">{t('auth.signin')}</Link>
+        {t("auth.haveAccount")} <Link to="/login">{t("auth.signin")}</Link>
       </p>
     </div>
-  )
+  );
+}
+
+function ResendButton({ email }: { email: string }) {
+  const { t } = useI18n();
+  const [cooldown, setCooldown] = useState(0);
+  const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const timer = useRef<ReturnType<typeof setInterval>>();
+
+  async function handleResend() {
+    if (cooldown > 0 || sending) return;
+    setSending(true);
+    await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    setSending(false);
+    setSent(true);
+    setCooldown(60);
+    timer.current = setInterval(() => {
+      setCooldown((c) => {
+        if (c <= 1) {
+          clearInterval(timer.current);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+  }
+
+  return (
+    <Button
+      type="button"
+      onClick={handleResend}
+      disabled={cooldown > 0 || sending}
+    >
+      {sending
+        ? t("auth.sending")
+        : sent && cooldown > 0
+          ? `${t("auth.resendIn")} ${cooldown}s`
+          : t("auth.resendEmail")}
+    </Button>
+  );
 }

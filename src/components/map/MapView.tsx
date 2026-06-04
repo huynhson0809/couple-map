@@ -190,7 +190,12 @@ export function MapView({
       el.appendChild(img);
     } else {
       const span = document.createElement("span");
-      span.textContent = p.marker_emoji ?? cat?.emoji ?? "📍";
+      const text = p.marker_emoji ?? cat?.emoji ?? "📍";
+      span.textContent = text;
+      // Auto-scale font for multi-character text markers
+      const len = [...text].length;
+      if (len > 2) span.style.fontSize = "12px";
+      else if (len > 1) span.style.fontSize = "16px";
       el.appendChild(span);
     }
     el.addEventListener("click", (e) => {
@@ -602,7 +607,6 @@ export function MapView({
           onPinClick={(pin) => {
             highlightedPinIdRef.current = pin.id;
             rebuildMarkers();
-            closeClusterList();
             onPinClick(pin);
           }}
           onClose={closeClusterList}

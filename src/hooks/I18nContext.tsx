@@ -31,6 +31,30 @@ const dict = {
     "auth.haveAccount": "Already have one?",
     "auth.createAccount": "Create account",
     "auth.startMapping": "Start mapping your memories",
+    "auth.checkEmailTitle": "Check your email",
+    "auth.checkEmailDesc":
+      "We've sent a confirmation link to your email. Please check your inbox and click the link to verify your account before signing in.",
+    "auth.goToLogin": "Go to Sign in",
+    "auth.resendEmail": "Resend confirmation email",
+    "auth.resendIn": "Resend in",
+    "auth.tooManyAttempts":
+      "Too many attempts. Please wait a moment and try again.",
+    "auth.forgotPassword": "Forgot password?",
+    "auth.forgotPasswordDesc":
+      "Enter your email and we'll send you a reset link.",
+    "auth.sendResetLink": "Send reset link",
+    "auth.sending": "Sending…",
+    "auth.backToLogin": "Back to Sign in",
+    "auth.resetEmailSentTitle": "Check your email",
+    "auth.resetEmailSentDesc":
+      "If an account exists with this email, we've sent a password reset link. Check your inbox.",
+    "auth.resetPassword": "Reset password",
+    "auth.resetPasswordDesc": "Enter your new password below.",
+    "auth.newPassword": "New password",
+    "auth.confirmPassword": "Confirm password",
+    "auth.passwordMismatch": "Passwords do not match.",
+    "auth.updatePassword": "Update password",
+    "auth.updating": "Updating…",
 
     "pair.title": "Pair with your partner",
     "pair.create": "Create a new couple",
@@ -267,6 +291,30 @@ const dict = {
     "auth.haveAccount": "Đã có tài khoản?",
     "auth.createAccount": "Tạo tài khoản",
     "auth.startMapping": "Bắt đầu ghi lại kỷ niệm",
+    "auth.checkEmailTitle": "Kiểm tra email của bạn",
+    "auth.checkEmailDesc":
+      "Chúng mình đã gửi link xác nhận đến email của bạn. Hãy kiểm tra hộp thư và nhấn vào link để xác minh tài khoản trước khi đăng nhập nhé.",
+    "auth.goToLogin": "Đi đến Đăng nhập",
+    "auth.resendEmail": "Gửi lại email xác nhận",
+    "auth.resendIn": "Gửi lại sau",
+    "auth.tooManyAttempts":
+      "Quá nhiều lần thử. Vui lòng đợi một lát rồi thử lại.",
+    "auth.forgotPassword": "Quên mật khẩu?",
+    "auth.forgotPasswordDesc":
+      "Nhập email của bạn, chúng mình sẽ gửi link đặt lại mật khẩu.",
+    "auth.sendResetLink": "Gửi link đặt lại",
+    "auth.sending": "Đang gửi…",
+    "auth.backToLogin": "Quay lại Đăng nhập",
+    "auth.resetEmailSentTitle": "Kiểm tra email",
+    "auth.resetEmailSentDesc":
+      "Nếu tài khoản tồn tại với email này, chúng mình đã gửi link đặt lại mật khẩu. Kiểm tra hộp thư nhé.",
+    "auth.resetPassword": "Đặt lại mật khẩu",
+    "auth.resetPasswordDesc": "Nhập mật khẩu mới bên dưới.",
+    "auth.newPassword": "Mật khẩu mới",
+    "auth.confirmPassword": "Xác nhận mật khẩu",
+    "auth.passwordMismatch": "Mật khẩu không khớp.",
+    "auth.updatePassword": "Cập nhật mật khẩu",
+    "auth.updating": "Đang cập nhật…",
 
     "pair.title": "Kết nối với người ấy",
     "pair.create": "Tạo couple mới",

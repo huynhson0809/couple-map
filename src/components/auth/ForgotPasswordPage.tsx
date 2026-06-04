@@ -1,29 +1,26 @@
 import { useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
+import { Link } from "react-router-dom";
+import { supabase } from "../../lib/supabase";
 import { useI18n } from "../../hooks/I18nContext";
 import { Button } from "../ui/Button";
 import { Logo } from "../ui/Logo";
 import { LangSwitch } from "../ui/LangSwitch";
 
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_MS = 60_000; // 1 minute
+const MAX_ATTEMPTS = 3;
+const LOCKOUT_MS = 60_000;
 
-export function LoginPage() {
-  const { signIn } = useAuth();
+export function ForgotPasswordPage() {
   const { t } = useI18n();
-  const navigate = useNavigate();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const attempts = useRef(0);
   const lockedUntil = useRef(0);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    // Client-side rate limiting
     if (Date.now() < lockedUntil.current) {
       setError(t("auth.tooManyAttempts"));
       return;
@@ -38,10 +35,43 @@ export function LoginPage() {
 
     setLoading(true);
     setError(null);
-    const { error } = await signIn(email, password);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
     setLoading(false);
-    if (error) setError(error.message);
-    else navigate("/");
+    if (error) {
+      setError(error.message);
+    } else {
+      // Always show success to prevent email enumeration
+      setSent(true);
+    }
+  }
+
+  if (sent) {
+    return (
+      <div className="auth-page">
+        <div className="auth-topbar">
+          <LangSwitch />
+        </div>
+        <div className="auth-brand">
+          <Logo size={72} />
+          <h1>{t("auth.resetEmailSentTitle")}</h1>
+        </div>
+        <p className="muted" style={{ textAlign: "center", lineHeight: 1.6 }}>
+          {t("auth.resetEmailSentDesc")}
+        </p>
+        <p className="muted" style={{ textAlign: "center", fontWeight: 600 }}>
+          {email}
+        </p>
+        <div className="auth-form">
+          <Link to="/login">
+            <Button>{t("auth.goToLogin")}</Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -51,9 +81,9 @@ export function LoginPage() {
       </div>
       <div className="auth-brand">
         <Logo size={72} />
-        <h1>Pinly</h1>
+        <h1>{t("auth.forgotPassword")}</h1>
       </div>
-      <p className="muted">{t("auth.welcome")}</p>
+      <p className="muted">{t("auth.forgotPasswordDesc")}</p>
       <form onSubmit={handleSubmit} className="auth-form">
         <input
           type="email"
@@ -63,24 +93,13 @@ export function LoginPage() {
           required
           autoComplete="email"
         />
-        <input
-          type="password"
-          placeholder={t("auth.password")}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          autoComplete="current-password"
-        />
         {error && <p className="error">{error}</p>}
         <Button type="submit" disabled={loading}>
-          {loading ? t("auth.signingIn") : t("auth.signin")}
+          {loading ? t("auth.sending") : t("auth.sendResetLink")}
         </Button>
       </form>
       <p className="muted">
-        <Link to="/forgot-password">{t("auth.forgotPassword")}</Link>
-      </p>
-      <p className="muted">
-        {t("auth.noAccount")} <Link to="/register">{t("auth.signup")}</Link>
+        <Link to="/login">{t("auth.backToLogin")}</Link>
       </p>
     </div>
   );
