@@ -387,6 +387,11 @@ export function MapView({
     });
     map.addControl(geolocateControl, "bottom-right");
 
+    // Auto-trigger geolocation on first load
+    map.once("load", () => {
+      geolocateControl.trigger();
+    });
+
     function startLongPress(
       e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent,
     ) {

@@ -15,7 +15,7 @@ import {
   CheckCircle2,
   Crown,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useCoupleCtx } from "../hooks/CoupleContext";
 import { isDarkModeEnabled, useTheme } from "../hooks/ThemeContext";
@@ -40,6 +40,16 @@ export function SettingsPage() {
   const push = usePushSubscription(user?.id);
   const notifPrefs = useNotificationPreferences(user?.id);
   const { styleId, setStyleId } = useMapStyle();
+  const [initialStyle] = useState(styleId);
+  const sortedStyles = useMemo(
+    () =>
+      [...MAP_STYLES].sort((a, b) => {
+        if (a.id === initialStyle) return -1;
+        if (b.id === initialStyle) return 1;
+        return 0;
+      }),
+    [initialStyle],
+  );
   const { plan, subscription, canUseMapStyle } = useSubscription();
   const [showPricing, setShowPricing] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState<string | null>(null);
@@ -209,7 +219,7 @@ export function SettingsPage() {
       <section className="setting-section">
         <div className="setting-section-title">{t("settings.mapStyle")}</div>
         <div className="map-style-grid">
-          {MAP_STYLES.map((s) => {
+          {sortedStyles.map((s) => {
             const locked = !canUseMapStyle(s.id);
             return (
               <button

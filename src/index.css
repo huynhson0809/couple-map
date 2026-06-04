@@ -2175,10 +2175,10 @@ html.is-standalone #root {
 }
 .streak-week-fill {
   position: absolute;
-  left: 0;
+  left: var(--streak-week-progress-start, 0%);
   top: 50%;
   z-index: 1;
-  width: var(--streak-week-progress, 0%);
+  width: calc(var(--streak-week-progress, 0%) - var(--streak-week-progress-start, 0%));
   height: 11px;
   transform: translateY(-50%);
   border-radius: 999px;
@@ -2187,7 +2187,7 @@ html.is-standalone #root {
   box-shadow:
     0 0 14px rgba(255, 158, 28, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.36);
-  transition: width 420ms cubic-bezier(0.2, 0.9, 0.24, 1);
+  transition: width 420ms cubic-bezier(0.2, 0.9, 0.24, 1), left 420ms cubic-bezier(0.2, 0.9, 0.24, 1);
 }
 .streak-week-marker {
   position: absolute;
