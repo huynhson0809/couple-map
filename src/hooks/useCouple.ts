@@ -1,6 +1,52 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Couple, User } from '../types'
+
+interface CoupleContextPayload {
+  profile: User | null
+  couple: Couple | null
+  partner: User | null
+}
+
+async function fetchCoupleContextFallback(userId: string): Promise<CoupleContextPayload> {
+  const { data: u, error: uErr } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle()
+  if (uErr) throw uErr
+
+  const profile = (u as User) ?? null
+  if (!profile?.couple_id) {
+    return { profile, couple: null, partner: null }
+  }
+
+  const { data: c, error: cErr } = await supabase
+    .from('couples')
+    .select('*')
+    .eq('id', profile.couple_id)
+    .maybeSingle()
+  if (cErr) throw cErr
+
+  const couple = (c as Couple) ?? null
+  if (!couple) {
+    return { profile, couple: null, partner: null }
+  }
+
+  const partnerId = couple.user_a === userId ? couple.user_b : couple.user_a
+  if (!partnerId) {
+    return { profile, couple, partner: null }
+  }
+
+  const { data: p, error: pErr } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', partnerId)
+    .maybeSingle()
+  if (pErr) throw pErr
+
+  return { profile, couple, partner: (p as User) ?? null }
+}
 
 export function useCouple(userId: string | undefined) {
   const [profile, setProfile] = useState<User | null>(null)
@@ -8,8 +54,12 @@ export function useCouple(userId: string | undefined) {
   const [partner, setPartner] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const requestIdRef = useRef(0)
 
   const refresh = useCallback(async (opts?: { silent?: boolean }) => {
+    const requestId = requestIdRef.current + 1
+    requestIdRef.current = requestId
+
     if (!userId) {
       setProfile(null)
       setCouple(null)
@@ -19,39 +69,28 @@ export function useCouple(userId: string | undefined) {
     }
     if (!opts?.silent) setLoading(true)
     setError(null)
-    const { data: u, error: uErr } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle()
-    if (uErr) setError(uErr.message)
-    setProfile((u as User) ?? null)
 
-    if (u?.couple_id) {
-      const { data: c } = await supabase
-        .from('couples')
-        .select('*')
-        .eq('id', u.couple_id)
-        .maybeSingle()
-      setCouple((c as Couple) ?? null)
-      if (c) {
-        const partnerId = c.user_a === userId ? c.user_b : c.user_a
-        if (partnerId) {
-          const { data: p } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', partnerId)
-            .maybeSingle()
-          setPartner((p as User) ?? null)
-        } else {
-          setPartner(null)
-        }
+    try {
+      const { data, error: contextError } = await supabase.rpc('get_couple_context_for_current_user')
+      const payload =
+        contextError || !data
+          ? await fetchCoupleContextFallback(userId)
+          : (data as CoupleContextPayload)
+
+      if (requestIdRef.current !== requestId) return
+      setProfile(payload.profile ?? null)
+      setCouple(payload.couple ?? null)
+      setPartner(payload.partner ?? null)
+    } catch (err) {
+      if (requestIdRef.current === requestId) {
+        setError(err instanceof Error ? err.message : 'Could not load couple')
+        setProfile(null)
+        setCouple(null)
+        setPartner(null)
       }
-    } else {
-      setCouple(null)
-      setPartner(null)
+    } finally {
+      if (requestIdRef.current === requestId) setLoading(false)
     }
-    setLoading(false)
   }, [userId])
 
   useEffect(() => {

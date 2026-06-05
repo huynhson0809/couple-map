@@ -138,7 +138,10 @@ export function SubscriptionProvider({
   }, [coupleId]);
 
   useEffect(() => {
-    fetchPlan();
+    const timer = window.setTimeout(() => {
+      void fetchPlan();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [fetchPlan]);
 
   // Listen for realtime changes to couple plan
@@ -158,7 +161,7 @@ export function SubscriptionProvider({
           const newPlan = payload.new?.plan as PlanType;
           if (newPlan && newPlan !== plan) {
             setPlan(newPlan);
-            fetchPlan(); // Refetch full subscription details
+            void fetchPlan(); // Refetch full subscription details
           }
         },
       )
@@ -233,6 +236,7 @@ export function SubscriptionProvider({
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSubscription() {
   const ctx = useContext(SubscriptionCtx);
   if (!ctx)

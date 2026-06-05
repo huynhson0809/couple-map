@@ -2,7 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { BucketListItem } from '../types'
 
-export function useBucket(coupleId: string | null | undefined, userId: string | undefined) {
+export function useBucket(
+  coupleId: string | null | undefined,
+  userId: string | undefined,
+  statusFilter?: BucketListItem['status'],
+) {
   const [items, setItems] = useState<BucketListItem[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -12,14 +16,21 @@ export function useBucket(coupleId: string | null | undefined, userId: string | 
       return
     }
     setLoading(true)
-    const { data } = await supabase
+    let query = supabase
       .from('bucket_list')
       .select('*')
       .eq('couple_id', coupleId)
+
+    if (statusFilter) {
+      query = query.eq('status', statusFilter)
+    }
+
+    const { data } = await query
       .order('created_at', { ascending: false })
+
     setItems((data as BucketListItem[]) ?? [])
     setLoading(false)
-  }, [coupleId])
+  }, [coupleId, statusFilter])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -44,10 +55,13 @@ export function useBucket(coupleId: string | null | undefined, userId: string | 
         .select()
         .single()
       if (error) throw error
-      setItems((prev) => [data as BucketListItem, ...prev])
-      return data as BucketListItem
+      const row = data as BucketListItem
+      if (!statusFilter || row.status === statusFilter) {
+        setItems((prev) => [row, ...prev])
+      }
+      return row
     },
-    [coupleId, userId],
+    [coupleId, statusFilter, userId],
   )
 
   const removeItem = useCallback(async (id: string) => {
@@ -64,8 +78,16 @@ export function useBucket(coupleId: string | null | undefined, userId: string | 
       .select()
       .single()
     if (error) throw error
-    setItems((prev) => prev.map((b) => (b.id === id ? (data as BucketListItem) : b)))
-  }, [])
+    const row = data as BucketListItem
+    setItems((prev) => {
+      if (statusFilter && row.status !== statusFilter) {
+        return prev.filter((b) => b.id !== id)
+      }
+      const exists = prev.some((b) => b.id === id)
+      if (!exists) return statusFilter ? [row, ...prev] : prev
+      return prev.map((b) => (b.id === id ? row : b))
+    })
+  }, [statusFilter])
 
   const markDone = useCallback((id: string) => setItemStatus(id, 'done'), [setItemStatus])
   const markDream = useCallback((id: string) => setItemStatus(id, 'dream'), [setItemStatus])

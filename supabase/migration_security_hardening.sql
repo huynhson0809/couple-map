@@ -159,6 +159,113 @@ create trigger protect_pin_ownership_fields
   before update on public.pins
   for each row execute function public.protect_pin_ownership_fields();
 
+alter table public.pin_images
+  drop constraint if exists pin_images_cloudinary_url_check,
+  drop constraint if exists pin_images_public_id_check,
+  drop constraint if exists pin_images_dimensions_check,
+  drop constraint if exists pin_images_sort_order_check;
+alter table public.pin_images
+  add constraint pin_images_cloudinary_url_check
+  check (cloudinary_url ~ '^https://res\.cloudinary\.com/[^/]+/(image|video)/upload/')
+  not valid,
+  add constraint pin_images_public_id_check
+  check (
+    cloudinary_public_id is not null
+    and cloudinary_public_id ~ '^pinly/[0-9a-fA-F-]{36}/[^[:space:]]+$'
+    and cloudinary_public_id !~ '\.\.'
+  )
+  not valid,
+  add constraint pin_images_dimensions_check
+  check (
+    (width is null or width between 1 and 12000)
+    and (height is null or height between 1 and 12000)
+  )
+  not valid,
+  add constraint pin_images_sort_order_check
+  check (sort_order between 0 and 20)
+  not valid;
+
+create or replace function public.validate_pin_image_media_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_couple_id uuid;
+begin
+  select p.couple_id into v_couple_id
+  from public.pins p
+  where p.id = new.pin_id;
+
+  if v_couple_id is null then
+    raise exception 'Pin image must reference an existing pin';
+  end if;
+
+  if new.cloudinary_public_id is null
+    or new.cloudinary_public_id not like 'pinly/' || v_couple_id::text || '/%'
+  then
+    raise exception 'Cloudinary public id does not belong to this couple';
+  end if;
+
+  if new.cloudinary_url not like '%/pinly/' || v_couple_id::text || '/%' then
+    raise exception 'Cloudinary URL does not belong to this couple';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists validate_pin_image_media_fields on public.pin_images;
+create trigger validate_pin_image_media_fields
+  before insert or update on public.pin_images
+  for each row execute function public.validate_pin_image_media_fields();
+
+create or replace function public.protect_pin_image_identity_fields()
+returns trigger
+language plpgsql
+as $$
+begin
+  if old.id is distinct from new.id
+    or old.pin_id is distinct from new.pin_id
+    or old.cloudinary_url is distinct from new.cloudinary_url
+    or old.cloudinary_public_id is distinct from new.cloudinary_public_id
+    or old.created_at is distinct from new.created_at
+  then
+    raise exception 'Protected pin image field cannot be changed';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_pin_image_identity_fields on public.pin_images;
+create trigger protect_pin_image_identity_fields
+  before update on public.pin_images
+  for each row execute function public.protect_pin_image_identity_fields();
+
+create or replace function public.protect_bucket_ownership_fields()
+returns trigger
+language plpgsql
+as $$
+begin
+  if old.id is distinct from new.id
+    or old.couple_id is distinct from new.couple_id
+    or old.created_by is distinct from new.created_by
+    or old.created_at is distinct from new.created_at
+  then
+    raise exception 'Protected bucket item field cannot be changed';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_bucket_ownership_fields on public.bucket_list;
+create trigger protect_bucket_ownership_fields
+  before update on public.bucket_list
+  for each row execute function public.protect_bucket_ownership_fields();
+
 -- 3) Tighten RLS checks for updates that previously relied mostly on USING.
 drop policy if exists "Any authenticated user can create couple" on public.couples;
 
@@ -191,6 +298,29 @@ create policy "Users can update their pin comments"
     user_id = auth.uid()
     and pin_id in (select id from public.pins where couple_id = get_my_couple_id())
   );
+
+drop policy if exists "Couple members can CRUD bucket list" on public.bucket_list;
+drop policy if exists "Couple members can read bucket list" on public.bucket_list;
+drop policy if exists "Couple members can create bucket list items" on public.bucket_list;
+drop policy if exists "Couple members can update bucket list items" on public.bucket_list;
+drop policy if exists "Couple members can delete bucket list items" on public.bucket_list;
+
+create policy "Couple members can read bucket list"
+  on public.bucket_list for select
+  using (couple_id = get_my_couple_id());
+
+create policy "Couple members can create bucket list items"
+  on public.bucket_list for insert
+  with check (couple_id = get_my_couple_id() and created_by = auth.uid());
+
+create policy "Couple members can update bucket list items"
+  on public.bucket_list for update
+  using (couple_id = get_my_couple_id())
+  with check (couple_id = get_my_couple_id());
+
+create policy "Couple members can delete bucket list items"
+  on public.bucket_list for delete
+  using (couple_id = get_my_couple_id());
 
 alter table public.pins
   drop constraint if exists pins_title_length_check,

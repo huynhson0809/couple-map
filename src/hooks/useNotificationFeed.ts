@@ -4,76 +4,184 @@ import type { AppNotification } from "../types";
 
 const PAGE_SIZE = 30;
 
+type NotificationFeedPayload = {
+  notifications?: AppNotification[];
+  unreadCount?: number | string | null;
+};
+
+function byNewestFirst(a: AppNotification, b: AppNotification) {
+  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+}
+
+function normalizeFeedPayload(data: unknown): {
+  rows: AppNotification[];
+  unreadCount: number;
+} {
+  const payload = (data ?? {}) as NotificationFeedPayload;
+  const rows = Array.isArray(payload.notifications)
+    ? payload.notifications
+    : [];
+  const unreadCount = Number(payload.unreadCount ?? 0);
+
+  return {
+    rows,
+    unreadCount: Number.isFinite(unreadCount) ? unreadCount : 0,
+  };
+}
+
+function mergeNotifications(
+  current: AppNotification[],
+  incoming: AppNotification[],
+) {
+  const byId = new Map<string, AppNotification>();
+
+  for (const notification of current) {
+    byId.set(notification.id, notification);
+  }
+
+  for (const notification of incoming) {
+    byId.set(notification.id, notification);
+  }
+
+  return Array.from(byId.values()).sort(byNewestFirst);
+}
+
 export function useNotificationFeed(userId: string | undefined) {
   const instanceId = useId();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const loadingRef = useRef(false);
+  const nextOffsetRef = useRef(0);
+  const notificationsRef = useRef<AppNotification[]>([]);
+  const requestIdRef = useRef(0);
+
+  const setNotificationState = useCallback(
+    (updater: (current: AppNotification[]) => AppNotification[]) => {
+      setNotifications((current) => {
+        const next = updater(current);
+        notificationsRef.current = next;
+        return next;
+      });
+    },
+    [],
+  );
 
   const fetchNotifications = useCallback(
     async (reset = false) => {
       if (!userId) return;
-      setLoading(true);
-      const from = reset ? 0 : notifications.length;
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .range(from, from + PAGE_SIZE - 1);
+      if (loadingRef.current) return;
 
-      if (!error && data) {
-        const rows = data as AppNotification[];
-        if (reset) {
-          setNotifications(rows);
-        } else {
-          setNotifications((prev) => [...prev, ...rows]);
-        }
+      loadingRef.current = true;
+      setLoading(true);
+      const requestId = ++requestIdRef.current;
+      const offset = reset ? 0 : nextOffsetRef.current;
+
+      try {
+        const { data, error } = await supabase.rpc("get_notification_feed", {
+          p_limit: PAGE_SIZE,
+          p_offset: offset,
+        });
+
+        if (error || requestId !== requestIdRef.current) return;
+
+        const { rows, unreadCount: nextUnreadCount } =
+          normalizeFeedPayload(data);
+
+        nextOffsetRef.current = reset
+          ? rows.length
+          : nextOffsetRef.current + rows.length;
+        setNotificationState((prev) =>
+          reset
+            ? mergeNotifications([], rows)
+            : mergeNotifications(prev, rows),
+        );
         setHasMore(rows.length === PAGE_SIZE);
+        setUnreadCount(nextUnreadCount);
+      } finally {
+        if (requestId === requestIdRef.current) {
+          loadingRef.current = false;
+          setLoading(false);
+        }
       }
-      setLoading(false);
     },
-    [userId, notifications.length],
+    [setNotificationState, userId],
   );
 
-  const fetchUnreadCount = useCallback(async () => {
-    if (!userId) return;
-    const { count } = await supabase
-      .from("notifications")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("read", false);
-    setUnreadCount(count ?? 0);
-  }, [userId]);
+  const markAsRead = useCallback(
+    async (id: string) => {
+      const wasUnread = notificationsRef.current.some(
+        (notification) => notification.id === id && !notification.read,
+      );
+      const { error } = await supabase
+        .from("notifications")
+        .update({ read: true })
+        .eq("id", id)
+        .eq("read", false);
 
-  const markAsRead = useCallback(async (id: string) => {
-    await supabase.from("notifications").update({ read: true }).eq("id", id);
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
-    );
-    setUnreadCount((c) => Math.max(0, c - 1));
-  }, []);
+      if (error) return;
+
+      setNotificationState((prev) =>
+        prev.map((notification) =>
+          notification.id === id
+            ? { ...notification, read: true }
+            : notification,
+        ),
+      );
+      if (wasUnread) setUnreadCount((count) => Math.max(0, count - 1));
+    },
+    [setNotificationState],
+  );
 
   const markAllAsRead = useCallback(async () => {
     if (!userId) return;
-    await supabase
+    const { error } = await supabase
       .from("notifications")
       .update({ read: true })
       .eq("user_id", userId)
       .eq("read", false);
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+
+    if (error) return;
+
+    setNotificationState((prev) =>
+      prev.map((notification) => ({ ...notification, read: true })),
+    );
     setUnreadCount(0);
+  }, [setNotificationState, userId]);
+
+  const fetchMore = useCallback(
+    () => fetchNotifications(false),
+    [fetchNotifications],
+  );
+
+  const refresh = useCallback(
+    () => fetchNotifications(true),
+    [fetchNotifications],
+  );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      notificationsRef.current = [];
+      nextOffsetRef.current = 0;
+      loadingRef.current = false;
+      setNotifications([]);
+      setUnreadCount(0);
+      setHasMore(Boolean(userId));
+      setLoading(false);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [userId]);
 
-  // Initial fetch + unread count
+  // Initial fetch
   useEffect(() => {
     if (!userId) return;
-    fetchNotifications(true);
-    fetchUnreadCount();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+    const timer = window.setTimeout(() => {
+      void refresh();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [refresh, userId]);
 
   // Realtime subscription
   useEffect(() => {
@@ -91,27 +199,30 @@ export function useNotificationFeed(userId: string | undefined) {
         },
         (payload) => {
           const newNotif = payload.new as AppNotification;
-          setNotifications((prev) => [newNotif, ...prev]);
-          setUnreadCount((c) => c + 1);
+          const alreadyLoaded = notificationsRef.current.some(
+            (notification) => notification.id === newNotif.id,
+          );
+
+          setNotificationState((prev) => mergeNotifications(prev, [newNotif]));
+          if (!alreadyLoaded && !newNotif.read) {
+            setUnreadCount((count) => count + 1);
+          }
         },
       )
       .subscribe();
 
-    channelRef.current = channel;
-
     return () => {
-      channel.unsubscribe();
-      channelRef.current = null;
+      void channel.unsubscribe();
     };
-  }, [userId]);
+  }, [instanceId, setNotificationState, userId]);
 
   return {
     notifications,
     unreadCount,
     loading,
     hasMore,
-    fetchMore: () => fetchNotifications(false),
-    refresh: () => fetchNotifications(true),
+    fetchMore,
+    refresh,
     markAsRead,
     markAllAsRead,
   };

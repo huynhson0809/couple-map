@@ -8,6 +8,9 @@ interface CloudinarySignature {
   timestamp: number;
   signature: string;
   folder: string;
+  resourceType: "image" | "video";
+  allowedFormats: string;
+  maxFileSize: number;
 }
 
 export interface CloudinaryUploadResult {
@@ -25,7 +28,15 @@ export async function uploadToCloudinary(
 ): Promise<CloudinaryUploadResult> {
   const isVideo = file.type.startsWith("video/");
   const resourceType = isVideo ? "video" : "image";
-  const signature = await createUploadSignature(options.folder ?? "pinly");
+  const signature = await createUploadSignature(options.folder ?? "pinly", {
+    resourceType,
+    fileSize: file.size,
+    contentType: file.type,
+  });
+  const max_file_size = signature.maxFileSize;
+  if (file.size > max_file_size) {
+    throw new Error(`File too large. Max ${Math.round(max_file_size / 1024 / 1024)}MB`);
+  }
 
   const formData = new FormData();
   formData.append("file", file);
@@ -33,6 +44,7 @@ export async function uploadToCloudinary(
   formData.append("timestamp", String(signature.timestamp));
   formData.append("signature", signature.signature);
   formData.append("folder", signature.folder);
+  formData.append("allowed_formats", signature.allowedFormats);
 
   const res = await fetch(
     `https://api.cloudinary.com/v1_1/${signature.cloudName ?? CLOUD_NAME}/${resourceType}/upload`,
@@ -55,12 +67,32 @@ export async function uploadToCloudinary(
   };
 }
 
-async function createUploadSignature(folder: string): Promise<CloudinarySignature> {
+async function createUploadSignature(
+  folder: string,
+  constraints: {
+    resourceType: "image" | "video";
+    fileSize: number;
+    contentType: string;
+  },
+): Promise<CloudinarySignature> {
   const { data, error } = await supabase.functions.invoke("sign-cloudinary-upload", {
-    body: { folder: sanitizeFolder(folder) },
+    body: {
+      folder: sanitizeFolder(folder),
+      resourceType: constraints.resourceType,
+      fileSize: constraints.fileSize,
+      contentType: constraints.contentType,
+    },
   });
   if (error) throw new Error(`Cloudinary signature failed: ${error.message}`);
-  if (!data?.apiKey || !data?.timestamp || !data?.signature || !data?.folder) {
+  if (
+    !data?.apiKey ||
+    !data?.timestamp ||
+    !data?.signature ||
+    !data?.folder ||
+    !data?.resourceType ||
+    !data?.allowedFormats ||
+    !data?.maxFileSize
+  ) {
     throw new Error("Cloudinary signature failed: invalid response");
   }
   return data as CloudinarySignature;

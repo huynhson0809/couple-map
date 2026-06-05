@@ -21,9 +21,10 @@ function applyFilters(
   query: ReturnType<typeof supabase.from>,
   coupleId: string,
   filters: TimelinePinFilters,
+  count: "exact" | undefined,
 ) {
   let next = query
-    .select("*, images:pin_images(*)", { count: "exact" })
+    .select("*, images:pin_images(*)", { count })
     .eq("couple_id", coupleId)
     .order("created_at", { ascending: false })
     .order("sort_order", { referencedTable: "pin_images", ascending: true });
@@ -93,6 +94,7 @@ export function useTimelinePins(
         supabase.from("pins"),
         coupleId,
         filters,
+        append ? undefined : "exact",
       ).range(offset, offset + PAGE_SIZE - 1);
 
       if (requestId !== requestIdRef.current) return;
@@ -106,7 +108,7 @@ export function useTimelinePins(
             ? [...prev, ...((data as Pin[]) ?? [])]
             : ((data as Pin[]) ?? []),
         );
-        setTotal(count ?? 0);
+        if (typeof count === "number") setTotal(count);
       }
 
       setLoading(false);

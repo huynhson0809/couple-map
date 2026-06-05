@@ -19,19 +19,82 @@ create index if not exists idx_notifications_user_created
 create index if not exists idx_notifications_unread
   on public.notifications(user_id) where read = false;
 
+create or replace function public.get_notification_feed(
+  p_limit integer default 30,
+  p_offset integer default 0
+)
+returns jsonb
+language sql
+stable
+set search_path = public
+as $$
+  with bounds as (
+    select
+      least(greatest(coalesce(p_limit, 30), 1), 50) as limit_value,
+      greatest(coalesce(p_offset, 0), 0) as offset_value
+  ),
+  page as (
+    select
+      n.id,
+      n.user_id,
+      n.couple_id,
+      n.type,
+      n.title,
+      n.body,
+      n.data,
+      n.read,
+      n.created_at
+    from public.notifications n
+    where auth.uid() is not null
+      and n.user_id = auth.uid()
+    order by n.created_at desc
+    limit (select limit_value from bounds)
+    offset (select offset_value from bounds)
+  )
+  select jsonb_build_object(
+    'notifications',
+    coalesce(
+      (select jsonb_agg(to_jsonb(page) order by page.created_at desc) from page),
+      '[]'::jsonb
+    ),
+    'unreadCount',
+    coalesce(
+      (
+        select count(*)
+        from public.notifications n
+        where auth.uid() is not null
+          and n.user_id = auth.uid()
+          and n.read = false
+      ),
+      0
+    )
+  );
+$$;
+
+revoke all on function public.get_notification_feed(integer, integer)
+  from public, anon;
+grant execute on function public.get_notification_feed(integer, integer)
+  to authenticated;
+
 -- RLS
 alter table public.notifications enable row level security;
 
+drop policy if exists "Users can read own notifications"
+  on public.notifications;
 create policy "Users can read own notifications"
   on public.notifications for select
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can update own notifications"
+  on public.notifications;
 create policy "Users can update own notifications"
   on public.notifications for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
 -- Service role can insert (from edge functions / triggers)
+drop policy if exists "Service can insert notifications"
+  on public.notifications;
 create policy "Service can insert notifications"
   on public.notifications for insert
   with check (true);
@@ -149,4 +212,10 @@ create trigger trg_notify_pin_comment
   for each row execute function public.notify_pin_comment();
 
 -- Enable realtime for notifications
-alter publication supabase_realtime add table public.notifications;
+do $$
+begin
+  alter publication supabase_realtime add table public.notifications;
+exception
+  when duplicate_object then null;
+end;
+$$;

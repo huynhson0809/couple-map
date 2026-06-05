@@ -1,8 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Flame, Plus } from "lucide-react";
 import { useI18n } from "../hooks/I18nContext";
-import { MapView } from "../components/map/MapView";
 import { BottomSheet } from "../components/ui/BottomSheet";
 import { CreatePinForm } from "../components/pins/CreatePinForm";
 import { PinDetail } from "../components/pins/PinDetail";
@@ -17,6 +24,12 @@ import { useStreak } from "../hooks/useStreak";
 import { useSubscription } from "../hooks/useSubscription";
 import type { Pin } from "../types";
 
+const MapView = lazy(() =>
+  import("../components/map/MapView").then((module) => ({
+    default: module.MapView,
+  })),
+);
+
 interface FlyToState {
   flyTo?: { lat: number; lng: number; pinId?: string; openDetail?: boolean };
 }
@@ -26,7 +39,7 @@ export function MapPage() {
   const { t, lang } = useI18n();
   const { couple, profile, partner } = useCoupleCtx();
   const { pins, deletePin, fetchPins, onViewportChange } = usePinsCtx();
-  const { items: bucketItems } = useBucket(couple?.id, user?.id);
+  const { items: bucketItems } = useBucket(couple?.id, user?.id, "dream");
   const { getCurrentPosition } = useGeo();
   const { styleUrl } = useMapStyle();
   const streak = useStreak(couple, profile?.id ?? user?.id);
@@ -35,13 +48,25 @@ export function MapPage() {
   const navigate = useNavigate();
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
 
-  const newestPinId =
-    pins.length > 0
-      ? [...pins].sort(
-          (a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-        )[0].id
-      : null;
+  const newestPinId = useMemo(() => {
+    let newest: Pin | null = null;
+    let newestTime = Number.NEGATIVE_INFINITY;
+
+    for (const pin of pins) {
+      const time = new Date(pin.created_at).getTime();
+      if (time > newestTime) {
+        newest = pin;
+        newestTime = time;
+      }
+    }
+
+    return newest?.id ?? null;
+  }, [pins]);
+  const dreamBucketMarkers = useMemo(
+    () =>
+      bucketItems.map((b) => ({ id: b.id, lat: b.lat, lng: b.lng })),
+    [bucketItems],
+  );
   const [newPinCoords, setNewPinCoords] = useState<{
     lat: number;
     lng: number;
@@ -174,24 +199,24 @@ export function MapPage() {
 
   return (
     <div className="map-page">
-      <MapView
-        pins={pins}
-        currentUserId={user.id}
-        partnerUserId={partner?.id ?? null}
-        onLongPress={handleLongPress}
-        onPinClick={handlePinClick}
-        onUserLocation={(coords) =>
-          setLastUserLocation({ ...coords, receivedAt: Date.now() })
-        }
-        onMapCenterChange={setMapCenter}
-        onBoundsChange={onViewportChange}
-        flyTo={flyTo}
-        bucketItems={bucketItems
-          .filter((b) => b.status === "dream")
-          .map((b) => ({ id: b.id, lat: b.lat, lng: b.lng }))}
-        newestPinId={newestPinId}
-        mapStyleUrl={styleUrl}
-      />
+      <Suspense fallback={<div className="full-center muted">Loading map…</div>}>
+        <MapView
+          pins={pins}
+          currentUserId={user.id}
+          partnerUserId={partner?.id ?? null}
+          onLongPress={handleLongPress}
+          onPinClick={handlePinClick}
+          onUserLocation={(coords) =>
+            setLastUserLocation({ ...coords, receivedAt: Date.now() })
+          }
+          onMapCenterChange={setMapCenter}
+          onBoundsChange={onViewportChange}
+          flyTo={flyTo}
+          bucketItems={dreamBucketMarkers}
+          newestPinId={newestPinId}
+          mapStyleUrl={styleUrl}
+        />
+      </Suspense>
 
       <button className="fab" onClick={handleFabClick} aria-label="Pin here">
         <Plus size={24} />

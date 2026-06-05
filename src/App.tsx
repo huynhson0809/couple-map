@@ -5,16 +5,6 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
-import { LoginPage } from "./components/auth/LoginPage";
-import { RegisterPage } from "./components/auth/RegisterPage";
-import { ForgotPasswordPage } from "./components/auth/ForgotPasswordPage";
-import { ResetPasswordPage } from "./components/auth/ResetPasswordPage";
-import { CoupleSetup } from "./components/auth/CoupleSetup";
-import { MapPage } from "./pages/MapPage";
-import { TimelinePage } from "./pages/TimelinePage";
-import { NotificationsPage } from "./pages/NotificationsPage";
-import { WishlistPage } from "./pages/WishlistPage";
-import { SettingsPage } from "./pages/SettingsPage";
 import { BottomNav } from "./components/ui/BottomNav";
 import { UpdatePrompt } from "./components/ui/UpdatePrompt";
 import { AnniversaryPrompt } from "./components/onboard/AnniversaryPrompt";
@@ -31,7 +21,56 @@ import { ToastProvider } from "./hooks/ToastContext";
 import { usePushSubscription } from "./hooks/usePushSubscription";
 import { NotificationFeedProvider } from "./hooks/NotificationFeedContext";
 import { SubscriptionProvider } from "./hooks/useSubscription";
-import { useEffect, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
+
+const LoginPage = lazy(() =>
+  import("./components/auth/LoginPage").then((module) => ({
+    default: module.LoginPage,
+  })),
+);
+const RegisterPage = lazy(() =>
+  import("./components/auth/RegisterPage").then((module) => ({
+    default: module.RegisterPage,
+  })),
+);
+const ForgotPasswordPage = lazy(() =>
+  import("./components/auth/ForgotPasswordPage").then((module) => ({
+    default: module.ForgotPasswordPage,
+  })),
+);
+const ResetPasswordPage = lazy(() =>
+  import("./components/auth/ResetPasswordPage").then((module) => ({
+    default: module.ResetPasswordPage,
+  })),
+);
+const CoupleSetup = lazy(() =>
+  import("./components/auth/CoupleSetup").then((module) => ({
+    default: module.CoupleSetup,
+  })),
+);
+const MapPage = lazy(() =>
+  import("./pages/MapPage").then((module) => ({ default: module.MapPage })),
+);
+const TimelinePage = lazy(() =>
+  import("./pages/TimelinePage").then((module) => ({
+    default: module.TimelinePage,
+  })),
+);
+const WishlistPage = lazy(() =>
+  import("./pages/WishlistPage").then((module) => ({
+    default: module.WishlistPage,
+  })),
+);
+const NotificationsPage = lazy(() =>
+  import("./pages/NotificationsPage").then((module) => ({
+    default: module.NotificationsPage,
+  })),
+);
+const SettingsPage = lazy(() =>
+  import("./pages/SettingsPage").then((module) => ({
+    default: module.SettingsPage,
+  })),
+);
 
 function AppStatusScreen({
   title,
@@ -199,7 +238,9 @@ export default function App() {
       <I18nProvider>
         <ToastProvider>
           <BrowserRouter>
-            <AppRoutes />
+            <Suspense fallback={<AppStatusScreen title="Loading Pinly…" />}>
+              <AppRoutes />
+            </Suspense>
             <UpdatePrompt />
           </BrowserRouter>
         </ToastProvider>

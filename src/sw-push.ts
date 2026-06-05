@@ -53,16 +53,6 @@ registerRoute(
   }),
 );
 
-// Supabase API
-registerRoute(
-  ({ url }) =>
-    url.hostname.endsWith(".supabase.co") && url.pathname.startsWith("/rest/"),
-  new NetworkFirst({
-    cacheName: "supabase-api",
-    plugins: [new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 60 * 5 })],
-  }),
-);
-
 // --- Web Push ---
 
 // Handle incoming push events

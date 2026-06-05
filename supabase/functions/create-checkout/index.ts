@@ -14,16 +14,28 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(body: unknown, status = 200, headers: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      ...headers,
+    },
   });
 }
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
+  }
+  if (req.method !== "POST") {
+    return jsonResponse(
+      { error: "Method not allowed" },
+      405,
+      { "Allow": "POST, OPTIONS" },
+    );
   }
 
   try {
@@ -63,19 +75,34 @@ serve(async (req) => {
       return jsonResponse({ error: "No couple found" }, 400);
     }
 
-    const { code } = (await req.json()) as { code: string };
+    // Use service role for activation_codes table access and abuse controls.
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    const { data: allowed, error: rateError } = await supabaseAdmin.rpc(
+      "check_edge_rate_limit",
+      {
+        limit_key: `activate-code:${user.id}`,
+        window_seconds: 3600,
+        max_requests: 20,
+      },
+    );
+    if (rateError) return jsonResponse({ error: "Rate limit unavailable" }, 500);
+    if (allowed === false) return jsonResponse({ error: "Too many attempts" }, 429);
+
+    const body = await req.json().catch(() => ({}));
+    const code = typeof body.code === "string" ? body.code : "";
 
     if (!code || code.trim().length === 0) {
       return jsonResponse({ error: "Code is required" }, 400);
     }
 
     const normalizedCode = code.trim().toUpperCase();
-
-    // Use service role for activation_codes table access
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    if (normalizedCode.length > 64) {
+      return jsonResponse({ error: "Code is too long" }, 400);
+    }
 
     // Find the code
     const { data: codeRecord, error: codeErr } = await supabaseAdmin

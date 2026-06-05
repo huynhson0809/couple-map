@@ -26,8 +26,8 @@ create table if not exists public.subscriptions (
   updated_at timestamptz default now()
 );
 
-create index idx_subscriptions_couple_id on public.subscriptions(couple_id);
-create index idx_subscriptions_status on public.subscriptions(status);
+create index if not exists idx_subscriptions_couple_id on public.subscriptions(couple_id);
+create index if not exists idx_subscriptions_status on public.subscriptions(status);
 
 -- ============================================
 -- 3. Activation codes table
@@ -44,7 +44,7 @@ create table if not exists public.activation_codes (
   expires_at timestamptz -- code itself can expire if unused
 );
 
-create unique index idx_activation_codes_code on public.activation_codes(code);
+create unique index if not exists idx_activation_codes_code on public.activation_codes(code);
 
 -- ============================================
 -- 4. RLS
@@ -54,6 +54,8 @@ alter table public.subscriptions enable row level security;
 alter table public.activation_codes enable row level security;
 
 -- Couples can read their own subscription
+drop policy if exists "Couple members can read own subscription"
+  on public.subscriptions;
 create policy "Couple members can read own subscription"
   on public.subscriptions for select
   using (couple_id = get_my_couple_id());
@@ -177,8 +179,8 @@ begin
   select plan into v_couple_plan
     from public.couples where id = v_couple_id;
 
-  if v_couple_plan = 'free' then
-    raise exception 'Video upload is not available on the free plan. Upgrade to Plus or Pro.'
+  if v_couple_plan is distinct from 'pro' then
+    raise exception 'Video upload requires Pro.'
       using errcode = 'P0003';
   end if;
 

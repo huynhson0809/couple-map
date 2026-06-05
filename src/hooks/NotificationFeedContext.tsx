@@ -16,6 +16,7 @@ export function NotificationFeedProvider({
   return <Ctx.Provider value={feed}>{children}</Ctx.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useNotifFeed(): NotifFeed {
   const ctx = useContext(Ctx);
   if (!ctx)
