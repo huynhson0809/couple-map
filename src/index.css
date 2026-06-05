@@ -1449,7 +1449,7 @@ body { -webkit-tap-highlight-color: transparent; }
 }
 .sheet {
   width: 100%; max-width: 540px;
-  max-height: 88vh;
+  max-height: 88dvh;
   display: flex; flex-direction: column;
   animation: slide-up 0.2s ease-out;
   padding-bottom: env(safe-area-inset-bottom);

@@ -929,6 +929,14 @@ export function PinDetail({
             onChange={(e) => setCommentText(e.target.value)}
             placeholder={t("pin.commentPlaceholder")}
             maxLength={500}
+            onFocus={(e) => {
+              setTimeout(() => {
+                e.target.scrollIntoView({
+                  behavior: "smooth",
+                  block: "center",
+                });
+              }, 300);
+            }}
           />
           <button
             type="submit"
