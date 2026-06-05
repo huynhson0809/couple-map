@@ -1,65 +1,85 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import { List } from 'react-window'
-import { Calendar, Check, ChevronDown, MapPin, Search, SlidersHorizontal, Star, X } from 'lucide-react'
-import { usePinsCtx } from '../hooks/PinsContext'
-import { useCoupleCtx } from '../hooks/CoupleContext'
-import { useI18n } from '../hooks/I18nContext'
-import { useCategoriesCtx } from '../hooks/CategoriesContext'
-import { useTimelinePins } from '../hooks/useTimelinePins'
-import { getImageUrl, getVideoThumbnailUrl, isVideoUrl } from '../lib/cloudinary'
-import { BottomSheet } from '../components/ui/BottomSheet'
-import { PinDetail } from '../components/pins/PinDetail'
-import type { Pin } from '../types'
-import type { UploadingPinInfo } from '../hooks/PinsContext'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { List } from "react-window";
+import {
+  Calendar,
+  Check,
+  ChevronDown,
+  MapPin,
+  Search,
+  SlidersHorizontal,
+  Star,
+  X,
+} from "lucide-react";
+import { usePinsCtx } from "../hooks/PinsContext";
+import { useCoupleCtx } from "../hooks/CoupleContext";
+import { useI18n } from "../hooks/I18nContext";
+import { useCategoriesCtx } from "../hooks/CategoriesContext";
+import { useTimelinePins } from "../hooks/useTimelinePins";
+import {
+  getImageUrl,
+  getVideoThumbnailUrl,
+  isVideoUrl,
+} from "../lib/cloudinary";
+import { BottomSheet } from "../components/ui/BottomSheet";
+import { PinDetail } from "../components/pins/PinDetail";
+import type { Pin } from "../types";
+import type { UploadingPinInfo } from "../hooks/PinsContext";
 
 function monthKey(d: string, lang: string) {
-  const dt = new Date(d)
-  return dt.toLocaleDateString(lang === 'vi' ? 'vi-VN' : undefined, {
-    year: 'numeric',
-    month: 'long',
-  })
+  const dt = new Date(d);
+  return dt.toLocaleDateString(lang === "vi" ? "vi-VN" : undefined, {
+    year: "numeric",
+    month: "long",
+  });
 }
 
 function useDebouncedValue(value: string, delay = 350) {
-  const [debounced, setDebounced] = useState(value)
+  const [debounced, setDebounced] = useState(value);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(value), delay)
-    return () => window.clearTimeout(timer)
-  }, [delay, value])
+    const timer = window.setTimeout(() => setDebounced(value), delay);
+    return () => window.clearTimeout(timer);
+  }, [delay, value]);
 
-  return debounced
+  return debounced;
 }
 
 function formatFilterDate(value: string, lang: string) {
-  if (!value) return ''
-  const [year, month, day] = value.split('-')
-  if (!year || !month || !day) return value
-  return lang === 'vi' ? `${day}/${month}/${year}` : `${month}/${day}/${year}`
+  if (!value) return "";
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return value;
+  return lang === "vi" ? `${day}/${month}/${year}` : `${month}/${day}/${year}`;
 }
 
 type TimelineRow =
-  | { type: 'month'; id: string; label: string }
-  | { type: 'pin'; id: string; pin: Pin }
-  | { type: 'footer'; id: string }
+  | { type: "month"; id: string; label: string }
+  | { type: "pin"; id: string; pin: Pin }
+  | { type: "footer"; id: string };
 
-const TIMELINE_MONTH_ROW_HEIGHT = 48
-const TIMELINE_PIN_ROW_HEIGHT = 168
-const TIMELINE_FOOTER_ROW_HEIGHT = 118
+const TIMELINE_MONTH_ROW_HEIGHT = 48;
+const TIMELINE_PIN_ROW_HEIGHT = 168;
+const TIMELINE_FOOTER_ROW_HEIGHT = 118;
 
 interface TimelineRowProps {
-  rows: TimelineRow[]
-  lang: string
-  profileId?: string
-  profileName: string
-  partnerName: string
-  favoritesLabel: string
-  loadingMore: boolean
-  loadingMoreLabel: string
-  uploadingPins: Map<string, UploadingPinInfo>
-  getCategory: ReturnType<typeof useCategoriesCtx>['getCategory']
-  openPinDetail: (pin: Pin) => void
+  rows: TimelineRow[];
+  lang: string;
+  profileId?: string;
+  profileName: string;
+  partnerName: string;
+  favoritesLabel: string;
+  loadingMore: boolean;
+  loadingMoreLabel: string;
+  uploadingPins: Map<string, UploadingPinInfo>;
+  getCategory: ReturnType<typeof useCategoriesCtx>["getCategory"];
+  openPinDetail: (pin: Pin) => void;
 }
 
 function TimelineRowItem({
@@ -77,39 +97,45 @@ function TimelineRowItem({
   getCategory,
   openPinDetail,
 }: TimelineRowProps & { index: number; style: CSSProperties }) {
-  const row = rows[index]
-  if (!row) return null
+  const row = rows[index];
+  if (!row) return null;
 
-  if (row.type === 'month') {
+  if (row.type === "month") {
     return (
       <div style={style} className="timeline-virtual-row month-row">
         <h3 className="month-label">{row.label}</h3>
       </div>
-    )
+    );
   }
 
-  if (row.type === 'footer') {
+  if (row.type === "footer") {
     return (
-      <div style={style} className="timeline-virtual-row footer-row" aria-hidden={!loadingMore}>
-        {loadingMore && <div className="timeline-loading-more">{loadingMoreLabel}</div>}
+      <div
+        style={style}
+        className="timeline-virtual-row footer-row"
+        aria-hidden={!loadingMore}
+      >
+        {loadingMore && (
+          <div className="timeline-loading-more">{loadingMoreLabel}</div>
+        )}
       </div>
-    )
+    );
   }
 
-  const p = row.pin
-  const uploadInfo = uploadingPins.get(p.id)
-  const cover = p.images?.[0]?.cloudinary_url
+  const p = row.pin;
+  const uploadInfo = uploadingPins.get(p.id);
+  const cover = p.images?.[0]?.cloudinary_url;
   const coverThumb = cover
     ? isVideoUrl(cover)
-      ? getVideoThumbnailUrl(cover, 248, 112)
-      : getImageUrl(cover, 248, 112)
-    : null
-  const cat = getCategory(p.category)
-  const who = p.created_by === profileId ? profileName : partnerName
+      ? getVideoThumbnailUrl(cover, 248)
+      : getImageUrl(cover, 248)
+    : null;
+  const cat = getCategory(p.category);
+  const who = p.created_by === profileId ? profileName : partnerName;
 
   return (
     <div style={style} className="timeline-virtual-row pin-row">
-      <div className={`timeline-card ${p.is_favorite ? 'favorite' : ''}`}>
+      <div className={`timeline-card ${p.is_favorite ? "favorite" : ""}`}>
         <button
           type="button"
           className="timeline-card-open"
@@ -125,21 +151,28 @@ function TimelineRowItem({
                 loading="lazy"
                 decoding="async"
                 fetchPriority="low"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
               />
             ) : (
               <span className="timeline-thumb empty">
                 {uploadInfo ? (
                   <span className="timeline-upload-progress">
                     <span className="timeline-upload-spinner" />
-                    <span className="timeline-upload-pct">{uploadInfo.progress}%</span>
+                    <span className="timeline-upload-pct">
+                      {uploadInfo.progress}%
+                    </span>
                   </span>
                 ) : (
-                  cat?.emoji ?? '📷'
+                  (cat?.emoji ?? "📷")
                 )}
               </span>
             )}
           </span>
-          <span className={`timeline-content ${p.is_favorite ? 'has-favorite-action' : ''}`}>
+          <span
+            className={`timeline-content ${p.is_favorite ? "has-favorite-action" : ""}`}
+          >
             <span className="timeline-title-row">
               <span className="timeline-title">{p.title}</span>
               {cat && (
@@ -153,12 +186,17 @@ function TimelineRowItem({
             </span>
             {p.note && <span className="timeline-note">{p.note}</span>}
             <span className="timeline-meta">
-              <MapPin size={12} aria-hidden="true" /> {p.city ?? '—'} · {who} ·{' '}
-              {new Date(p.created_at).toLocaleDateString(lang === 'vi' ? 'vi-VN' : undefined)}
+              <MapPin size={12} aria-hidden="true" /> {p.city ?? "—"} · {who} ·{" "}
+              {new Date(p.created_at).toLocaleDateString(
+                lang === "vi" ? "vi-VN" : undefined,
+              )}
             </span>
             {uploadInfo && (
               <span className="timeline-upload-bar">
-                <span className="timeline-upload-bar-fill" style={{ width: `${uploadInfo.progress}%` }} />
+                <span
+                  className="timeline-upload-bar-fill"
+                  style={{ width: `${uploadInfo.progress}%` }}
+                />
               </span>
             )}
           </span>
@@ -170,34 +208,41 @@ function TimelineRowItem({
         )}
       </div>
     </div>
-  )
+  );
 }
 
 export function TimelinePage() {
-  const { pins: livePins, deletePin, uploadingPins, pinsVersion } = usePinsCtx()
-  const { couple, profile, partner } = useCoupleCtx()
-  const { t, lang } = useI18n()
-  const { allCategories, getCategory } = useCategoriesCtx()
-  const navigate = useNavigate()
-  const location = useLocation()
+  const {
+    pins: livePins,
+    deletePin,
+    uploadingPins,
+    pinsVersion,
+  } = usePinsCtx();
+  const { couple, profile, partner } = useCoupleCtx();
+  const { t, lang } = useI18n();
+  const { allCategories, getCategory } = useCategoriesCtx();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const [categoryFilters, setCategoryFilters] = useState<string[]>([])
-  const [favoriteOnly, setFavoriteOnly] = useState(false)
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
-  const [creatorFilter, setCreatorFilter] = useState<string>('all')
-  const [addressFilter, setAddressFilter] = useState('')
-  const [draftCategoryFilters, setDraftCategoryFilters] = useState<string[]>([])
-  const [draftFavoriteOnly, setDraftFavoriteOnly] = useState(false)
-  const [draftDateFrom, setDraftDateFrom] = useState('')
-  const [draftDateTo, setDraftDateTo] = useState('')
-  const [draftCreatorFilter, setDraftCreatorFilter] = useState<string>('all')
-  const [draftAddressFilter, setDraftAddressFilter] = useState('')
-  const [selectedPin, setSelectedPin] = useState<Pin | null>(null)
-  const [filtersOpen, setFiltersOpen] = useState(false)
-  const [creatorMenuOpen, setCreatorMenuOpen] = useState(false)
-  const filterPopoverRef = useRef<HTMLDivElement | null>(null)
-  const debouncedAddressFilter = useDebouncedValue(addressFilter)
+  const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
+  const [favoriteOnly, setFavoriteOnly] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [creatorFilter, setCreatorFilter] = useState<string>("all");
+  const [addressFilter, setAddressFilter] = useState("");
+  const [draftCategoryFilters, setDraftCategoryFilters] = useState<string[]>(
+    [],
+  );
+  const [draftFavoriteOnly, setDraftFavoriteOnly] = useState(false);
+  const [draftDateFrom, setDraftDateFrom] = useState("");
+  const [draftDateTo, setDraftDateTo] = useState("");
+  const [draftCreatorFilter, setDraftCreatorFilter] = useState<string>("all");
+  const [draftAddressFilter, setDraftAddressFilter] = useState("");
+  const [selectedPin, setSelectedPin] = useState<Pin | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [creatorMenuOpen, setCreatorMenuOpen] = useState(false);
+  const filterPopoverRef = useRef<HTMLDivElement | null>(null);
+  const debouncedAddressFilter = useDebouncedValue(addressFilter);
 
   const timelineFilters = useMemo(
     () => ({
@@ -208,8 +253,15 @@ export function TimelinePage() {
       creatorId: creatorFilter,
       address: debouncedAddressFilter,
     }),
-    [categoryFilters, creatorFilter, dateFrom, dateTo, debouncedAddressFilter, favoriteOnly],
-  )
+    [
+      categoryFilters,
+      creatorFilter,
+      dateFrom,
+      dateTo,
+      debouncedAddressFilter,
+      favoriteOnly,
+    ],
+  );
 
   const {
     pins: timelinePins,
@@ -220,42 +272,47 @@ export function TimelinePage() {
     hasMore,
     loadMore,
     refresh,
-  } = useTimelinePins(couple?.id, timelineFilters, pinsVersion)
+  } = useTimelinePins(couple?.id, timelineFilters, pinsVersion);
 
-  const favoriteCount = livePins.filter((p) => p.is_favorite).length
+  const favoriteCount = livePins.filter((p) => p.is_favorite).length;
 
   const usedCategories = useMemo(() => {
-    const ids = new Set<string>()
-    livePins.forEach((p) => p.category && ids.add(p.category))
-    return allCategories.filter((c) => ids.has(c.id))
-  }, [allCategories, livePins])
+    const ids = new Set<string>();
+    livePins.forEach((p) => p.category && ids.add(p.category));
+    return allCategories.filter((c) => ids.has(c.id));
+  }, [allCategories, livePins]);
 
   const rows = useMemo(() => {
-    const groups: Record<string, Pin[]> = {}
+    const groups: Record<string, Pin[]> = {};
     timelinePins.forEach((p) => {
-      const k = monthKey(p.created_at, lang)
-      const arr = groups[k] ?? (groups[k] = [])
-      arr.push(p)
-    })
-    const groupedRows = Object.entries(groups).flatMap<TimelineRow>(([month, items]) => [
-      { type: 'month', id: `month-${month}`, label: month },
-      ...items.map((pin) => ({ type: 'pin' as const, id: pin.id, pin })),
-    ])
+      const k = monthKey(p.created_at, lang);
+      const arr = groups[k] ?? (groups[k] = []);
+      arr.push(p);
+    });
+    const groupedRows = Object.entries(groups).flatMap<TimelineRow>(
+      ([month, items]) => [
+        { type: "month", id: `month-${month}`, label: month },
+        ...items.map((pin) => ({ type: "pin" as const, id: pin.id, pin })),
+      ],
+    );
     return groupedRows.length > 0
-      ? [...groupedRows, { type: 'footer' as const, id: 'timeline-footer' }]
-      : groupedRows
-  }, [timelinePins, lang])
+      ? [...groupedRows, { type: "footer" as const, id: "timeline-footer" }]
+      : groupedRows;
+  }, [timelinePins, lang]);
 
-  const getTimelineRowHeight = useCallback((index: number, props: TimelineRowProps) => {
-    const row = props.rows[index]
-    if (row?.type === 'month') return TIMELINE_MONTH_ROW_HEIGHT
-    if (row?.type === 'footer') return TIMELINE_FOOTER_ROW_HEIGHT
-    return TIMELINE_PIN_ROW_HEIGHT
-  }, [])
+  const getTimelineRowHeight = useCallback(
+    (index: number, props: TimelineRowProps) => {
+      const row = props.rows[index];
+      if (row?.type === "month") return TIMELINE_MONTH_ROW_HEIGHT;
+      if (row?.type === "footer") return TIMELINE_FOOTER_ROW_HEIGHT;
+      return TIMELINE_PIN_ROW_HEIGHT;
+    },
+    [],
+  );
 
   function flyToPin(p: Pin) {
-    setSelectedPin(null)
-    navigate('/', {
+    setSelectedPin(null);
+    navigate("/", {
       state: {
         flyTo: {
           lat: p.lat,
@@ -264,42 +321,44 @@ export function TimelinePage() {
           openDetail: false,
         },
       },
-    })
+    });
   }
 
   function openPinDetail(p: Pin) {
-    setSelectedPin(p)
+    setSelectedPin(p);
   }
 
   // Open pin from notification navigation
   useEffect(() => {
-    const state = location.state as { openPinId?: string } | null
-    if (!state?.openPinId) return
-    const pin = livePins.find((p) => p.id === state.openPinId) ?? timelinePins.find((p) => p.id === state.openPinId)
-    if (!pin) return
+    const state = location.state as { openPinId?: string } | null;
+    if (!state?.openPinId) return;
+    const pin =
+      livePins.find((p) => p.id === state.openPinId) ??
+      timelinePins.find((p) => p.id === state.openPinId);
+    if (!pin) return;
 
     const frame = window.requestAnimationFrame(() => {
-      setSelectedPin(pin)
+      setSelectedPin(pin);
       // Clear the state so it doesn't re-open on re-render
-      navigate(location.pathname, { replace: true, state: {} })
-    })
+      navigate(location.pathname, { replace: true, state: {} });
+    });
 
-    return () => window.cancelAnimationFrame(frame)
-  }, [location.state, livePins, timelinePins, navigate, location.pathname])
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.state, livePins, timelinePins, navigate, location.pathname]);
 
   function clearAdvancedFilters() {
-    setCategoryFilters([])
-    setFavoriteOnly(false)
-    setDateFrom('')
-    setDateTo('')
-    setCreatorFilter('all')
-    setAddressFilter('')
-    setDraftCategoryFilters([])
-    setDraftFavoriteOnly(false)
-    setDraftDateFrom('')
-    setDraftDateTo('')
-    setDraftCreatorFilter('all')
-    setDraftAddressFilter('')
+    setCategoryFilters([]);
+    setFavoriteOnly(false);
+    setDateFrom("");
+    setDateTo("");
+    setCreatorFilter("all");
+    setAddressFilter("");
+    setDraftCategoryFilters([]);
+    setDraftFavoriteOnly(false);
+    setDraftDateFrom("");
+    setDraftDateTo("");
+    setDraftCreatorFilter("all");
+    setDraftAddressFilter("");
   }
 
   function toggleDraftCategory(categoryId: string) {
@@ -307,96 +366,111 @@ export function TimelinePage() {
       current.includes(categoryId)
         ? current.filter((id) => id !== categoryId)
         : [...current, categoryId],
-    )
+    );
   }
 
   function syncDraftFilters() {
-    setDraftCategoryFilters(categoryFilters)
-    setDraftFavoriteOnly(favoriteOnly)
-    setDraftDateFrom(dateFrom)
-    setDraftDateTo(dateTo)
-    setDraftCreatorFilter(creatorFilter)
-    setDraftAddressFilter(addressFilter)
+    setDraftCategoryFilters(categoryFilters);
+    setDraftFavoriteOnly(favoriteOnly);
+    setDraftDateFrom(dateFrom);
+    setDraftDateTo(dateTo);
+    setDraftCreatorFilter(creatorFilter);
+    setDraftAddressFilter(addressFilter);
   }
 
   function applyDraftFilters() {
-    setCategoryFilters(draftCategoryFilters)
-    setFavoriteOnly(draftFavoriteOnly)
-    setDateFrom(draftDateFrom)
-    setDateTo(draftDateTo)
-    setCreatorFilter(draftCreatorFilter)
-    setAddressFilter(draftAddressFilter)
-    setFiltersOpen(false)
-    setCreatorMenuOpen(false)
+    setCategoryFilters(draftCategoryFilters);
+    setFavoriteOnly(draftFavoriteOnly);
+    setDateFrom(draftDateFrom);
+    setDateTo(draftDateTo);
+    setCreatorFilter(draftCreatorFilter);
+    setAddressFilter(draftAddressFilter);
+    setFiltersOpen(false);
+    setCreatorMenuOpen(false);
   }
 
   const creatorOptions = useMemo(
     () => [
-      { value: 'all', label: t('timeline.creatorAll') },
-      ...(profile ? [{ value: profile.id, label: profile.display_name ?? t('common.you') }] : []),
-      ...(partner ? [{ value: partner.id, label: partner.display_name ?? t('common.partner') }] : []),
+      { value: "all", label: t("timeline.creatorAll") },
+      ...(profile
+        ? [
+            {
+              value: profile.id,
+              label: profile.display_name ?? t("common.you"),
+            },
+          ]
+        : []),
+      ...(partner
+        ? [
+            {
+              value: partner.id,
+              label: partner.display_name ?? t("common.partner"),
+            },
+          ]
+        : []),
     ],
     [partner, profile, t],
-  )
+  );
   const selectedCreatorLabel =
-    creatorOptions.find((option) => option.value === draftCreatorFilter)?.label ?? t('timeline.creatorAll')
+    creatorOptions.find((option) => option.value === draftCreatorFilter)
+      ?.label ?? t("timeline.creatorAll");
 
   const hasAdvancedFilters =
     categoryFilters.length > 0 ||
     favoriteOnly ||
     !!dateFrom ||
     !!dateTo ||
-    creatorFilter !== 'all' ||
-    !!addressFilter.trim()
+    creatorFilter !== "all" ||
+    !!addressFilter.trim();
   const activeFilterCount =
     categoryFilters.length +
     (favoriteOnly ? 1 : 0) +
     (dateFrom ? 1 : 0) +
     (dateTo ? 1 : 0) +
-    (creatorFilter !== 'all' ? 1 : 0) +
-    (addressFilter.trim() ? 1 : 0)
+    (creatorFilter !== "all" ? 1 : 0) +
+    (addressFilter.trim() ? 1 : 0);
 
   const handleRowsRendered = useCallback(
     (
       _visibleRows: { startIndex: number; stopIndex: number },
       allRows: { startIndex: number; stopIndex: number },
     ) => {
-      if (!hasMore || loading || loadingMore) return
-      if (allRows.stopIndex >= rows.length - 4) loadMore()
+      if (!hasMore || loading || loadingMore) return;
+      if (allRows.stopIndex >= rows.length - 4) loadMore();
     },
     [hasMore, loadMore, loading, loadingMore, rows.length],
-  )
+  );
 
   useEffect(() => {
-    if (!filtersOpen) return
+    if (!filtersOpen) return;
 
     function handlePointerDown(event: PointerEvent) {
-      const target = event.target as Node | null
-      if (target && filterPopoverRef.current?.contains(target)) return
-      setFiltersOpen(false)
-      setCreatorMenuOpen(false)
+      const target = event.target as Node | null;
+      if (target && filterPopoverRef.current?.contains(target)) return;
+      setFiltersOpen(false);
+      setCreatorMenuOpen(false);
     }
 
-    window.addEventListener('pointerdown', handlePointerDown)
-    return () => window.removeEventListener('pointerdown', handlePointerDown)
-  }, [filtersOpen])
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [filtersOpen]);
 
   if (!loading && total === 0 && !hasAdvancedFilters) {
     return (
       <div className="page page-timeline timeline-page-empty empty-state">
         <div className="empty-emoji">📍</div>
-        <h2>{t('timeline.empty')}</h2>
-        <p className="muted">{t('timeline.emptyHint')}</p>
+        <h2>{t("timeline.empty")}</h2>
+        <p className="muted">{t("timeline.emptyHint")}</p>
       </div>
-    )
+    );
   }
 
   return (
     <div className="page page-timeline">
       <header className="page-header">
-        <h1>{t('timeline.title')}</h1>
+        <h1>{t("timeline.title")}</h1>
         <p className="muted">
-          {total} {t('timeline.memoriesShared')}
+          {total} {t("timeline.memoriesShared")}
         </p>
       </header>
 
@@ -404,24 +478,30 @@ export function TimelinePage() {
         <div className="timeline-filter-summary">
           <button
             type="button"
-            className={`timeline-filter-toggle ${filtersOpen ? 'active' : ''}`}
+            className={`timeline-filter-toggle ${filtersOpen ? "active" : ""}`}
             onClick={() => {
               setFiltersOpen((open) => {
-                if (!open) syncDraftFilters()
-                return !open
-              })
+                if (!open) syncDraftFilters();
+                return !open;
+              });
             }}
             aria-expanded={filtersOpen}
           >
             <SlidersHorizontal size={16} />
-            <span>{lang === 'vi' ? 'Bộ lọc' : 'Filters'}</span>
-            {activeFilterCount > 0 && <span className="timeline-filter-count">{activeFilterCount}</span>}
+            <span>{lang === "vi" ? "Bộ lọc" : "Filters"}</span>
+            {activeFilterCount > 0 && (
+              <span className="timeline-filter-count">{activeFilterCount}</span>
+            )}
           </button>
           {activeFilterCount > 0 && (
-            <button type="button" className="timeline-filter-reset" onClick={() => {
-              clearAdvancedFilters()
-            }}>
-              <X size={14} /> {t('timeline.clearFilters')}
+            <button
+              type="button"
+              className="timeline-filter-reset"
+              onClick={() => {
+                clearAdvancedFilters();
+              }}
+            >
+              <X size={14} /> {t("timeline.clearFilters")}
             </button>
           )}
         </div>
@@ -432,82 +512,94 @@ export function TimelinePage() {
               <div className="filter-row">
                 <button
                   type="button"
-                  className={`filter-chip ${draftCategoryFilters.length === 0 && !draftFavoriteOnly ? 'active' : ''}`}
+                  className={`filter-chip ${draftCategoryFilters.length === 0 && !draftFavoriteOnly ? "active" : ""}`}
                   onClick={() => {
-                    setDraftCategoryFilters([])
-                    setDraftFavoriteOnly(false)
+                    setDraftCategoryFilters([]);
+                    setDraftFavoriteOnly(false);
                   }}
                 >
-                  {lang === 'vi' ? 'Tất cả' : 'All'} ({livePins.length})
+                  {lang === "vi" ? "Tất cả" : "All"} ({livePins.length})
                 </button>
                 {favoriteCount > 0 && (
                   <button
                     type="button"
-                    className={`filter-chip favorite-filter ${draftFavoriteOnly ? 'active' : ''}`}
+                    className={`filter-chip favorite-filter ${draftFavoriteOnly ? "active" : ""}`}
                     onClick={() => setDraftFavoriteOnly((value) => !value)}
                   >
                     <Star size={14} fill="currentColor" />
-                    <span>{t('timeline.favorites')}</span>
+                    <span>{t("timeline.favorites")}</span>
                     <span className="filter-count">{favoriteCount}</span>
                   </button>
                 )}
                 {usedCategories.map((c) => {
-                  const count = livePins.filter((p) => p.category === c.id).length
-                  const active = draftCategoryFilters.includes(c.id)
+                  const count = livePins.filter(
+                    (p) => p.category === c.id,
+                  ).length;
+                  const active = draftCategoryFilters.includes(c.id);
                   return (
                     <button
                       type="button"
                       key={c.id}
-                      className={`filter-chip category-filter ${active ? 'active' : ''}`}
-                      style={active ? ({ '--tag-active-bg': c.color } as React.CSSProperties) : undefined}
+                      className={`filter-chip category-filter ${active ? "active" : ""}`}
+                      style={
+                        active
+                          ? ({
+                              "--tag-active-bg": c.color,
+                            } as React.CSSProperties)
+                          : undefined
+                      }
                       onClick={() => toggleDraftCategory(c.id)}
                     >
                       <span className="emoji">{c.emoji}</span>
                       <span>{c.label}</span>
                       <span className="filter-count">{count}</span>
                     </button>
-                  )
+                  );
                 })}
               </div>
             )}
 
             <div className="timeline-advanced-filters">
               <div className="timeline-filter-field">
-                <label>{t('timeline.fromDate')}</label>
+                <label>{t("timeline.fromDate")}</label>
                 <div
-                  className={`timeline-date-input ${draftDateFrom ? 'filled' : 'empty'}`}
+                  className={`timeline-date-input ${draftDateFrom ? "filled" : "empty"}`}
                 >
                   <span className="timeline-date-display">
-                    {draftDateFrom ? formatFilterDate(draftDateFrom, lang) : 'dd/mm/yyyy'}
+                    {draftDateFrom
+                      ? formatFilterDate(draftDateFrom, lang)
+                      : "dd/mm/yyyy"}
                   </span>
                   <Calendar size={16} aria-hidden="true" />
                   <input
                     type="date"
                     value={draftDateFrom}
                     onChange={(e) => setDraftDateFrom(e.target.value)}
-                    aria-label={t('timeline.fromDate')}
+                    aria-label={t("timeline.fromDate")}
                   />
                 </div>
               </div>
               <div className="timeline-filter-field">
-                <label>{t('timeline.toDate')}</label>
+                <label>{t("timeline.toDate")}</label>
                 <div
-                  className={`timeline-date-input ${draftDateTo ? 'filled' : 'empty'}`}
+                  className={`timeline-date-input ${draftDateTo ? "filled" : "empty"}`}
                 >
                   <span className="timeline-date-display">
-                    {draftDateTo ? formatFilterDate(draftDateTo, lang) : 'dd/mm/yyyy'}
+                    {draftDateTo
+                      ? formatFilterDate(draftDateTo, lang)
+                      : "dd/mm/yyyy"}
                   </span>
                   <Calendar size={16} aria-hidden="true" />
                   <input
                     type="date"
                     value={draftDateTo}
                     onChange={(e) => setDraftDateTo(e.target.value)}
-                    aria-label={t('timeline.toDate')}
+                    aria-label={t("timeline.toDate")}
                   />
                 </div>
               </div>
               <div className="timeline-filter-field">
-                <label>{t('timeline.creator')}</label>
+                <label>{t("timeline.creator")}</label>
                 <div className="timeline-creator-select">
                   <button
                     type="button"
@@ -522,45 +614,49 @@ export function TimelinePage() {
                   {creatorMenuOpen && (
                     <div className="timeline-creator-menu" role="listbox">
                       {creatorOptions.map((option) => {
-                        const active = option.value === draftCreatorFilter
+                        const active = option.value === draftCreatorFilter;
                         return (
                           <button
                             key={option.value}
                             type="button"
-                            className={`timeline-creator-option ${active ? 'active' : ''}`}
+                            className={`timeline-creator-option ${active ? "active" : ""}`}
                             role="option"
                             aria-selected={active}
                             onClick={() => {
-                              setDraftCreatorFilter(option.value)
-                              setCreatorMenuOpen(false)
+                              setDraftCreatorFilter(option.value);
+                              setCreatorMenuOpen(false);
                             }}
                           >
                             <span>{option.label}</span>
                             {active && <Check size={14} />}
                           </button>
-                        )
+                        );
                       })}
                     </div>
                   )}
                 </div>
               </div>
               <div className="timeline-filter-field address">
-                <label>{t('timeline.address')}</label>
+                <label>{t("timeline.address")}</label>
                 <div className="timeline-address-filter">
                   <Search size={14} />
                   <input
                     type="search"
                     value={draftAddressFilter}
                     onChange={(e) => setDraftAddressFilter(e.target.value)}
-                    placeholder={t('timeline.addressPlaceholder')}
+                    placeholder={t("timeline.addressPlaceholder")}
                   />
                 </div>
               </div>
             </div>
             <div className="timeline-filter-actions">
-              <button type="button" className="timeline-filter-search-btn" onClick={applyDraftFilters}>
+              <button
+                type="button"
+                className="timeline-filter-search-btn"
+                onClick={applyDraftFilters}
+              >
                 <Search size={15} />
-                <span>{lang === 'vi' ? 'Tìm kiếm' : 'Search'}</span>
+                <span>{lang === "vi" ? "Tìm kiếm" : "Search"}</span>
               </button>
             </div>
           </div>
@@ -575,13 +671,13 @@ export function TimelinePage() {
 
       {loading && (
         <div className="timeline-empty-filter">
-          <p>{lang === 'vi' ? 'Đang tải kỷ niệm...' : 'Loading memories...'}</p>
+          <p>{lang === "vi" ? "Đang tải kỷ niệm..." : "Loading memories..."}</p>
         </div>
       )}
 
       {!loading && timelinePins.length === 0 && (
         <div className="timeline-empty-filter">
-          <p>{t('timeline.noResults')}</p>
+          <p>{t("timeline.noResults")}</p>
         </div>
       )}
 
@@ -595,11 +691,12 @@ export function TimelinePage() {
             rows,
             lang,
             profileId: profile?.id,
-            profileName: profile?.display_name ?? t('common.you'),
-            partnerName: partner?.display_name ?? t('common.partner'),
-            favoritesLabel: t('timeline.favorites'),
+            profileName: profile?.display_name ?? t("common.you"),
+            partnerName: partner?.display_name ?? t("common.partner"),
+            favoritesLabel: t("timeline.favorites"),
             loadingMore,
-            loadingMoreLabel: lang === 'vi' ? 'Đang tải thêm...' : 'Loading more...',
+            loadingMoreLabel:
+              lang === "vi" ? "Đang tải thêm..." : "Loading more...",
             uploadingPins,
             getCategory,
             openPinDetail,
@@ -607,36 +704,40 @@ export function TimelinePage() {
           overscanCount={6}
           onRowsRendered={handleRowsRendered}
           defaultHeight={620}
-          style={{ width: '100%' }}
+          style={{ width: "100%" }}
         />
       )}
       <BottomSheet
         open={!!selectedPin}
         onClose={() => setSelectedPin(null)}
-        title={t('pin.memory')}
+        title={t("pin.memory")}
       >
         {selectedPin && (
           <PinDetail
-            pin={timelinePins.find((p) => p.id === selectedPin.id) ?? livePins.find((p) => p.id === selectedPin.id) ?? selectedPin}
+            pin={
+              timelinePins.find((p) => p.id === selectedPin.id) ??
+              livePins.find((p) => p.id === selectedPin.id) ??
+              selectedPin
+            }
             currentUserId={profile?.id}
             currentUserName={profile?.display_name ?? null}
             onShowOnMap={flyToPin}
             onDelete={async (id) => {
-              await deletePin(id)
-              setSelectedPin(null)
-              refresh()
+              await deletePin(id);
+              setSelectedPin(null);
+              refresh();
             }}
             onUpdated={() => {
-              refresh()
-              setSelectedPin(null)
+              refresh();
+              setSelectedPin(null);
             }}
             onFavoriteUpdated={(updated) => {
-              setSelectedPin(updated)
-              refresh()
+              setSelectedPin(updated);
+              refresh();
             }}
           />
         )}
       </BottomSheet>
     </div>
-  )
+  );
 }

@@ -1,26 +1,51 @@
-import { useEffect, useRef, useState } from 'react'
-import { ImageUp, Eraser, Plus, Trash2, Video, Pencil } from 'lucide-react'
-import { Button } from '../ui/Button'
-import { usePinsCtx } from '../../hooks/PinsContext'
-import { isBuiltInCategory, type Category } from '../../lib/categories'
-import { useCategoriesCtx } from '../../hooks/CategoriesContext'
-import { useI18n } from '../../hooks/I18nContext'
-import { useSubscription } from '../../hooks/useSubscription'
-import { compressImage } from '../../lib/imageCompress'
-import { uploadToCloudinary, getImageUrl, isVideoUrl, getVideoUrl, MAX_VIDEO_BYTES } from '../../lib/cloudinary'
-import { toPinImageRows, uploadPinMediaFiles } from '../../lib/pinMediaUpload'
-import { supabase } from '../../lib/supabase'
-import { deletePinMedia, type CloudinaryDeleteAsset } from '../../lib/cloudinary-delete'
-import type { Pin, PinImage } from '../../types'
-import { useToast } from '../../hooks/ToastContext'
+import { useEffect, useRef, useState } from "react";
+import { ImageUp, Eraser, Plus, Trash2, Video, Pencil } from "lucide-react";
+import { Button } from "../ui/Button";
+import { usePinsCtx } from "../../hooks/PinsContext";
+import { isBuiltInCategory, type Category } from "../../lib/categories";
+import { useCategoriesCtx } from "../../hooks/CategoriesContext";
+import { useI18n } from "../../hooks/I18nContext";
+import { useSubscription } from "../../hooks/useSubscription";
+import { compressImage } from "../../lib/imageCompress";
+import {
+  uploadToCloudinary,
+  getImageUrl,
+  isVideoUrl,
+  getVideoUrl,
+  MAX_VIDEO_BYTES,
+} from "../../lib/cloudinary";
+import { toPinImageRows, uploadPinMediaFiles } from "../../lib/pinMediaUpload";
+import { supabase } from "../../lib/supabase";
+import {
+  deletePinMedia,
+  type CloudinaryDeleteAsset,
+} from "../../lib/cloudinary-delete";
+import type { Pin, PinImage } from "../../types";
+import { useToast } from "../../hooks/ToastContext";
 
 interface Props {
-  pin: Pin
-  onSaved: () => void
-  onCancel: () => void
+  pin: Pin;
+  onSaved: () => void;
+  onCancel: () => void;
 }
 
-const CUSTOM_EMOJIS = ['❤️', '🌸', '⭐', '🎈', '🍕', '🐱', '🐶', '🌈', '🎵', '⚽', '📸', '✨', '🏠', '🎂', '🍷']
+const CUSTOM_EMOJIS = [
+  "❤️",
+  "🌸",
+  "⭐",
+  "🎈",
+  "🍕",
+  "🐱",
+  "🐶",
+  "🌈",
+  "🎵",
+  "⚽",
+  "📸",
+  "✨",
+  "🏠",
+  "🎂",
+  "🍷",
+];
 
 export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   const {
@@ -29,116 +54,126 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     setUploadProgress,
     clearUploadProgress,
     bumpPinsVersion,
-  } = usePinsCtx()
+  } = usePinsCtx();
   const {
     allCategories,
     getCategory,
     saveCustomCategory,
     deleteCustomCategory,
-  } = useCategoriesCtx()
-  const { t, lang } = useI18n()
-  const { canUploadVideo } = useSubscription()
-  const { showToast } = useToast()
-  const [title, setTitle] = useState(pin.title)
-  const [note, setNote] = useState(pin.note ?? '')
-  const [category, setCategory] = useState<string | null>(pin.category)
-  const [markerEmoji, setMarkerEmoji] = useState<string | null>(pin.marker_emoji)
-  const [markerImageUrl, setMarkerImageUrl] = useState<string | null>(pin.marker_image_url)
-  const [markerUploading, setMarkerUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [customEmojiInput, setCustomEmojiInput] = useState('')
-  const [showCustomTag, setShowCustomTag] = useState(false)
-  const [editingTagId, setEditingTagId] = useState<string | null>(null)
-  const [customTagName, setCustomTagName] = useState('')
-  const [customTagEmoji, setCustomTagEmoji] = useState('')
-  const markerInput = useRef<HTMLInputElement | null>(null)
+  } = useCategoriesCtx();
+  const { t, lang } = useI18n();
+  const { canUploadVideo } = useSubscription();
+  const { showToast } = useToast();
+  const [title, setTitle] = useState(pin.title);
+  const [note, setNote] = useState(pin.note ?? "");
+  const [category, setCategory] = useState<string | null>(pin.category);
+  const [markerEmoji, setMarkerEmoji] = useState<string | null>(
+    pin.marker_emoji,
+  );
+  const [markerImageUrl, setMarkerImageUrl] = useState<string | null>(
+    pin.marker_image_url,
+  );
+  const [markerUploading, setMarkerUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [customEmojiInput, setCustomEmojiInput] = useState("");
+  const [showCustomTag, setShowCustomTag] = useState(false);
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
+  const [customTagName, setCustomTagName] = useState("");
+  const [customTagEmoji, setCustomTagEmoji] = useState("");
+  const markerInput = useRef<HTMLInputElement | null>(null);
 
   // --- Media management ---
-  const [existingImages, setExistingImages] = useState<PinImage[]>(pin.images ?? [])
+  const [existingImages, setExistingImages] = useState<PinImage[]>(
+    pin.images ?? [],
+  );
 
   // Lazy-load full image details for editing
   useEffect(() => {
-    fetchPinImages(pin.id).then((imgs) => setExistingImages(imgs))
-  }, [pin.id, fetchPinImages])
-  const [removedImages, setRemovedImages] = useState<CloudinaryDeleteAsset[]>([])
-  const [newFiles, setNewFiles] = useState<File[]>([])
-  const mediaInput = useRef<HTMLInputElement | null>(null)
-  const videoInput = useRef<HTMLInputElement | null>(null)
+    fetchPinImages(pin.id).then((imgs) => setExistingImages(imgs));
+  }, [pin.id, fetchPinImages]);
+  const [removedImages, setRemovedImages] = useState<CloudinaryDeleteAsset[]>(
+    [],
+  );
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const mediaInput = useRef<HTMLInputElement | null>(null);
+  const videoInput = useRef<HTMLInputElement | null>(null);
 
   async function handleMarkerUpload(file: File | undefined) {
-    if (!file) return
-    setMarkerUploading(true)
+    if (!file) return;
+    setMarkerUploading(true);
     try {
-      const compressed = await compressImage(file)
-      const res = await uploadToCloudinary(compressed, { folder: `pinly/${pin.couple_id}` })
-      setMarkerImageUrl(res.url)
-      setMarkerEmoji(null)
+      const compressed = await compressImage(file);
+      const res = await uploadToCloudinary(compressed, {
+        folder: `pinly/${pin.couple_id}`,
+      });
+      setMarkerImageUrl(res.url);
+      setMarkerEmoji(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setMarkerUploading(false)
+      setMarkerUploading(false);
     }
   }
 
   function handleCustomEmojiCommit() {
-    const trimmed = customEmojiInput.trim()
+    const trimmed = customEmojiInput.trim();
     if (trimmed) {
-      setMarkerEmoji(trimmed)
-      setMarkerImageUrl(null)
+      setMarkerEmoji(trimmed);
+      setMarkerImageUrl(null);
     }
-    setCustomEmojiInput('')
+    setCustomEmojiInput("");
   }
 
   function openCreateCustomTag() {
-    setEditingTagId(null)
-    setCustomTagName('')
-    setCustomTagEmoji('')
-    setShowCustomTag(true)
+    setEditingTagId(null);
+    setCustomTagName("");
+    setCustomTagEmoji("");
+    setShowCustomTag(true);
   }
 
   function openEditCustomTag(cat: Category) {
-    setEditingTagId(cat.id)
-    setCustomTagName(cat.label)
-    setCustomTagEmoji(cat.emoji)
-    setShowCustomTag(true)
+    setEditingTagId(cat.id);
+    setCustomTagName(cat.label);
+    setCustomTagEmoji(cat.emoji);
+    setShowCustomTag(true);
   }
 
   async function handleSaveCustomTag() {
-    if (!customTagName.trim()) return
+    if (!customTagName.trim()) return;
     const id =
       editingTagId ??
-      `custom_${typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Date.now()}`
+      `custom_${typeof crypto.randomUUID === "function" ? crypto.randomUUID() : Date.now()}`;
     const newCat: Category = {
       id,
       label: customTagName.trim(),
-      emoji: customTagEmoji.trim() || '🏷️',
-      color: '#6b7280',
-    }
+      emoji: customTagEmoji.trim() || "🏷️",
+      color: "#6b7280",
+    };
     try {
-      await saveCustomCategory(newCat)
-      setCategory(id)
-      setShowCustomTag(false)
-      setEditingTagId(null)
-      setCustomTagName('')
-      setCustomTagEmoji('')
+      await saveCustomCategory(newCat);
+      setCategory(id);
+      setShowCustomTag(false);
+      setEditingTagId(null);
+      setCustomTagName("");
+      setCustomTagEmoji("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(e instanceof Error ? e.message : String(e));
     }
   }
 
   async function handleDeleteCustomTag(id: string) {
     try {
-      await deleteCustomCategory(id)
-      if (category === id) setCategory(null)
+      await deleteCustomCategory(id);
+      if (category === id) setCategory(null);
       if (editingTagId === id) {
-        setShowCustomTag(false)
-        setEditingTagId(null)
-        setCustomTagName('')
-        setCustomTagEmoji('')
+        setShowCustomTag(false);
+        setEditingTagId(null);
+        setCustomTagName("");
+        setCustomTagEmoji("");
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -148,117 +183,126 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
       ...prev,
       {
         id: img.id,
-        publicId: img.cloudinary_public_id ?? '',
-        resourceType: isVideoUrl(img.cloudinary_url) ? 'video' : 'image',
+        publicId: img.cloudinary_public_id ?? "",
+        resourceType: isVideoUrl(img.cloudinary_url) ? "video" : "image",
       },
-    ])
-    setExistingImages((prev) => prev.filter((i) => i.id !== img.id))
+    ]);
+    setExistingImages((prev) => prev.filter((i) => i.id !== img.id));
   }
 
-  function handleAddMedia(files: FileList | null, kind: 'image' | 'video') {
-    if (kind === 'video' && !canUploadVideo) {
+  function handleAddMedia(files: FileList | null, kind: "image" | "video") {
+    if (kind === "video" && !canUploadVideo) {
       setError(
-        lang === 'vi'
-          ? 'Video cần gói Plus hoặc Pro'
-          : 'Video requires Plus or Pro plan',
-      )
-      return
+        lang === "vi"
+          ? "Video cần gói Plus hoặc Pro"
+          : "Video requires Plus or Pro plan",
+      );
+      return;
     }
     const arr = Array.from(files ?? []).filter((file) => {
-      if (file.size <= 0) return false
-      return kind === 'video'
-        ? file.type.startsWith('video/')
-        : file.type.startsWith('image/')
-    })
-    if (arr.length === 0) return
+      if (file.size <= 0) return false;
+      return kind === "video"
+        ? file.type.startsWith("video/")
+        : file.type.startsWith("image/");
+    });
+    if (arr.length === 0) return;
     for (const f of arr) {
-      if (f.type.startsWith('video/') && f.size > MAX_VIDEO_BYTES) {
-        setError(`Video quá lớn (tối đa ${MAX_VIDEO_BYTES / 1024 / 1024}MB)`)
-        return
+      if (f.type.startsWith("video/") && f.size > MAX_VIDEO_BYTES) {
+        setError(`Video quá lớn (tối đa ${MAX_VIDEO_BYTES / 1024 / 1024}MB)`);
+        return;
       }
     }
-    setNewFiles((prev) => [...prev, ...arr])
+    setNewFiles((prev) => [...prev, ...arr]);
   }
 
   function handleRemoveNewFile(idx: number) {
-    setNewFiles((prev) => prev.filter((_, i) => i !== idx))
+    setNewFiles((prev) => prev.filter((_, i) => i !== idx));
   }
 
   function previewIcon() {
     if (markerImageUrl) {
-      return <img src={getImageUrl(markerImageUrl, 80)} alt="" className="marker-preview-img" />
+      return (
+        <img
+          src={getImageUrl(markerImageUrl, 80)}
+          alt=""
+          className="marker-preview-img"
+        />
+      );
     }
-    if (markerEmoji) return <span className="marker-preview-emoji">{markerEmoji}</span>
-    const cat = getCategory(category)
-    if (cat) return <span className="marker-preview-emoji">{cat.emoji}</span>
-    return <span className="marker-preview-emoji">📍</span>
+    if (markerEmoji)
+      return <span className="marker-preview-emoji">{markerEmoji}</span>;
+    const cat = getCategory(category);
+    if (cat) return <span className="marker-preview-emoji">{cat.emoji}</span>;
+    return <span className="marker-preview-emoji">📍</span>;
   }
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+    e.preventDefault();
     if (!title.trim()) {
-      setError(t('pin.required'))
-      return
+      setError(t("pin.required"));
+      return;
     }
-    setSaving(true)
-    setError(null)
-    const mediaFiles = [...newFiles]
-    const mediaToRemove = [...removedImages]
-    const startOrder = existingImages.length
+    setSaving(true);
+    setError(null);
+    const mediaFiles = [...newFiles];
+    const mediaToRemove = [...removedImages];
+    const startOrder = existingImages.length;
     const patch = {
-        title: title.trim(),
-        note: note.trim() || null,
-        category: category,
-        marker_emoji: markerEmoji,
-        marker_image_url: markerImageUrl,
-      }
-    const hasUpload = mediaFiles.length > 0
+      title: title.trim(),
+      note: note.trim() || null,
+      category: category,
+      marker_emoji: markerEmoji,
+      marker_image_url: markerImageUrl,
+    };
+    const hasUpload = mediaFiles.length > 0;
     if (hasUpload) {
-      setUploadProgress(pin.id, 0)
-      showToast({ type: 'info', title: t('toast.memoryUploading') })
+      setUploadProgress(pin.id, 0);
+      showToast({ type: "info", title: t("toast.memoryUploading") });
     }
-    onSaved()
+    onSaved();
 
     void (async () => {
       try {
-        await updatePin(pin.id, patch)
+        await updatePin(pin.id, patch);
 
         if (mediaToRemove.length > 0) {
-          await deletePinMedia(mediaToRemove)
+          await deletePinMedia(mediaToRemove);
         }
 
         if (hasUpload) {
-          const uploads = await uploadPinMediaFiles(mediaFiles, `pinly/${pin.couple_id}`, (pct) =>
-            setUploadProgress(pin.id, pct),
-          )
+          const uploads = await uploadPinMediaFiles(
+            mediaFiles,
+            `pinly/${pin.couple_id}`,
+            (pct) => setUploadProgress(pin.id, pct),
+          );
           if (uploads.length > 0) {
             const { error: imgErr } = await supabase
-              .from('pin_images')
-              .insert(toPinImageRows(pin.id, uploads, startOrder))
-            if (imgErr) throw imgErr
+              .from("pin_images")
+              .insert(toPinImageRows(pin.id, uploads, startOrder));
+            if (imgErr) throw imgErr;
           }
         }
 
         if (hasUpload || mediaToRemove.length > 0) {
-          await fetchPinImages(pin.id)
-          bumpPinsVersion()
+          await fetchPinImages(pin.id);
+          bumpPinsVersion();
         }
 
-        showToast({ type: 'success', title: t('toast.memoryUpdated') })
+        showToast({ type: "success", title: t("toast.memoryUpdated") });
       } catch (e) {
-        console.warn('Background edit failed:', e)
-        showToast({ type: 'error', title: t('toast.actionFailed') })
+        console.warn("Background edit failed:", e);
+        showToast({ type: "error", title: t("toast.actionFailed") });
       } finally {
-        if (hasUpload) clearUploadProgress(pin.id)
+        if (hasUpload) clearUploadProgress(pin.id);
       }
-    })()
+    })();
   }
 
   return (
     <form onSubmit={handleSubmit} className="pin-form">
       <input
         type="text"
-        placeholder={t('pin.title')}
+        placeholder={t("pin.title")}
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         maxLength={120}
@@ -266,17 +310,25 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
       />
 
       <div>
-        <div className="field-label">{t('pin.category')}</div>
+        <div className="field-label">{t("pin.category")}</div>
         <div className="category-grid">
           {allCategories.map((c) => {
-            const active = category === c.id
-            const custom = !isBuiltInCategory(c.id)
+            const active = category === c.id;
+            const custom = !isBuiltInCategory(c.id);
             return (
               <div key={c.id} className="category-chip-wrap">
                 <button
                   type="button"
-                  className={`category-chip ${active ? 'active' : ''}`}
-                  style={active ? { background: c.color, borderColor: c.color, color: 'white' } : undefined}
+                  className={`category-chip ${active ? "active" : ""}`}
+                  style={
+                    active
+                      ? {
+                          background: c.color,
+                          borderColor: c.color,
+                          color: "white",
+                        }
+                      : undefined
+                  }
                   onClick={() => setCategory(active ? null : c.id)}
                 >
                   <span className="emoji">{c.emoji}</span>
@@ -303,22 +355,24 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
                   </>
                 )}
               </div>
-            )
+            );
           })}
           <button
             type="button"
             className="category-chip"
             onClick={openCreateCustomTag}
           >
-            <span className="emoji"><Plus size={14} /></span>
-            <span>{t('pin.addTag')}</span>
+            <span className="emoji">
+              <Plus size={14} />
+            </span>
+            <span>{t("pin.addTag")}</span>
           </button>
         </div>
         {showCustomTag && (
           <div className="custom-tag-form">
             <input
               type="text"
-              placeholder={t('pin.tagEmoji')}
+              placeholder={t("pin.tagEmoji")}
               value={customTagEmoji}
               onChange={(e) => setCustomTagEmoji(e.target.value)}
               maxLength={4}
@@ -326,21 +380,25 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
             />
             <input
               type="text"
-              placeholder={t('pin.tagName')}
+              placeholder={t("pin.tagName")}
               value={customTagName}
               onChange={(e) => setCustomTagName(e.target.value)}
               maxLength={30}
               className="custom-tag-name-input"
             />
-            <Button type="button" onClick={handleSaveCustomTag} disabled={!customTagName.trim()}>
-              {t('pin.saveTag')}
+            <Button
+              type="button"
+              onClick={handleSaveCustomTag}
+              disabled={!customTagName.trim()}
+            >
+              {t("pin.saveTag")}
             </Button>
           </div>
         )}
       </div>
 
       <div>
-        <div className="field-label">{t('pin.marker')}</div>
+        <div className="field-label">{t("pin.marker")}</div>
         <div className="marker-picker">
           <div className="marker-preview">{previewIcon()}</div>
           <div className="marker-picker-options">
@@ -349,10 +407,10 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
                 <button
                   key={e}
                   type="button"
-                  className={`marker-emoji-btn ${markerEmoji === e ? 'active' : ''}`}
+                  className={`marker-emoji-btn ${markerEmoji === e ? "active" : ""}`}
                   onClick={() => {
-                    setMarkerEmoji(e === markerEmoji ? null : e)
-                    if (e !== markerEmoji) setMarkerImageUrl(null)
+                    setMarkerEmoji(e === markerEmoji ? null : e);
+                    if (e !== markerEmoji) setMarkerImageUrl(null);
                   }}
                 >
                   {e}
@@ -363,11 +421,16 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
               <input
                 type="text"
                 className="emoji-keyboard-input"
-                placeholder={t('pin.emojiKeyboard')}
+                placeholder={t("pin.emojiKeyboard")}
                 value={customEmojiInput}
                 onChange={(e) => setCustomEmojiInput(e.target.value)}
                 onBlur={handleCustomEmojiCommit}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCustomEmojiCommit() } }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleCustomEmojiCommit();
+                  }
+                }}
                 maxLength={8}
               />
             </div>
@@ -378,18 +441,19 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
                 onClick={() => markerInput.current?.click()}
                 disabled={markerUploading}
               >
-                <ImageUp size={16} /> {markerUploading ? '…' : t('pin.markerUpload')}
+                <ImageUp size={16} />{" "}
+                {markerUploading ? "…" : t("pin.markerUpload")}
               </button>
               {(markerEmoji || markerImageUrl) && (
                 <button
                   type="button"
                   className="photo-btn small"
                   onClick={() => {
-                    setMarkerEmoji(null)
-                    setMarkerImageUrl(null)
+                    setMarkerEmoji(null);
+                    setMarkerImageUrl(null);
                   }}
                 >
-                  <Eraser size={16} /> {t('pin.markerClear')}
+                  <Eraser size={16} /> {t("pin.markerClear")}
                 </button>
               )}
             </div>
@@ -397,10 +461,10 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
               ref={markerInput}
               type="file"
               accept="image/*"
-              style={{ display: 'none' }}
+              style={{ display: "none" }}
               onChange={(e) => {
-                handleMarkerUpload(e.target.files?.[0])
-                e.target.value = ''
+                handleMarkerUpload(e.target.files?.[0]);
+                e.target.value = "";
               }}
             />
           </div>
@@ -409,12 +473,20 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
 
       {/* --- Media section --- */}
       <div>
-        <div className="field-label">{t('pin.media')}</div>
+        <div className="field-label">{t("pin.media")}</div>
         <div className="photo-previews">
           {existingImages.map((img) => (
-            <div key={img.id} className={`photo-preview ${isVideoUrl(img.cloudinary_url) ? 'video-item' : ''}`}>
+            <div
+              key={img.id}
+              className={`photo-preview ${isVideoUrl(img.cloudinary_url) ? "video-item" : ""}`}
+            >
               {isVideoUrl(img.cloudinary_url) ? (
-                <video src={getVideoUrl(img.cloudinary_url, 200)} muted playsInline preload="metadata" />
+                <video
+                  src={getVideoUrl(img.cloudinary_url, 200)}
+                  muted
+                  playsInline
+                  preload="metadata"
+                />
               ) : (
                 <img src={getImageUrl(img.cloudinary_url, 200)} alt="" />
               )}
@@ -424,9 +496,17 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
             </div>
           ))}
           {newFiles.map((f, i) => (
-            <div key={i} className={`photo-preview ${f.type.startsWith('video/') ? 'video-item' : ''}`}>
-              {f.type.startsWith('video/') ? (
-                <video src={URL.createObjectURL(f)} muted playsInline preload="metadata" />
+            <div
+              key={i}
+              className={`photo-preview ${f.type.startsWith("video/") ? "video-item" : ""}`}
+            >
+              {f.type.startsWith("video/") ? (
+                <video
+                  src={URL.createObjectURL(f)}
+                  muted
+                  playsInline
+                  preload="metadata"
+                />
               ) : (
                 <img src={URL.createObjectURL(f)} alt="" />
               )}
@@ -441,11 +521,11 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
             type="button"
             className="photo-btn small"
             onClick={() => {
-              if (mediaInput.current) mediaInput.current.value = ''
-              mediaInput.current?.click()
+              if (mediaInput.current) mediaInput.current.value = "";
+              mediaInput.current?.click();
             }}
           >
-            <ImageUp size={16} /> {t('pin.addPhoto')}
+            <ImageUp size={16} /> {t("pin.addPhoto")}
           </button>
           <button
             type="button"
@@ -453,17 +533,17 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
             onClick={() => {
               if (!canUploadVideo) {
                 setError(
-                  lang === 'vi'
-                    ? 'Video cần gói Plus hoặc Pro'
-                    : 'Video requires Plus or Pro plan',
-                )
-                return
+                  lang === "vi"
+                    ? "Video cần gói Plus hoặc Pro"
+                    : "Video requires Plus or Pro plan",
+                );
+                return;
               }
-              if (videoInput.current) videoInput.current.value = ''
-              videoInput.current?.click()
+              if (videoInput.current) videoInput.current.value = "";
+              videoInput.current?.click();
             }}
           >
-            <Video size={16} /> {t('pin.addVideo')} {!canUploadVideo && '🔒'}
+            <Video size={16} /> {t("pin.addVideo")} {!canUploadVideo && "🔒"}
           </button>
         </div>
         <input
@@ -471,20 +551,26 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
           type="file"
           accept="image/*"
           multiple
-          style={{ display: 'none' }}
-          onChange={(e) => { handleAddMedia(e.target.files, 'image'); e.target.value = '' }}
+          style={{ display: "none" }}
+          onChange={(e) => {
+            handleAddMedia(e.target.files, "image");
+            e.target.value = "";
+          }}
         />
         <input
           ref={videoInput}
           type="file"
           accept="video/*"
-          style={{ display: 'none' }}
-          onChange={(e) => { handleAddMedia(e.target.files, 'video'); e.target.value = '' }}
+          style={{ display: "none" }}
+          onChange={(e) => {
+            handleAddMedia(e.target.files, "video");
+            e.target.value = "";
+          }}
         />
       </div>
 
       <textarea
-        placeholder={t('pin.note')}
+        placeholder={t("pin.note")}
         value={note}
         onChange={(e) => setNote(e.target.value)}
         rows={3}
@@ -493,13 +579,18 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
       {error && <p className="error">{error}</p>}
 
       <div className="row">
-        <Button type="button" variant="secondary" onClick={onCancel} disabled={saving}>
-          {t('pin.cancel')}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onCancel}
+          disabled={saving}
+        >
+          {t("pin.cancel")}
         </Button>
         <Button type="submit" disabled={saving} style={{ flex: 1 }}>
-          {saving ? t('pin.saving') : t('pin.save')}
+          {saving ? t("pin.saving") : t("pin.save")}
         </Button>
       </div>
     </form>
-  )
+  );
 }

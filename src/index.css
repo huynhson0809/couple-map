@@ -1279,7 +1279,7 @@ body { -webkit-tap-highlight-color: transparent; }
 /* Position MapLibre geolocate control above FAB */
 .map-container .maplibregl-ctrl-bottom-right {
   bottom: calc(154px + env(safe-area-inset-bottom));
-  right: 18px;
+  right: 24px;
 }
 .map-container .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
   margin: 0;
@@ -2312,6 +2312,18 @@ body { -webkit-tap-highlight-color: transparent; }
 /* When user has background image — make pages transparent so bg shows through */
 .app-shell.has-bg .page {
   background: transparent;
+}
+
+.app-shell.has-bg :where(
+  .timeline-card,
+  .stat-card,
+  .wish-card,
+  .notif-item,
+  .setting-section,
+  .pin-comment-main
+) {
+  backdrop-filter: blur(20px) saturate(1.4) brightness(1.04);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4) brightness(1.04);
 }
 
 /* New-memory toast */
