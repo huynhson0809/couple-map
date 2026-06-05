@@ -4,8 +4,8 @@ import { useAuth } from "../../hooks/useAuth";
 import { useI18n } from "../../hooks/I18nContext";
 import { supabase } from "../../lib/supabase";
 import { Button } from "../ui/Button";
-import { Logo } from "../ui/Logo";
-import { LangSwitch } from "../ui/LangSwitch";
+import { TextField } from "../ui/TextField";
+import { AuthShell } from "./AuthShell";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 60_000; // 1 minute
@@ -21,6 +21,7 @@ export function RegisterPage() {
   const [registered, setRegistered] = useState(false);
   const attempts = useRef(0);
   const lockedUntil = useRef(0);
+  const errorId = "register-form-error";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -54,73 +55,78 @@ export function RegisterPage() {
 
   if (registered) {
     return (
-      <div className="auth-page">
-        <div className="auth-topbar">
-          <LangSwitch />
+      <AuthShell
+        title={t("auth.checkEmailTitle")}
+        subtitle={t("auth.checkEmailDesc")}
+        success
+      >
+        <div className="auth-check-email">
+          <p className="auth-email-pill">{email}</p>
+          <div className="auth-action-stack">
+            <ResendButton email={email} />
+            <Link
+              to="/login"
+              className="btn lg-button lg-button-secondary lg-button-size-md lg-button-tone-neutral auth-action"
+            >
+              <span className="lg-button-label">{t("auth.goToLogin")}</span>
+            </Link>
+          </div>
         </div>
-        <div className="auth-brand">
-          <Logo size={72} />
-          <h1>{t("auth.checkEmailTitle")}</h1>
-        </div>
-        <p className="muted" style={{ textAlign: "center", lineHeight: 1.6 }}>
-          {t("auth.checkEmailDesc")}
-        </p>
-        <p className="muted" style={{ textAlign: "center", fontWeight: 600 }}>
-          {email}
-        </p>
-        <div className="auth-form">
-          <ResendButton email={email} />
-          <Link to="/login">
-            <Button>{t("auth.goToLogin")}</Button>
-          </Link>
-        </div>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-topbar">
-        <LangSwitch />
-      </div>
-      <div className="auth-brand">
-        <Logo size={72} />
-        <h1>{t("auth.createAccount")}</h1>
-      </div>
-      <p className="muted">{t("auth.startMapping")}</p>
+    <AuthShell
+      title={t("auth.createAccount")}
+      subtitle={t("auth.startMapping")}
+      footer={
+        <p className="muted">
+          {t("auth.haveAccount")} <Link to="/login">{t("auth.signin")}</Link>
+        </p>
+      }
+    >
       <form onSubmit={handleSubmit} className="auth-form">
-        <input
+        <TextField
           type="text"
+          label={t("auth.name")}
           placeholder={t("auth.name")}
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
+          autoComplete="name"
+          aria-describedby={error ? errorId : undefined}
         />
-        <input
+        <TextField
           type="email"
+          label={t("auth.email")}
           placeholder={t("auth.email")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
           autoComplete="email"
+          aria-describedby={error ? errorId : undefined}
         />
-        <input
+        <TextField
           type="password"
+          label={t("auth.password")}
           placeholder={t("auth.password")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
           minLength={6}
           autoComplete="new-password"
+          aria-describedby={error ? errorId : undefined}
         />
-        {error && <p className="error">{error}</p>}
-        <Button type="submit" disabled={loading}>
+        {error && (
+          <p id={errorId} className="auth-error" role="alert" aria-live="assertive">
+            {error}
+          </p>
+        )}
+        <Button type="submit" loading={loading} size="lg" className="auth-submit">
           {loading ? t("auth.creating") : t("auth.signup")}
         </Button>
       </form>
-      <p className="muted">
-        {t("auth.haveAccount")} <Link to="/login">{t("auth.signin")}</Link>
-      </p>
-    </div>
+    </AuthShell>
   );
 }
 
@@ -157,13 +163,14 @@ function ResendButton({ email }: { email: string }) {
     <Button
       type="button"
       onClick={handleResend}
-      disabled={cooldown > 0 || sending}
+      disabled={cooldown > 0}
+      loading={sending}
+      variant="secondary"
+      className="auth-action"
     >
-      {sending
-        ? t("auth.sending")
-        : sent && cooldown > 0
-          ? `${t("auth.resendIn")} ${cooldown}s`
-          : t("auth.resendEmail")}
+      {sent && cooldown > 0
+        ? `${t("auth.resendIn")} ${cooldown}s`
+        : t("auth.resendEmail")}
     </Button>
   );
 }

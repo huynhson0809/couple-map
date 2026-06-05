@@ -1,4 +1,6 @@
+import { Sparkles } from "lucide-react";
 import { useI18n } from "../../hooks/I18nContext";
+import { Button } from "./Button";
 
 interface Props {
   feature: string;
@@ -10,8 +12,11 @@ export function UpgradePrompt({ feature, onUpgrade, onDismiss }: Props) {
   const { lang } = useI18n();
 
   return (
-    <div className="upgrade-prompt-overlay" onClick={onDismiss}>
-      <div className="upgrade-prompt-card" onClick={(e) => e.stopPropagation()}>
+    <div className="upgrade-prompt-overlay lg-overlay-backdrop" onClick={onDismiss}>
+      <div className="upgrade-prompt-card lg-dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="upgrade-prompt-badge" aria-hidden="true">
+          <Sparkles size={18} />
+        </div>
         <h3>
           {lang === "vi" ? "Nâng cấp để tiếp tục" : "Upgrade to continue"}
         </h3>
@@ -21,12 +26,12 @@ export function UpgradePrompt({ feature, onUpgrade, onDismiss }: Props) {
             : `"${feature}" requires Plus or Pro plan.`}
         </p>
         <div className="upgrade-prompt-actions">
-          <button type="button" className="dismiss-btn" onClick={onDismiss}>
+          <Button type="button" variant="secondary" onClick={onDismiss}>
             {lang === "vi" ? "Để sau" : "Later"}
-          </button>
-          <button type="button" className="upgrade-btn" onClick={onUpgrade}>
+          </Button>
+          <Button type="button" onClick={onUpgrade}>
             {lang === "vi" ? "Nâng cấp" : "Upgrade"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

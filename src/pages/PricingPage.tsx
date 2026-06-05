@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Crown, Sparkles, Zap } from "lucide-react";
+import { Check, Crown, Sparkles, X, Zap } from "lucide-react";
 import { useSubscription, PLAN_LIMITS } from "../hooks/useSubscription";
 import { useI18n } from "../hooks/I18nContext";
 
@@ -70,6 +70,43 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
     return new Intl.NumberFormat("vi-VN").format(amount) + "đ";
   };
 
+  const periodLabel =
+    cycle === "annual"
+      ? lang === "vi"
+        ? "năm"
+        : "year"
+      : lang === "vi"
+        ? "tháng"
+        : "month";
+
+  const formatFeatureValue = (value: string | boolean) => {
+    if (value === true) return lang === "vi" ? "Có" : "Yes";
+    if (value === false) return lang === "vi" ? "Không" : "No";
+    return value;
+  };
+
+  const renderFeatures = (plan: "plus" | "pro") => (
+    <ul className="pricing-features">
+      {PLAN_FEATURES[plan].map((feature) => {
+        const included = feature.value !== false;
+        return (
+          <li
+            key={feature.key}
+            className={
+              included ? "pricing-feature-included" : "pricing-feature-excluded"
+            }
+          >
+            {included ? <Check size={14} /> : <X size={14} />}
+            <span>
+              {FEATURE_LABELS[feature.key]?.[lang] ?? feature.key}:{" "}
+              <strong>{formatFeatureValue(feature.value)}</strong>
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+
   const handleActivate = async () => {
     if (!code.trim()) return;
     setActivating(true);
@@ -89,13 +126,17 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
         <button type="button" className="pricing-close" onClick={onClose}>
           ×
         </button>
+        <div className="pricing-premium-badge">
+          <Sparkles size={14} aria-hidden="true" />
+          <span>{lang === "vi" ? "Dành cho hai người" : "Built for two"}</span>
+        </div>
         <h1>{lang === "vi" ? "Nâng cấp Pinly" : "Upgrade Pinly"}</h1>
         <p className="muted">
           {lang === "vi"
             ? "Mở khóa tất cả tính năng cho kỷ niệm của hai bạn"
             : "Unlock all features for your memories together"}
         </p>
-        <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+        <p className="muted pricing-gift-note">
           {lang === "vi"
             ? "🎁 Chỉ cần 1 người mua, cả 2 cùng dùng được!"
             : "🎁 One purchase covers both of you!"}
@@ -133,16 +174,7 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
           </div>
           <div className="pricing-card-price">
             <span className="pricing-amount">{formatPrice(prices.plus)}</span>
-            <span className="pricing-period">
-              /
-              {cycle === "annual"
-                ? lang === "vi"
-                  ? "năm"
-                  : "year"
-                : lang === "vi"
-                  ? "tháng"
-                  : "month"}
-            </span>
+            <span className="pricing-period">/{periodLabel}</span>
           </div>
           {currentPlan === "plus" ? (
             <div className="pricing-current-badge">
@@ -153,19 +185,7 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
               {lang === "vi" ? "Đang dùng Pro" : "On Pro"}
             </div>
           ) : null}
-          <ul className="pricing-features">
-            {PLAN_FEATURES.plus.map((f) => (
-              <li key={f.key}>
-                <Check size={14} />
-                <span>
-                  {FEATURE_LABELS[f.key]?.[lang] ?? f.key}:{" "}
-                  <strong>
-                    {f.value === true ? "✓" : f.value === false ? "✗" : f.value}
-                  </strong>
-                </span>
-              </li>
-            ))}
-          </ul>
+          {renderFeatures("plus")}
         </div>
 
         {/* Pro */}
@@ -181,35 +201,14 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
           </div>
           <div className="pricing-card-price">
             <span className="pricing-amount">{formatPrice(prices.pro)}</span>
-            <span className="pricing-period">
-              /
-              {cycle === "annual"
-                ? lang === "vi"
-                  ? "năm"
-                  : "year"
-                : lang === "vi"
-                  ? "tháng"
-                  : "month"}
-            </span>
+            <span className="pricing-period">/{periodLabel}</span>
           </div>
           {currentPlan === "pro" ? (
             <div className="pricing-current-badge">
               {lang === "vi" ? "Gói hiện tại" : "Current plan"}
             </div>
           ) : null}
-          <ul className="pricing-features">
-            {PLAN_FEATURES.pro.map((f) => (
-              <li key={f.key}>
-                <Check size={14} />
-                <span>
-                  {FEATURE_LABELS[f.key]?.[lang] ?? f.key}:{" "}
-                  <strong>
-                    {f.value === true ? "✓" : f.value === false ? "✗" : f.value}
-                  </strong>
-                </span>
-              </li>
-            ))}
-          </ul>
+          {renderFeatures("pro")}
         </div>
       </div>
 

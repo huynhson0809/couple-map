@@ -3,8 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useI18n } from "../../hooks/I18nContext";
 import { Button } from "../ui/Button";
-import { Logo } from "../ui/Logo";
-import { LangSwitch } from "../ui/LangSwitch";
+import { TextField } from "../ui/TextField";
+import { AuthShell } from "./AuthShell";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 60_000; // 1 minute
@@ -19,6 +19,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const attempts = useRef(0);
   const lockedUntil = useRef(0);
+  const errorId = "login-form-error";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,43 +46,50 @@ export function LoginPage() {
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-topbar">
-        <LangSwitch />
-      </div>
-      <div className="auth-brand">
-        <Logo size={72} />
-        <h1>Pinly</h1>
-      </div>
-      <p className="muted">{t("auth.welcome")}</p>
+    <AuthShell
+      title="Pinly"
+      subtitle={t("auth.welcome")}
+      footer={
+        <>
+          <p className="muted">
+            <Link to="/forgot-password">{t("auth.forgotPassword")}</Link>
+          </p>
+          <p className="muted">
+            {t("auth.noAccount")} <Link to="/register">{t("auth.signup")}</Link>
+          </p>
+        </>
+      }
+    >
       <form onSubmit={handleSubmit} className="auth-form">
-        <input
+        <TextField
           type="email"
+          label={t("auth.email")}
           placeholder={t("auth.email")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
           autoComplete="email"
+          aria-describedby={error ? errorId : undefined}
         />
-        <input
+        <TextField
           type="password"
+          label={t("auth.password")}
           placeholder={t("auth.password")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
           autoComplete="current-password"
+          aria-describedby={error ? errorId : undefined}
         />
-        {error && <p className="error">{error}</p>}
-        <Button type="submit" disabled={loading}>
+        {error && (
+          <p id={errorId} className="auth-error" role="alert" aria-live="assertive">
+            {error}
+          </p>
+        )}
+        <Button type="submit" loading={loading} size="lg" className="auth-submit">
           {loading ? t("auth.signingIn") : t("auth.signin")}
         </Button>
       </form>
-      <p className="muted">
-        <Link to="/forgot-password">{t("auth.forgotPassword")}</Link>
-      </p>
-      <p className="muted">
-        {t("auth.noAccount")} <Link to="/register">{t("auth.signup")}</Link>
-      </p>
-    </div>
+    </AuthShell>
   );
 }

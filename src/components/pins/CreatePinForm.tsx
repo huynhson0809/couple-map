@@ -14,7 +14,6 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { Button } from "../ui/Button";
-import { useImageUpload } from "../../hooks/useImageUpload";
 import { usePins } from "../../hooks/usePins";
 import { isBuiltInCategory, type Category } from "../../lib/categories";
 import { useCategoriesCtx } from "../../hooks/CategoriesContext";
@@ -26,6 +25,7 @@ import {
   getImageUrl,
   MAX_VIDEO_BYTES,
 } from "../../lib/cloudinary";
+import { toPinImageRows, uploadPinMediaFiles } from "../../lib/pinMediaUpload";
 import { reverseGeocode } from "../../lib/geocoding";
 import { searchPlaces, type PlaceSearchResult } from "../../lib/placeSearch";
 import {
@@ -78,14 +78,15 @@ export function CreatePinForm({
     saveCustomCategory,
     deleteCustomCategory,
   } = useCategoriesCtx();
-  const { uploadFiles, uploading, progress } = useImageUpload(
-    `pinly/${coupleId}`,
-  );
   const { t, lang } = useI18n();
   const { canUploadVideo, canCreateCategory, limits } = useSubscription();
   const { showToast } = useToast();
-  const { setUploadProgress, clearUploadProgress, fetchPins, bumpPinsVersion } =
-    usePinsCtx();
+  const {
+    setUploadProgress,
+    clearUploadProgress,
+    fetchPinImages,
+    bumpPinsVersion,
+  } = usePinsCtx();
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
   const [category, setCategory] = useState<string | null>(null);
@@ -335,7 +336,7 @@ export function CreatePinForm({
     setSaving(true);
     setError(null);
     try {
-      // Save pin immediately without waiting for images
+      const mediaFiles = [...files];
       const pin = await createPin({
         title: title.trim(),
         note: note.trim() || undefined,
@@ -349,51 +350,44 @@ export function CreatePinForm({
         country,
         images: [],
       });
-      showToast({ type: "success", title: t("toast.memoryCreated") });
+
+      if (mediaFiles.length === 0) {
+        showToast({ type: "success", title: t("toast.memoryCreated") });
+        setSaving(false);
+        onCreated();
+        return;
+      }
+
+      setUploadProgress(pin.id, 0);
+      showToast({ type: "info", title: t("toast.memoryUploading") });
+      setSaving(false);
       onCreated();
 
-      // Upload images in background and attach to pin
-      if (files.length > 0) {
-        setUploadProgress(pin.id, 0);
-        uploadFiles(files, (pct) => setUploadProgress(pin.id, pct))
-          .then(async (uploaded) => {
-            if (uploaded.length > 0) {
-              const rows = uploaded.map((img, i) => ({
-                pin_id: pin.id,
-                cloudinary_url: img.url,
-                cloudinary_public_id: img.publicId,
-                width: img.width,
-                height: img.height,
-                sort_order: i,
-              }));
-              const { error: imgErr } = await supabase
-                .from("pin_images")
-                .insert(rows);
-              if (imgErr)
-                console.warn("Background image upload failed:", imgErr.message);
-              else {
-                showToast({
-                  type: "success",
-                  title: t("toast.photosUploaded"),
-                });
-                fetchPins();
-                bumpPinsVersion();
-              }
-            }
-          })
-          .catch((err) => {
-            console.warn("Background upload error:", err);
-            showToast({ type: "error", title: t("toast.photoUploadFailed") });
-          })
-          .finally(() => {
-            clearUploadProgress(pin.id);
-          });
-      }
+      void uploadPinMediaFiles(mediaFiles, `pinly/${coupleId}`, (pct) =>
+        setUploadProgress(pin.id, pct),
+      )
+        .then(async (uploaded) => {
+          if (uploaded.length > 0) {
+            const { error: imgErr } = await supabase
+              .from("pin_images")
+              .insert(toPinImageRows(pin.id, uploaded));
+            if (imgErr) throw imgErr;
+            await fetchPinImages(pin.id);
+            bumpPinsVersion();
+          }
+          showToast({ type: "success", title: t("toast.memoryCreated") });
+        })
+        .catch((err) => {
+          console.warn("Background upload error:", err);
+          showToast({ type: "error", title: t("toast.photoUploadFailed") });
+        })
+        .finally(() => {
+          clearUploadProgress(pin.id);
+        });
     } catch (e) {
+      setSaving(false);
       setError(e instanceof Error ? e.message : String(e));
       showToast({ type: "error", title: t("toast.actionFailed") });
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -768,11 +762,6 @@ export function CreatePinForm({
         {pinCoords.accuracy ? ` · ±${Math.round(pinCoords.accuracy)}m` : ""}
       </div>
 
-      {uploading && (
-        <div className="muted small">
-          {t("pin.uploading")} {progress}%…
-        </div>
-      )}
       {error && <p className="error">{error}</p>}
 
       <div className="row">

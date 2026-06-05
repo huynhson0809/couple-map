@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { RefreshCw } from 'lucide-react'
+import { Button } from './Button'
+import { IconButton } from './IconButton'
 
 export function UpdatePrompt() {
   const [show, setShow] = useState(false)
@@ -21,28 +23,29 @@ export function UpdatePrompt() {
   if (!show && !needRefresh) return null
 
   return (
-    <div className="update-prompt">
+    <div className="update-prompt lg-update-prompt phase7-system-prompt" role="status">
       <RefreshCw size={16} />
       <span>New version available</span>
-      <button
-        type="button"
+      <Button
+        size="sm"
         onClick={() => {
           updateServiceWorker(true)
         }}
       >
         Update
-      </button>
-      <button
-        type="button"
+      </Button>
+      <IconButton
+        label="Dismiss"
+        size="sm"
+        variant="ghost"
         className="dismiss"
         onClick={() => {
           setShow(false)
           setNeedRefresh(false)
         }}
-        aria-label="Dismiss"
       >
         ×
-      </button>
+      </IconButton>
     </div>
   )
 }

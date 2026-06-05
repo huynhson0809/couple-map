@@ -257,8 +257,11 @@ async function drawCardWithPhoto(
   canvas.height = CARD_H;
   const ctx = canvas.getContext("2d")!;
 
-  // White card background with rounded corners
-  ctx.fillStyle = "#ffffff";
+  // Soft card background with rounded corners
+  const cardBg = ctx.createLinearGradient(0, 0, 0, CARD_H);
+  cardBg.addColorStop(0, "#ffffff");
+  cardBg.addColorStop(1, "#fff4f7");
+  ctx.fillStyle = cardBg;
   roundRect(ctx, 0, 0, CARD_W, CARD_H, RADIUS);
   ctx.fill();
 
@@ -313,24 +316,27 @@ async function drawCardWithPhoto(
   ctx.fillStyle = "#ffffff";
   wrapText(ctx, title, PAD, PHOTO_TITLE_Y, CARD_W - PAD * 2, 58, 2);
 
-  // --- White info section (painted over any image overflow) ---
-  ctx.fillStyle = "#ffffff";
+  // --- Soft info section (painted over any image overflow) ---
+  const infoGrad = ctx.createLinearGradient(0, PHOTO_H, 0, CARD_H);
+  infoGrad.addColorStop(0, "#fffafa");
+  infoGrad.addColorStop(1, "#f9fbff");
+  ctx.fillStyle = infoGrad;
   ctx.fillRect(0, PHOTO_H, CARD_W, INFO_H);
 
   const infoY = PHOTO_H + 50;
 
   // Location
   ctx.font = "400 32px -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillStyle = "#333333";
-  drawMapPinIcon(ctx, PAD, infoY - 25, 30, "#4b5563");
+  ctx.fillStyle = "#1f2433";
+  drawMapPinIcon(ctx, PAD, infoY - 25, 30, "#ff5a5f");
   ctx.fillText(location, PAD + 42, infoY);
 
   // Date
-  drawCalendarIcon(ctx, PAD, infoY + 25, 30, "#4b5563");
+  drawCalendarIcon(ctx, PAD, infoY + 25, 30, "#7c879d");
   ctx.fillText(dateStr, PAD + 42, infoY + 50);
 
   // Divider line
-  ctx.strokeStyle = "#eee";
+  ctx.strokeStyle = "rgba(124,135,157,0.18)";
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(PAD, infoY + 90);
@@ -340,7 +346,7 @@ async function drawCardWithPhoto(
   // Footer: couple names left, logo + Pinly right
   const footerY = infoY + 140;
   ctx.font = "500 30px -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillStyle = "#555555";
+  ctx.fillStyle = "#6f788d";
   ctx.textAlign = "left";
   ctx.fillText(coupleNames, PAD, footerY);
   if (showWatermark) {
@@ -372,24 +378,37 @@ async function drawCardNoPhoto(
   canvas.height = CARD_H;
   const ctx = canvas.getContext("2d")!;
 
-  // White card background with rounded corners
-  ctx.fillStyle = "#ffffff";
+  // Soft card background with rounded corners
+  const cardBg = ctx.createLinearGradient(0, 0, 0, CARD_H);
+  cardBg.addColorStop(0, "#ffffff");
+  cardBg.addColorStop(1, "#fff4f7");
+  ctx.fillStyle = cardBg;
   roundRect(ctx, 0, 0, CARD_W, CARD_H, RADIUS);
   ctx.fill();
   ctx.clip();
 
-  // Gradient background in top portion
+  // Ambient Pinly background in top portion
   const grad = ctx.createLinearGradient(0, 0, CARD_W, PHOTO_H);
-  grad.addColorStop(0, "#667eea");
-  grad.addColorStop(1, "#764ba2");
+  grad.addColorStop(0, "#fff7fb");
+  grad.addColorStop(0.42, "#ffe1e7");
+  grad.addColorStop(1, "#ff7b86");
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, CARD_W, PHOTO_H);
+
+  ctx.fillStyle = "rgba(255,255,255,0.42)";
+  ctx.beginPath();
+  ctx.arc(CARD_W * 0.18, PHOTO_H * 0.18, 220, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(255,90,95,0.18)";
+  ctx.beginPath();
+  ctx.arc(CARD_W * 0.84, PHOTO_H * 0.68, 260, 0, Math.PI * 2);
+  ctx.fill();
 
   // Category tag chip (top-left)
   if (tag) {
     drawShareTagChip(ctx, tag, PAD, 30, {
-      background: "rgba(0,0,0,0.55)",
-      color: "#ffffff",
+      background: "rgba(255,255,255,0.58)",
+      color: "#ff4d57",
     });
   }
 
@@ -400,6 +419,9 @@ async function drawCardNoPhoto(
       const size = 180;
       const x = (CARD_W - size) / 2;
       const y = PHOTO_H / 2 - 180;
+      ctx.fillStyle = "rgba(255,255,255,0.62)";
+      roundRect(ctx, x - 22, y - 22, size + 44, size + 44, (size + 44) / 2);
+      ctx.fill();
       ctx.save();
       roundRect(ctx, x, y, size, size, size / 2);
       ctx.clip();
@@ -422,21 +444,24 @@ async function drawCardNoPhoto(
   wrapText(ctx, title, CARD_W / 2, PHOTO_H / 2 + 60, CARD_W - PAD * 2, 62, 2);
   ctx.textAlign = "left";
 
-  // --- White info section (explicit paint) ---
-  ctx.fillStyle = "#ffffff";
+  // --- Soft info section (explicit paint) ---
+  const infoGrad = ctx.createLinearGradient(0, PHOTO_H, 0, CARD_H);
+  infoGrad.addColorStop(0, "#fffafa");
+  infoGrad.addColorStop(1, "#f9fbff");
+  ctx.fillStyle = infoGrad;
   ctx.fillRect(0, PHOTO_H, CARD_W, INFO_H);
 
   const infoY = PHOTO_H + 50;
 
   ctx.font = "400 32px -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillStyle = "#333333";
-  drawMapPinIcon(ctx, PAD, infoY - 25, 30, "#4b5563");
+  ctx.fillStyle = "#1f2433";
+  drawMapPinIcon(ctx, PAD, infoY - 25, 30, "#ff5a5f");
   ctx.fillText(location, PAD + 42, infoY);
-  drawCalendarIcon(ctx, PAD, infoY + 25, 30, "#4b5563");
+  drawCalendarIcon(ctx, PAD, infoY + 25, 30, "#7c879d");
   ctx.fillText(dateStr, PAD + 42, infoY + 50);
 
   // Divider
-  ctx.strokeStyle = "#eee";
+  ctx.strokeStyle = "rgba(124,135,157,0.18)";
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(PAD, infoY + 90);
@@ -446,7 +471,7 @@ async function drawCardNoPhoto(
   // Footer
   const footerY = infoY + 140;
   ctx.font = "500 30px -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillStyle = "#555555";
+  ctx.fillStyle = "#6f788d";
   ctx.textAlign = "left";
   ctx.fillText(coupleNames, PAD, footerY);
   if (showWatermark) {
@@ -593,63 +618,35 @@ export function ShareCard({ pin, onClose }: Props) {
           <X size={20} />
         </button>
 
-        {/* The card to capture */}
-        <div className="share-card">
-          {hasPhoto ? (
-            // Photo card layout
-            <>
-              <div className="share-card-hero">
-                <img src={coverUrl} alt="" />
-                <div className="share-card-hero-overlay" />
-                <div className="share-card-hero-content">
-                  {category && (
-                    <span className="share-card-chip">
-                      {category.emoji} {category.label}
-                    </span>
-                  )}
-                  <h3 className="share-card-title">{pin.title}</h3>
-                </div>
-              </div>
-              <div className="share-card-info">
-                <div className="share-card-meta">
-                  <span>
-                    <MapPin size={13} />{" "}
-                    {pin.city ||
-                      pin.address ||
-                      `${pin.lat.toFixed(3)}, ${pin.lng.toFixed(3)}`}
-                  </span>
-                  <span>
-                    <Calendar size={13} /> {dateStr}
-                  </span>
-                </div>
-                <div className="share-card-footer">
-                  <span className="share-card-couple">{coupleNames}</span>
-                  {hasWatermark && (
-                    <span className="share-card-brand">
-                      <Logo size={16} className="share-card-brand-logo" />
-                      Pinly
-                    </span>
-                  )}
-                </div>
-              </div>
-            </>
-          ) : (
-            // No photo — gradient card
-            <>
-              <div className="share-card-gradient">
-                <div className="share-card-gradient-content">
-                  <div className="share-card-emoji">
-                    {pin.marker_image_url ? (
-                      <img
-                        src={getImageUrl(pin.marker_image_url, 160)}
-                        alt=""
-                      />
-                    ) : (
-                      markerEmoji
+        <div className="share-card-modal-header">
+          <span>{lang === "vi" ? "Thẻ kỷ niệm" : "Memory card"}</span>
+          <p>
+            {lang === "vi"
+              ? "Xem trước ảnh sẽ được chia sẻ hoặc tải xuống."
+              : "Preview the image you are about to share or download."}
+          </p>
+        </div>
+
+        <div className="share-card-preview-shell">
+          {/* The card to capture */}
+          <div className="share-card">
+            {hasPhoto ? (
+              // Photo card layout
+              <>
+                <div className="share-card-hero">
+                  <img src={coverUrl} alt="" />
+                  <div className="share-card-hero-overlay" />
+                  <div className="share-card-hero-content">
+                    {category && (
+                      <span className="share-card-chip">
+                        {category.emoji} {category.label}
+                      </span>
                     )}
+                    <h3 className="share-card-title">{pin.title}</h3>
                   </div>
-                  <h3 className="share-card-title-lg">{pin.title}</h3>
-                  <div className="share-card-meta-light">
+                </div>
+                <div className="share-card-info">
+                  <div className="share-card-meta">
                     <span>
                       <MapPin size={13} />{" "}
                       {pin.city ||
@@ -660,21 +657,60 @@ export function ShareCard({ pin, onClose }: Props) {
                       <Calendar size={13} /> {dateStr}
                     </span>
                   </div>
+                  <div className="share-card-footer">
+                    <span className="share-card-couple">{coupleNames}</span>
+                    {hasWatermark && (
+                      <span className="share-card-brand">
+                        <Logo size={16} className="share-card-brand-logo" />
+                        Pinly
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="share-card-info">
-                <div className="share-card-footer">
-                  <span className="share-card-couple">{coupleNames}</span>
-                  {hasWatermark && (
-                    <span className="share-card-brand">
-                      <Logo size={16} className="share-card-brand-logo" />
-                      Pinly
-                    </span>
-                  )}
+              </>
+            ) : (
+              // No photo — gradient card
+              <>
+                <div className="share-card-gradient">
+                  <div className="share-card-gradient-content">
+                    <div className="share-card-emoji">
+                      {pin.marker_image_url ? (
+                        <img
+                          src={getImageUrl(pin.marker_image_url, 160)}
+                          alt=""
+                        />
+                      ) : (
+                        markerEmoji
+                      )}
+                    </div>
+                    <h3 className="share-card-title-lg">{pin.title}</h3>
+                    <div className="share-card-meta-light">
+                      <span>
+                        <MapPin size={13} />{" "}
+                        {pin.city ||
+                          pin.address ||
+                          `${pin.lat.toFixed(3)}, ${pin.lng.toFixed(3)}`}
+                      </span>
+                      <span>
+                        <Calendar size={13} /> {dateStr}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
+                <div className="share-card-info">
+                  <div className="share-card-footer">
+                    <span className="share-card-couple">{coupleNames}</span>
+                    {hasWatermark && (
+                      <span className="share-card-brand">
+                        <Logo size={16} className="share-card-brand-logo" />
+                        Pinly
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Actions */}

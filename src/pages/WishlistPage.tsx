@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Trash2, MapPin, Search, Check, Sparkles, Globe2, CalendarHeart, Plane, X } from 'lucide-react'
+import { Plus, Trash2, MapPin, Search, Check, Sparkles, Globe2, CalendarHeart, Plane, X, Compass, Undo2 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useCoupleCtx } from '../hooks/CoupleContext'
 import { useBucket } from '../hooks/useBucket'
@@ -119,37 +119,49 @@ export function WishlistPage() {
         />
       )}
 
-      <div className="stat-grid">
-        <div className="stat-card">
-          <div className="stat-icon" style={{ background: '#ff5a5f1a', color: '#ff5a5f' }}><Sparkles size={20} /></div>
-          <div className="stat-value">{stats.totalPins}</div>
-          <div className="stat-label">{t('stats.memories')}</div>
+      <section className="stats-panel" aria-label={t('stats.title')}>
+        <div className="stats-panel-header">
+          <span>{t('stats.title')}</span>
+          <small>{stats.totalPins} {t('stats.memories')}</small>
         </div>
-        <div className="stat-card clickable" onClick={() => setStatDetail('cities')}>
-          <div className="stat-icon" style={{ background: '#378add1a', color: '#378add' }}><MapPin size={20} /></div>
-          <div className="stat-value">{stats.cities}</div>
-          <div className="stat-label">{t('stats.cities')}</div>
+        <div className="stat-grid">
+          <div className="stat-card stat-card-coral">
+            <div className="stat-icon"><Sparkles size={20} /></div>
+            <div className="stat-value">{stats.totalPins}</div>
+            <div className="stat-label">{t('stats.memories')}</div>
+          </div>
+          <button
+            type="button" className="stat-card stat-card-blue clickable"
+            onClick={() => setStatDetail('cities')}
+          >
+            <div className="stat-icon"><MapPin size={20} /></div>
+            <div className="stat-value">{stats.cities}</div>
+            <div className="stat-label">{t('stats.cities')}</div>
+          </button>
+          <button
+            type="button" className="stat-card stat-card-purple clickable"
+            onClick={() => setStatDetail('countries')}
+          >
+            <div className="stat-icon"><Globe2 size={20} /></div>
+            <div className="stat-value">{stats.countries}</div>
+            <div className="stat-label">{t('stats.countries')}</div>
+          </button>
+          <div className="stat-card stat-card-rose">
+            <div className="stat-icon"><CalendarHeart size={20} /></div>
+            <div className="stat-value">{stats.daysTogether ?? '—'}</div>
+            <div className="stat-label">{t('stats.daysTogether')}</div>
+          </div>
+          <div className="stat-card stat-card-amber">
+            <div className="stat-icon"><Plane size={20} /></div>
+            <div className="stat-value">{stats.farthestKm} km</div>
+            <div className="stat-label">{t('stats.farthest')}</div>
+          </div>
         </div>
-        <div className="stat-card clickable" onClick={() => setStatDetail('countries')}>
-          <div className="stat-icon" style={{ background: '#9333ea1a', color: '#9333ea' }}><Globe2 size={20} /></div>
-          <div className="stat-value">{stats.countries}</div>
-          <div className="stat-label">{t('stats.countries')}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon" style={{ background: '#ff4d571a', color: '#ff4d57' }}><CalendarHeart size={20} /></div>
-          <div className="stat-value">{stats.daysTogether ?? '—'}</div>
-          <div className="stat-label">{t('stats.daysTogether')}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon" style={{ background: '#f59e0b1a', color: '#f59e0b' }}><Plane size={20} /></div>
-          <div className="stat-value">{stats.farthestKm} km</div>
-          <div className="stat-label">{t('stats.farthest')}</div>
-        </div>
-      </div>
+      </section>
 
       {statDetail && createPortal(
         <div className="stat-detail-overlay" onClick={() => setStatDetail(null)}>
-          <div className="stat-detail-sheet" onClick={(e) => e.stopPropagation()}>
+          <div className="stat-detail-sheet wish-stat-detail-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="stat-detail-header">
               <h3>{statDetail === 'cities' ? t('stats.cities') : t('stats.countries')}</h3>
               <button type="button" className="stat-detail-close" onClick={() => setStatDetail(null)}>
@@ -158,10 +170,11 @@ export function WishlistPage() {
             </div>
             <div className="stat-detail-list">
               {(statDetail === 'cities' ? stats.cityList : stats.countryList).length === 0 && (
-                <p className="muted">Chưa có dữ liệu</p>
+                <p className="muted stat-detail-empty">Chưa có dữ liệu</p>
               )}
               {(statDetail === 'cities' ? stats.cityList : stats.countryList).map((item, i) => (
-                <div key={i} className="stat-detail-item">
+                <div key={`${item}-${i}`} className="stat-detail-item">
+                  <span className="stat-detail-rank">{i + 1}</span>
                   <span className="stat-detail-item-main">{item}</span>
                 </div>
               ))}
@@ -171,12 +184,12 @@ export function WishlistPage() {
         document.body,
       )}
 
-      <Button onClick={openAdd} style={{ width: '100%' }}>
-        <Plus size={18} /> {t('wish.add')}
+      <Button onClick={openAdd} leadingIcon={<Plus size={18} />} className="wish-add-btn">
+        {t('wish.add')}
       </Button>
 
       {dreams.length === 0 && done.length === 0 ? (
-        <div className="empty-state" style={{ marginTop: 32 }}>
+        <div className="empty-state wish-empty-state">
           <div className="empty-emoji">🌍</div>
           <p className="muted">{t('wish.empty')}</p>
         </div>
@@ -188,20 +201,25 @@ export function WishlistPage() {
               <div className="stack">
                 {dreams.map((b) => (
                   <div key={b.id} className="wish-card">
-                    <div className="wish-icon">★</div>
+                    <div className="wish-icon" aria-hidden="true">
+                      <Compass size={18} />
+                    </div>
                     <div className="wish-body">
+                      <div className="wish-card-kicker">{t('wish.dreaming')}</div>
                       <div className="wish-title">{b.title}</div>
                       <button
-                        className="link-btn small"
+                        type="button"
+                        className="wish-map-btn"
                         onClick={() =>
                           navigate('/', { state: { flyTo: { lat: b.lat, lng: b.lng } } })
                         }
                       >
-                        <MapPin size={12} /> {t('wish.showOnMap')}
+                        <MapPin size={13} aria-hidden="true" /> {t('wish.showOnMap')}
                       </button>
                     </div>
                     <div className="wish-actions">
                       <button
+                        type="button"
                         className="icon-btn done-btn"
                         onClick={() => markDone(b.id)}
                         title={t('wish.markVisited')}
@@ -210,7 +228,7 @@ export function WishlistPage() {
                       >
                         <Check size={18} />
                       </button>
-                      <button className="icon-btn" onClick={() => removeItem(b.id)} title={t('wish.delete')} aria-label={t('wish.delete')}>
+                      <button type="button" className="icon-btn" onClick={() => removeItem(b.id)} title={t('wish.delete')} aria-label={t('wish.delete')}>
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -226,23 +244,34 @@ export function WishlistPage() {
               <div className="stack">
                 {done.map((b) => (
                   <div key={b.id} className="wish-card done">
-                    <div className="wish-icon">
+                    <div className="wish-icon" aria-hidden="true">
                       <Check size={18} />
                     </div>
                     <div className="wish-body">
+                      <div className="wish-card-kicker">{t('wish.visited')}</div>
                       <div className="wish-title">{b.title}</div>
+                      <button
+                        type="button"
+                        className="wish-map-btn"
+                        onClick={() =>
+                          navigate('/', { state: { flyTo: { lat: b.lat, lng: b.lng } } })
+                        }
+                      >
+                        <MapPin size={13} aria-hidden="true" /> {t('wish.showOnMap')}
+                      </button>
                     </div>
                     <div className="wish-actions">
                       <button
+                        type="button"
                         className="icon-btn done-btn active"
                         onClick={() => markDream(b.id)}
                         title={t('wish.markDreaming')}
                         aria-label={t('wish.markDreaming')}
                         aria-pressed={true}
                       >
-                        <Check size={18} />
+                        <Undo2 size={17} />
                       </button>
-                      <button className="icon-btn" onClick={() => removeItem(b.id)} title={t('wish.delete')} aria-label={t('wish.delete')}>
+                      <button type="button" className="icon-btn" onClick={() => removeItem(b.id)} title={t('wish.delete')} aria-label={t('wish.delete')}>
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -296,11 +325,24 @@ export function WishlistPage() {
 
           {selected && (
             <div className="selected-place">
-              <MapPin size={16} />
-              <div>
+              <MapPin size={16} aria-hidden="true" />
+              <div className="selected-place-copy">
                 <div className="selected-name">{selected.display_name.split(',')[0]}</div>
                 <div className="muted small">{selected.display_name}</div>
               </div>
+              <button
+                type="button"
+                className="selected-place-clear"
+                onClick={() => {
+                  setSelected(null)
+                  setQuery('')
+                  setResults([])
+                  setError(null)
+                }}
+                aria-label={t('common.cancel')}
+              >
+                <X size={14} />
+              </button>
             </div>
           )}
 

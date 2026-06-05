@@ -19,6 +19,7 @@ import { BottomNav } from "./components/ui/BottomNav";
 import { UpdatePrompt } from "./components/ui/UpdatePrompt";
 import { AnniversaryPrompt } from "./components/onboard/AnniversaryPrompt";
 import { NotificationToast } from "./components/ui/NotificationToast";
+import { Logo } from "./components/ui/Logo";
 import { getImageUrl } from "./lib/cloudinary";
 import { useAuth } from "./hooks/useAuth";
 import { CoupleProvider, useCoupleCtx } from "./hooks/CoupleContext";
@@ -30,7 +31,32 @@ import { ToastProvider } from "./hooks/ToastContext";
 import { usePushSubscription } from "./hooks/usePushSubscription";
 import { NotificationFeedProvider } from "./hooks/NotificationFeedContext";
 import { SubscriptionProvider } from "./hooks/useSubscription";
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
+
+function AppStatusScreen({
+  title,
+  body,
+  children,
+  tone = "idle",
+}: {
+  title: string;
+  body?: string;
+  children?: ReactNode;
+  tone?: "idle" | "error";
+}) {
+  return (
+    <div className={`full-center app-status-screen ${tone}`}>
+      <div className="app-status-card">
+        <div className="app-status-logo">
+          <Logo size={44} />
+        </div>
+        <h2>{title}</h2>
+        {body && <p className="muted">{body}</p>}
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function PairedShell() {
   const { couple, profile } = useCoupleCtx();
@@ -104,23 +130,20 @@ function PinsScope() {
 function RoutedShell() {
   const { couple, loading, error } = useCoupleCtx();
 
-  if (loading) return <div className="full-center muted">Loading…</div>;
+  if (loading) return <AppStatusScreen title="Loading Pinly…" />;
 
   if (error) {
     return (
-      <div
-        className="full-center"
-        style={{ flexDirection: "column", padding: 24, textAlign: "center" }}
+      <AppStatusScreen
+        title="Something went wrong"
+        body={error}
+        tone="error"
       >
-        <h2>Something went wrong</h2>
-        <p className="muted" style={{ maxWidth: 420 }}>
-          {error}
-        </p>
         <p className="muted small">
           Đã chạy <code>supabase/schema.sql</code> trong Supabase SQL Editor
           chưa?
         </p>
-      </div>
+      </AppStatusScreen>
     );
   }
 
@@ -140,7 +163,7 @@ function RoutedShell() {
 function AppRoutes() {
   const { user, loading: authLoading, isRecovery } = useAuth();
 
-  if (authLoading) return <div className="full-center muted">Loading…</div>;
+  if (authLoading) return <AppStatusScreen title="Loading Pinly…" />;
 
   // Show reset password page when user clicked recovery link
   if (isRecovery && user) {

@@ -15,7 +15,7 @@ import {
   CheckCircle2,
   Crown,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useCoupleCtx } from "../hooks/CoupleContext";
 import { isDarkModeEnabled, useTheme } from "../hooks/ThemeContext";
@@ -28,8 +28,40 @@ import { useSubscription } from "../hooks/useSubscription";
 import { PricingPage } from "./PricingPage";
 import { UpgradePrompt } from "../components/ui/UpgradePrompt";
 import { Button } from "../components/ui/Button";
+import { GlassSurface } from "../components/ui/GlassSurface";
+import { SegmentedControl } from "../components/ui/SegmentedControl";
+import { Switch } from "../components/ui/Switch";
+import { cx } from "../components/ui/uiClasses";
 import { compressImage } from "../lib/imageCompress";
 import { uploadToCloudinary, getImageUrl } from "../lib/cloudinary";
+
+interface SettingSectionProps {
+  title: ReactNode;
+  icon?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}
+
+function SettingSection({
+  title,
+  icon,
+  children,
+  className = "",
+}: SettingSectionProps) {
+  return (
+    <GlassSurface
+      as="section"
+      level="section"
+      className={cx("setting-section", className)}
+    >
+      <div className="setting-section-title">
+        {icon && <span className="setting-section-icon">{icon}</span>}
+        <span>{title}</span>
+      </div>
+      {children}
+    </GlassSurface>
+  );
+}
 
 export function SettingsPage() {
   const { user, signOut } = useAuth();
@@ -106,92 +138,94 @@ export function SettingsPage() {
 
   return (
     <div className="page page-settings">
-      <header className="page-header">
-        <h1>{t("settings.title")}</h1>
+      <header className="page-header settings-header">
+        <div>
+          <p className="settings-kicker">Pinly</p>
+          <h1>{t("settings.title")}</h1>
+        </div>
       </header>
 
       {/* Subscription section */}
-      <section className="setting-section">
-        <div className="setting-section-title">
-          <Crown
-            size={14}
-            style={{ display: "inline", verticalAlign: "-2px" }}
-          />{" "}
-          {lang === "vi" ? "Gói của bạn" : "Your Plan"}
-        </div>
-        <div className="setting-row compact">
-          <span style={{ fontWeight: 700 }}>
-            {plan === "free" ? "Free" : plan === "plus" ? "Plus" : "Pro"}
-          </span>
-          {plan === "free" ? (
-            <Button
-              variant="primary"
-              onClick={() => setShowPricing(true)}
-              style={{ padding: "6px 14px", fontSize: 13 }}
-            >
-              {lang === "vi" ? "Nâng cấp" : "Upgrade"}
-            </Button>
-          ) : (
-            <span className="muted" style={{ fontSize: 12 }}>
+      <SettingSection
+        title={lang === "vi" ? "Gói của bạn" : "Your Plan"}
+        icon={<Crown size={14} />}
+        className="setting-section-plan"
+      >
+        <div className="setting-plan-overview">
+          <div className="setting-plan-main">
+            <span className="setting-plan-name">
+              {plan === "free" ? "Free" : plan === "plus" ? "Plus" : "Pro"}
+            </span>
+            <div className="setting-plan-actions">
+              {plan === "free" ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setShowPricing(true)}
+                  className="setting-plan-upgrade"
+                >
+                  {lang === "vi" ? "Nâng cấp" : "Upgrade"}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowPricing(true)}
+                  className="setting-plan-manage"
+                >
+                  {lang === "vi" ? "Quản lý gói" : "Manage plan"}
+                </Button>
+              )}
+            </div>
+          </div>
+          {plan !== "free" && (
+            <span className="muted setting-plan-meta">
               {subscription
                 ? `${lang === "vi" ? "Hết hạn" : "Expires"}: ${new Date(subscription.current_period_end).toLocaleDateString("vi-VN")}`
                 : "Active"}
             </span>
           )}
         </div>
-        {plan !== "free" && (
-          <button
-            type="button"
-            onClick={() => setShowPricing(true)}
-            style={{
-              fontSize: 12,
-              marginTop: 6,
-              marginBottom: 4,
-              padding: "6px 12px",
-              borderRadius: 8,
-              border: "1px solid var(--border)",
-              background: "var(--card)",
-              color: "var(--text)",
-              cursor: "pointer",
-            }}
-          >
-            {lang === "vi" ? "Quản lý gói" : "Manage plan"}
-          </button>
-        )}
-      </section>
+      </SettingSection>
 
-      <section className="setting-section">
-        <div className="setting-section-title">
-          {showDarkToggle ? t("settings.appearance") : t("settings.language")}
-        </div>
-
+      <SettingSection
+        title={showDarkToggle ? t("settings.appearance") : t("settings.language")}
+        icon={<Globe size={14} />}
+      >
         {showDarkToggle && (
           <div className="setting-row compact">
             <span>{t("settings.theme")}</span>
-            <div className="seg">
-              <button
-                className={`seg-btn ${theme === "light" ? "active" : ""}`}
-                onClick={() => setTheme("light")}
-              >
-                <Sun size={14} /> {t("settings.themeLight")}
-              </button>
-              <button
-                className={`seg-btn ${theme === "dark" ? "active" : ""}`}
-                onClick={() => setTheme("dark")}
-              >
-                <Moon size={14} /> {t("settings.themeDark")}
-              </button>
-            </div>
+            <SegmentedControl
+              value={theme}
+              label={t("settings.theme")}
+              options={[
+                {
+                  value: "light",
+                  label: (
+                    <>
+                      <Sun size={14} /> {t("settings.themeLight")}
+                    </>
+                  ),
+                },
+                {
+                  value: "dark",
+                  label: (
+                    <>
+                      <Moon size={14} /> {t("settings.themeDark")}
+                    </>
+                  ),
+                },
+              ]}
+              onChange={setTheme}
+            />
           </div>
         )}
 
         <div className="setting-row compact">
           {showDarkToggle ? (
-            <span>
-              <Globe
-                size={14}
-                style={{ display: "inline", verticalAlign: "-2px" }}
-              />{" "}
+            <span className="setting-row-label">
+              <Globe size={14} aria-hidden="true" />
               {t("settings.language")}
             </span>
           ) : (
@@ -199,32 +233,49 @@ export function SettingsPage() {
               {lang === "en" ? "Choose language" : "Chọn ngôn ngữ"}
             </span>
           )}
-          <div className="seg">
-            <button
-              className={`seg-btn ${lang === "en" ? "active" : ""}`}
-              onClick={() => setLang("en")}
-            >
-              EN
-            </button>
-            <button
-              className={`seg-btn ${lang === "vi" ? "active" : ""}`}
-              onClick={() => setLang("vi")}
-            >
-              VI
-            </button>
-          </div>
+          <SegmentedControl
+            value={lang}
+            label={t("settings.language")}
+            size="sm"
+            options={[
+              { value: "en", label: "EN" },
+              { value: "vi", label: "VI" },
+            ]}
+            onChange={setLang}
+          />
         </div>
-      </section>
+      </SettingSection>
 
-      <section className="setting-section">
-        <div className="setting-section-title">{t("settings.mapStyle")}</div>
+      <SettingSection
+        title={t("settings.mapStyle")}
+        className="setting-section-map-style"
+      >
         <div className="map-style-grid">
           {sortedStyles.map((s) => {
             const locked = !canUseMapStyle(s.id);
+            const active = styleId === s.id;
+            const label = lang === "vi" ? s.labelVi : s.labelEn;
+            const stateLabel = active
+              ? lang === "vi"
+                ? "đang chọn"
+                : "selected"
+              : lang === "vi"
+                ? "chưa chọn"
+                : "not selected";
+            const accessLabel = locked
+              ? lang === "vi"
+                ? "cần nâng cấp"
+                : "upgrade required"
+              : lang === "vi"
+                ? "có thể chọn"
+                : "available";
             return (
               <button
                 key={s.id}
-                className={`map-style-card ${styleId === s.id ? "active" : ""} ${locked ? "locked" : ""}`}
+                type="button"
+                aria-pressed={active}
+                aria-label={`${label}, ${stateLabel}, ${accessLabel}`}
+                className={`map-style-card ${active ? "active" : ""} ${locked ? "locked" : ""}`}
                 onClick={() => {
                   if (locked) {
                     setUpgradeFeature(
@@ -237,16 +288,21 @@ export function SettingsPage() {
                   }
                 }}
               >
-                <div className="map-style-swatch">
-                  <span style={{ background: s.colors[0] }} />
-                  <span style={{ background: s.colors[1] }} />
-                  <span style={{ background: s.colors[2] }} />
-                </div>
+                <svg
+                  className="map-style-swatch"
+                  viewBox="0 0 54 32"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <rect x="0" y="0" width="18" height="32" fill={s.colors[0]} />
+                  <rect x="18" y="0" width="18" height="32" fill={s.colors[1]} />
+                  <rect x="36" y="0" width="18" height="32" fill={s.colors[2]} />
+                </svg>
                 <div className="map-style-label">
-                  {lang === "vi" ? s.labelVi : s.labelEn}
+                  {label}
                   {locked && " 🔒"}
                 </div>
-                {styleId === s.id && (
+                {active && (
                   <span className="map-style-selected" aria-hidden="true">
                     <CheckCircle2 size={16} />
                   </span>
@@ -255,16 +311,13 @@ export function SettingsPage() {
             );
           })}
         </div>
-      </section>
+      </SettingSection>
 
-      <section className="setting-section">
-        <div className="setting-section-title">
-          <Bell
-            size={12}
-            style={{ display: "inline", verticalAlign: "-1px" }}
-          />{" "}
-          {t("notif.title")}
-        </div>
+      <SettingSection
+        title={t("notif.title")}
+        icon={<Bell size={14} />}
+        className="setting-section-notifications"
+      >
         <div className="setting-row">
           <span>
             {push.subscribed
@@ -274,85 +327,113 @@ export function SettingsPage() {
                 : t("notif.pushHint")}
           </span>
           {push.subscribed ? (
-            <div className="seg">
-              <button className="seg-btn active">
-                <Bell size={14} /> ON
-              </button>
-              <button
-                className="seg-btn"
-                onClick={push.unsubscribe}
-                disabled={push.loading}
-              >
-                <BellOff size={14} /> OFF
-              </button>
-            </div>
+            <SegmentedControl
+              value="on"
+              label={t("notif.title")}
+              options={[
+                {
+                  value: "on",
+                  label: (
+                    <>
+                      <Bell size={14} /> ON
+                    </>
+                  ),
+                },
+                {
+                  value: "off",
+                  label: (
+                    <>
+                      <BellOff size={14} /> OFF
+                    </>
+                  ),
+                  disabled: push.loading,
+                },
+              ]}
+              onChange={(value) => {
+                if (value === "off") void push.unsubscribe();
+              }}
+            />
           ) : (
-            <div className="seg">
-              <button
-                className="seg-btn"
-                onClick={push.subscribe}
-                disabled={push.loading || notif.permission === "denied"}
-              >
-                <Bell size={14} /> {push.loading ? "…" : "ON"}
-              </button>
-              <button className="seg-btn active">
-                <BellOff size={14} /> OFF
-              </button>
-            </div>
+            <SegmentedControl
+              value="off"
+              label={t("notif.title")}
+              options={[
+                {
+                  value: "on",
+                  label: (
+                    <>
+                      <Bell size={14} /> {push.loading ? "…" : "ON"}
+                    </>
+                  ),
+                  disabled: push.loading || notif.permission === "denied",
+                },
+                {
+                  value: "off",
+                  label: (
+                    <>
+                      <BellOff size={14} /> OFF
+                    </>
+                  ),
+                },
+              ]}
+              onChange={(value) => {
+                if (value === "on") void push.subscribe();
+              }}
+            />
           )}
         </div>
         <div className="notif-pref-list">
           {push.subscribed && (
             <>
-              <label className="notif-pref-row">
+              <div className="notif-pref-row">
                 <span>
                   <strong>{t("notif.memoryAdded")}</strong>
                   <small>{t("notif.memoryAddedHint")}</small>
                 </span>
-                <input
-                  type="checkbox"
+                <Switch
+                  aria-label={t("notif.memoryAdded")}
                   checked={notifPrefs.prefs.memory_added}
                   disabled={notifPrefs.loading}
                   onChange={(e) =>
                     notifPrefs.updatePrefs({ memory_added: e.target.checked })
                   }
                 />
-              </label>
-              <label className="notif-pref-row">
+              </div>
+              <div className="notif-pref-row">
                 <span>
                   <strong>{t("notif.reactions")}</strong>
                   <small>{t("notif.reactionsHint")}</small>
                 </span>
-                <input
-                  type="checkbox"
+                <Switch
+                  aria-label={t("notif.reactions")}
                   checked={notifPrefs.prefs.reactions}
                   disabled={notifPrefs.loading}
                   onChange={(e) =>
                     notifPrefs.updatePrefs({ reactions: e.target.checked })
                   }
                 />
-              </label>
-              <label className="notif-pref-row">
+              </div>
+              <div className="notif-pref-row">
                 <span>
                   <strong>{t("notif.comments")}</strong>
                   <small>{t("notif.commentsHint")}</small>
                 </span>
-                <input
-                  type="checkbox"
+                <Switch
+                  aria-label={t("notif.comments")}
                   checked={notifPrefs.prefs.comments}
                   disabled={notifPrefs.loading}
                   onChange={(e) =>
                     notifPrefs.updatePrefs({ comments: e.target.checked })
                   }
                 />
-              </label>
-              <label className="notif-pref-row">
+              </div>
+              <div className="notif-pref-row">
                 <span>
                   <strong>{t("notif.streakReminders")}</strong>
                   <small>{t("notif.streakRemindersHint")}</small>
                 </span>
-                <input
-                  type="checkbox"
+                <Switch
+                  aria-label={t("notif.streakReminders")}
                   checked={notifPrefs.prefs.streak_reminders}
                   disabled={notifPrefs.loading}
                   onChange={(e) =>
@@ -361,16 +442,16 @@ export function SettingsPage() {
                     })
                   }
                 />
-              </label>
+              </div>
             </>
           )}
-          <label className="notif-pref-row">
+          <div className="notif-pref-row">
             <span>
               <strong>{t("notif.streakEmailReminders")}</strong>
               <small>{t("notif.streakEmailRemindersHint")}</small>
             </span>
-            <input
-              type="checkbox"
+            <Switch
+              aria-label={t("notif.streakEmailReminders")}
               checked={notifPrefs.prefs.streak_email_reminders}
               disabled={notifPrefs.loading}
               onChange={(e) =>
@@ -379,19 +460,15 @@ export function SettingsPage() {
                 })
               }
             />
-          </label>
+          </div>
         </div>
-      </section>
+      </SettingSection>
 
       {couple && (
-        <section className="setting-section">
-          <div className="setting-section-title">
-            <Calendar
-              size={12}
-              style={{ display: "inline", verticalAlign: "-1px" }}
-            />{" "}
-            {t("settings.anniversary")}
-          </div>
+        <SettingSection
+          title={t("settings.anniversary")}
+          icon={<Calendar size={14} />}
+        >
           <div className="setting-row">
             <input
               type="date"
@@ -411,20 +488,21 @@ export function SettingsPage() {
               {annivSaving ? "…" : t("onboard.save")}
             </Button>
           </div>
-        </section>
+        </SettingSection>
       )}
 
       {couple && (
-        <section className="setting-section">
-          <div className="setting-section-title">
-            {t("settings.background")}
-          </div>
+        <SettingSection
+          title={t("settings.background")}
+          icon={<ImageUp size={14} />}
+          className="setting-section-background"
+        >
           {couple.background_image_url && (
             <div className="bg-preview">
               <img src={getImageUrl(couple.background_image_url, 600)} alt="" />
             </div>
           )}
-          <div className="row" style={{ padding: "12px 0" }}>
+          <div className="setting-button-row">
             <Button
               variant="secondary"
               onClick={() => bgInput.current?.click()}
@@ -441,7 +519,7 @@ export function SettingsPage() {
               ref={bgInput}
               type="file"
               accept="image/*"
-              style={{ display: "none" }}
+              hidden
               onChange={(e) => {
                 handleBgUpload(e.target.files?.[0]);
                 e.target.value = "";
@@ -449,11 +527,13 @@ export function SettingsPage() {
             />
           </div>
           {bgError && <p className="error">{bgError}</p>}
-        </section>
+        </SettingSection>
       )}
 
-      <section className="setting-section">
-        <div className="setting-section-title">{t("settings.account")}</div>
+      <SettingSection
+        title={t("settings.account")}
+        className="setting-section-account"
+      >
         <div className="setting-row col">
           <div className="muted small">{t("settings.profile")}</div>
           <div>{profile?.display_name ?? user?.email}</div>
@@ -462,7 +542,10 @@ export function SettingsPage() {
         {partner && (
           <div className="setting-row col">
             <div className="muted small">
-              <Heart size={12} style={{ display: "inline" }} /> Partner
+              <span className="setting-row-label">
+                <Heart size={12} aria-hidden="true" />
+                Partner
+              </span>
             </div>
             <div>{partner.display_name ?? partner.email}</div>
           </div>
@@ -476,17 +559,9 @@ export function SettingsPage() {
             </button>
           </div>
         )}
-      </section>
+      </SettingSection>
 
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "12px",
-          marginTop: "8px",
-          paddingBottom: "20px",
-        }}
-      >
+      <div className="settings-action-stack">
         <Button
           variant="ghost"
           onClick={async () => {
@@ -498,7 +573,7 @@ export function SettingsPage() {
             if (regs) await Promise.all(regs.map((r) => r.unregister()));
             window.location.reload();
           }}
-          style={{ width: "100%" }}
+          className="settings-full-button"
         >
           <RefreshCw size={16} /> {t("settings.clearCache")}
         </Button>
@@ -506,7 +581,7 @@ export function SettingsPage() {
         <Button
           variant="danger"
           onClick={() => signOut()}
-          style={{ width: "100%" }}
+          className="settings-full-button"
         >
           <LogOut size={16} /> {t("settings.signOut")}
         </Button>

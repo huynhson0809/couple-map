@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { useNotifFeed } from "../hooks/NotificationFeedContext";
 import { useI18n } from "../hooks/I18nContext";
+import { Button } from "../components/ui/Button";
+import { SegmentedControl } from "../components/ui/SegmentedControl";
 import type { AppNotification } from "../types";
 
 const VI_ACTIONS = [
@@ -19,6 +21,8 @@ const VI_ACTIONS = [
   " đã hoàn thành streak",
   " streak đã bị mất",
 ];
+
+type Translate = ReturnType<typeof useI18n>["t"];
 
 function extractActorName(title: string): string {
   for (const action of VI_ACTIONS) {
@@ -30,8 +34,7 @@ function extractActorName(title: string): string {
   return title;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function notifTitle(n: AppNotification, t: (k: any) => string): string {
+function notifTitle(n: AppNotification, t: Translate): string {
   const name = extractActorName(n.title);
   switch (n.type) {
     case "new_pin":
@@ -45,8 +48,7 @@ function notifTitle(n: AppNotification, t: (k: any) => string): string {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function timeAgo(dateStr: string, t: (k: any) => string): string {
+function timeAgo(dateStr: string, t: Translate): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
   const diff = now - then;
@@ -82,31 +84,30 @@ function notifIcon(type: AppNotification["type"]) {
   }
 }
 
-function notifColor(type: AppNotification["type"]) {
+function notifTone(type: AppNotification["type"]) {
   switch (type) {
     case "new_pin":
-      return "#ff676d";
+      return "memory";
     case "reaction":
-      return "#e91e63";
+      return "reaction";
     case "comment":
-      return "#2196f3";
+      return "comment";
     case "streak_reminder":
-      return "#ff9800";
+      return "streak-warning";
     case "streak_complete":
-      return "#4caf50";
+      return "streak-success";
     case "streak_broken":
-      return "#f44336";
+      return "streak-danger";
     default:
-      return "#666";
+      return "neutral";
   }
 }
 
 type Section = { label: string; items: AppNotification[] };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function groupByTime(
   items: AppNotification[],
-  t: (k: any) => string,
+  t: Translate,
 ): Section[] {
   const now = new Date();
   const startOfToday = new Date(
@@ -193,36 +194,33 @@ export function NotificationsPage() {
       <header className="page-header notif-header-row">
         <h1>{t("nav.notifications")}</h1>
         {unreadCount > 0 && (
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="sm"
+            leadingIcon={<CheckCheck size={16} />}
             className="notif-mark-all-btn"
             onClick={markAllAsRead}
           >
-            <CheckCheck size={16} />
-            <span>{t("notif.markRead")}</span>
-          </button>
+            {t("notif.markRead")}
+          </Button>
         )}
       </header>
 
-      <div className="notif-tabs">
-        <button
-          type="button"
-          className={`notif-tab ${tab === "all" ? "active" : ""}`}
-          onClick={() => setTab("all")}
-        >
-          {t("notif.all")}
-        </button>
-        <button
-          type="button"
-          className={`notif-tab ${tab === "unread" ? "active" : ""}`}
-          onClick={() => setTab("unread")}
-        >
-          {t("notif.unread")}
-        </button>
-      </div>
+      <SegmentedControl
+        value={tab}
+        onChange={setTab}
+        label={t("nav.notifications")}
+        size="sm"
+        className="notif-filter"
+        options={[
+          { value: "all", label: t("notif.all") },
+          { value: "unread", label: t("notif.unread") },
+        ]}
+      />
 
       {filtered.length === 0 && !loading && (
-        <div className="empty-state">
+        <div className="empty-state notif-empty-state">
           <Bell size={40} strokeWidth={1.5} className="muted" />
           <p className="muted">
             {tab === "unread" ? t("notif.noUnread") : t("notif.noNotif")}
@@ -234,32 +232,42 @@ export function NotificationsPage() {
         {sections.map((section) => (
           <div key={section.label} className="notif-section">
             <div className="notif-section-label">{section.label}</div>
-            {section.items.map((n) => (
-              <button
-                key={n.id}
-                type="button"
-                className={`notif-item ${n.read ? "" : "unread"}`}
-                onClick={() => handleNotifClick(n)}
-              >
-                <span
-                  className="notif-item-icon"
-                  style={{
-                    background: `${notifColor(n.type)}14`,
-                    color: notifColor(n.type),
-                  }}
+            {section.items.map((n) => {
+              const title = notifTitle(n, t);
+              const relativeTime = timeAgo(n.created_at, t);
+              const ariaLabel = [
+                !n.read ? t("notif.unread") : undefined,
+                title,
+                n.body,
+                relativeTime,
+              ]
+                .filter((part): part is string => Boolean(part))
+                .join(". ");
+
+              return (
+                <button
+                  key={n.id}
+                  type="button"
+                  aria-label={ariaLabel}
+                  className={`notif-item ${n.read ? "" : "unread"}`}
+                  onClick={() => handleNotifClick(n)}
                 >
-                  {notifIcon(n.type)}
-                </span>
-                <span className="notif-item-content">
-                  <span className="notif-item-title">{notifTitle(n, t)}</span>
-                  {n.body && <span className="notif-item-body">{n.body}</span>}
-                  <span className="notif-item-time">
-                    {timeAgo(n.created_at, t)}
+                  <span
+                    className={`notif-item-icon notif-item-icon-${notifTone(n.type)}`}
+                  >
+                    {notifIcon(n.type)}
                   </span>
-                </span>
-                {!n.read && <span className="notif-item-dot" />}
-              </button>
-            ))}
+                  <span className="notif-item-content">
+                    <span className="notif-item-title">{title}</span>
+                    {n.body && (
+                      <span className="notif-item-body">{n.body}</span>
+                    )}
+                    <span className="notif-item-time">{relativeTime}</span>
+                  </span>
+                  {!n.read && <span className="notif-item-dot" />}
+                </button>
+              );
+            })}
           </div>
         ))}
         {loading && <div className="notif-loading">{t("notif.loading")}</div>}

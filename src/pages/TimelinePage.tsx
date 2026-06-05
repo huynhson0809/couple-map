@@ -44,8 +44,8 @@ type TimelineRow =
   | { type: 'pin'; id: string; pin: Pin }
   | { type: 'footer'; id: string }
 
-const TIMELINE_MONTH_ROW_HEIGHT = 44
-const TIMELINE_PIN_ROW_HEIGHT = 118
+const TIMELINE_MONTH_ROW_HEIGHT = 48
+const TIMELINE_PIN_ROW_HEIGHT = 168
 const TIMELINE_FOOTER_ROW_HEIGHT = 118
 
 interface TimelineRowProps {
@@ -101,8 +101,8 @@ function TimelineRowItem({
   const cover = p.images?.[0]?.cloudinary_url
   const coverThumb = cover
     ? isVideoUrl(cover)
-      ? getVideoThumbnailUrl(cover, 180, 70)
-      : getImageUrl(cover, 180, 70)
+      ? getVideoThumbnailUrl(cover, 248, 112)
+      : getImageUrl(cover, 248, 112)
     : null
   const cat = getCategory(p.category)
   const who = p.created_by === profileId ? profileName : partnerName
@@ -110,30 +110,37 @@ function TimelineRowItem({
   return (
     <div style={style} className="timeline-virtual-row pin-row">
       <div className={`timeline-card ${p.is_favorite ? 'favorite' : ''}`}>
-        <button type="button" className="timeline-card-open" onClick={() => openPinDetail(p)}>
-          {coverThumb ? (
-            <img
-              src={coverThumb}
-              alt=""
-              className="timeline-thumb"
-              loading="lazy"
-              decoding="async"
-              fetchPriority="low"
-            />
-          ) : (
-            <div className="timeline-thumb empty">
-              {uploadInfo ? (
-                <div className="timeline-upload-progress">
-                  <div className="timeline-upload-spinner" />
-                  <span className="timeline-upload-pct">{uploadInfo.progress}%</span>
-                </div>
-              ) : (
-                cat?.emoji ?? '📷'
-              )}
-            </div>
-          )}
-          <div className={`timeline-content ${p.is_favorite ? 'has-favorite-action' : ''}`}>
-            <div className="timeline-title-row">
+        <button
+          type="button"
+          className="timeline-card-open"
+          onClick={() => openPinDetail(p)}
+          aria-label={p.title}
+        >
+          <span className="timeline-media-frame" aria-hidden="true">
+            {coverThumb ? (
+              <img
+                src={coverThumb}
+                alt=""
+                className="timeline-thumb"
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
+              />
+            ) : (
+              <span className="timeline-thumb empty">
+                {uploadInfo ? (
+                  <span className="timeline-upload-progress">
+                    <span className="timeline-upload-spinner" />
+                    <span className="timeline-upload-pct">{uploadInfo.progress}%</span>
+                  </span>
+                ) : (
+                  cat?.emoji ?? '📷'
+                )}
+              </span>
+            )}
+          </span>
+          <span className={`timeline-content ${p.is_favorite ? 'has-favorite-action' : ''}`}>
+            <span className="timeline-title-row">
               <span className="timeline-title">{p.title}</span>
               {cat && (
                 <span
@@ -143,18 +150,18 @@ function TimelineRowItem({
                   {cat.emoji} {cat.label}
                 </span>
               )}
-            </div>
-            {p.note && <div className="timeline-note">{p.note}</div>}
-            <div className="timeline-meta">
-              <MapPin size={12} /> {p.city ?? '—'} · {who} ·{' '}
+            </span>
+            {p.note && <span className="timeline-note">{p.note}</span>}
+            <span className="timeline-meta">
+              <MapPin size={12} aria-hidden="true" /> {p.city ?? '—'} · {who} ·{' '}
               {new Date(p.created_at).toLocaleDateString(lang === 'vi' ? 'vi-VN' : undefined)}
-            </div>
+            </span>
             {uploadInfo && (
-              <div className="timeline-upload-bar">
-                <div className="timeline-upload-bar-fill" style={{ width: `${uploadInfo.progress}%` }} />
-              </div>
+              <span className="timeline-upload-bar">
+                <span className="timeline-upload-bar-fill" style={{ width: `${uploadInfo.progress}%` }} />
+              </span>
             )}
-          </div>
+          </span>
         </button>
         {p.is_favorite && (
           <span className="timeline-favorite-toggle" aria-hidden="true">
@@ -269,11 +276,15 @@ export function TimelinePage() {
     const state = location.state as { openPinId?: string } | null
     if (!state?.openPinId) return
     const pin = livePins.find((p) => p.id === state.openPinId) ?? timelinePins.find((p) => p.id === state.openPinId)
-    if (pin) {
+    if (!pin) return
+
+    const frame = window.requestAnimationFrame(() => {
       setSelectedPin(pin)
       // Clear the state so it doesn't re-open on re-render
       navigate(location.pathname, { replace: true, state: {} })
-    }
+    })
+
+    return () => window.cancelAnimationFrame(frame)
   }, [location.state, livePins, timelinePins, navigate, location.pathname])
 
   function clearAdvancedFilters() {
@@ -372,7 +383,7 @@ export function TimelinePage() {
 
   if (!loading && total === 0 && !hasAdvancedFilters) {
     return (
-      <div className="page empty-state">
+      <div className="page page-timeline timeline-page-empty empty-state">
         <div className="empty-emoji">📍</div>
         <h2>{t('timeline.empty')}</h2>
         <p className="muted">{t('timeline.emptyHint')}</p>

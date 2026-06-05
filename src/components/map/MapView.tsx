@@ -74,6 +74,7 @@ export function MapView({
   const styleLoadedRef = useRef(false);
   const didInitialFitRef = useRef<boolean>(false);
   const pinsRef = useRef<Pin[]>([]);
+  const onLongPressRef = useRef(onLongPress);
   const onPinClickRef = useRef(onPinClick);
   const onUserLocationRef = useRef(onUserLocation);
   const onMapCenterChangeRef = useRef(onMapCenterChange);
@@ -86,6 +87,7 @@ export function MapView({
 
   useEffect(() => {
     pinsRef.current = pins;
+    onLongPressRef.current = onLongPress;
     onPinClickRef.current = onPinClick;
     onUserLocationRef.current = onUserLocation;
     onMapCenterChangeRef.current = onMapCenterChange;
@@ -94,6 +96,7 @@ export function MapView({
     getCategoryRef.current = getCategory;
   }, [
     pins,
+    onLongPress,
     onPinClick,
     onUserLocation,
     onMapCenterChange,
@@ -387,11 +390,6 @@ export function MapView({
     });
     map.addControl(geolocateControl, "bottom-right");
 
-    // Auto-trigger geolocation on first load
-    map.once("load", () => {
-      geolocateControl.trigger();
-    });
-
     function startLongPress(
       e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent,
     ) {
@@ -408,7 +406,7 @@ export function MapView({
           : (e as unknown as { lngLat: maplibregl.LngLat }).lngLat;
       cancelLongPress();
       longPressTimer.current = window.setTimeout(() => {
-        onLongPress({ lat: lngLat.lat, lng: lngLat.lng });
+        onLongPressRef.current({ lat: lngLat.lat, lng: lngLat.lng });
       }, 500);
     }
     function cancelLongPress() {
@@ -447,15 +445,18 @@ export function MapView({
     if (containerRef.current) ro.observe(containerRef.current);
 
     mapRef.current = map;
+    const markerStore = markersRef.current;
     return () => {
       ro.disconnect();
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current.clear();
+      markerStore.forEach((m) => m.remove());
+      markerStore.clear();
       map.remove();
       mapRef.current = null;
       styleLoadedRef.current = false;
     };
-  }, [onLongPress]);
+    // MapLibre owns this imperative lifecycle. Dynamic callbacks are read through refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Change map style when mapStyleUrl changes
   useEffect(() => {

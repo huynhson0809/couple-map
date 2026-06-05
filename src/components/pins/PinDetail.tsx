@@ -428,6 +428,8 @@ export function PinDetail({
   const reactionSummary = REACTIONS.filter((r) =>
     reactions.some((item) => item.reaction === r.type),
   ).slice(0, 3);
+  const reactionSummaryForLayout =
+    reactionCount > 0 ? reactionSummary : [REACTIONS[1]];
   const topLevelComments = useMemo(
     () => comments.filter((comment) => !comment.parent_comment_id),
     [comments],
@@ -805,6 +807,15 @@ export function PinDetail({
               type="button"
               variant="secondary"
               className={`heart-action pin-core-action ${myReaction ? "active" : ""}`}
+              leadingIcon={
+                currentReaction ? (
+                  <span className="reaction-action-emoji">
+                    {currentReaction.emoji}
+                  </span>
+                ) : (
+                  <Heart size={16} />
+                )
+              }
               onPointerDown={startReactionPress}
               onPointerUp={endReactionPress}
               onPointerCancel={() => {
@@ -825,61 +836,57 @@ export function PinDetail({
                 setReactionPickerOpen(true);
               }}
             >
-              {currentReaction ? (
-                <span className="reaction-action-emoji">
-                  {currentReaction.emoji}
-                </span>
-              ) : (
-                <Heart size={16} />
-              )}
               {reactionCount > 0 ? reactionCount : t("pin.heart")}
             </Button>
           </div>
           <Button
             variant="secondary"
             className={`favorite-action pin-core-action ${displayedFavorite ? "active" : ""}`}
+            leadingIcon={
+              <Star
+                size={16}
+                fill={displayedFavorite ? "currentColor" : "none"}
+              />
+            }
             onClick={toggleFavorite}
             disabled={favoriteBusy}
           >
-            <Star
-              size={16}
-              fill={displayedFavorite ? "currentColor" : "none"}
-            />
             {displayedFavorite ? t("pin.favorited") : t("pin.favorite")}
           </Button>
           {onShowOnMap && (
             <Button
               variant="secondary"
               className="pin-core-action"
+              leadingIcon={<MapPin size={17} />}
               onClick={() => onShowOnMap(pin)}
               title={t("pin.showOnMap")}
             >
-              <MapPin size={17} />
-              <span>{t("pin.showOnMap")}</span>
+              {t("pin.showOnMap")}
             </Button>
           )}
           <Button
             variant="secondary"
             className="pin-core-action"
+            leadingIcon={<Image size={17} />}
             onClick={() => setShowShareCard(true)}
             title={t("share.card")}
           >
-            <Image size={17} />
-            <span>{t("share.card")}</span>
+            {t("share.card")}
           </Button>
         </div>
       </div>
       <div className="pin-interactions">
-        {reactionCount > 0 && (
-          <div className="reaction-summary">
-            <span className="reaction-summary-icons">
-              {reactionSummary.map((reaction) => (
-                <span key={reaction.type}>{reaction.emoji}</span>
-              ))}
-            </span>
-            <span>{reactionCount}</span>
-          </div>
-        )}
+        <div
+          className={`reaction-summary ${reactionCount === 0 ? "empty" : ""}`}
+          aria-hidden={reactionCount === 0}
+        >
+          <span className="reaction-summary-icons">
+            {reactionSummaryForLayout.map((reaction) => (
+              <span key={reaction.type}>{reaction.emoji}</span>
+            ))}
+          </span>
+          <span>{reactionCount > 0 ? reactionCount : 1}</span>
+        </div>
         <div className="pin-comments-head">
           <span>{t("pin.comments")}</span>
           <span className="muted small">

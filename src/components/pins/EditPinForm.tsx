@@ -5,8 +5,10 @@ import { usePinsCtx } from '../../hooks/PinsContext'
 import { isBuiltInCategory, type Category } from '../../lib/categories'
 import { useCategoriesCtx } from '../../hooks/CategoriesContext'
 import { useI18n } from '../../hooks/I18nContext'
+import { useSubscription } from '../../hooks/useSubscription'
 import { compressImage } from '../../lib/imageCompress'
 import { uploadToCloudinary, getImageUrl, isVideoUrl, getVideoUrl, MAX_VIDEO_BYTES } from '../../lib/cloudinary'
+import { toPinImageRows, uploadPinMediaFiles } from '../../lib/pinMediaUpload'
 import { supabase } from '../../lib/supabase'
 import { deletePinMedia, type CloudinaryDeleteAsset } from '../../lib/cloudinary-delete'
 import type { Pin, PinImage } from '../../types'
@@ -21,14 +23,21 @@ interface Props {
 const CUSTOM_EMOJIS = ['❤️', '🌸', '⭐', '🎈', '🍕', '🐱', '🐶', '🌈', '🎵', '⚽', '📸', '✨', '🏠', '🎂', '🍷']
 
 export function EditPinForm({ pin, onSaved, onCancel }: Props) {
-  const { updatePin, fetchPinImages } = usePinsCtx()
+  const {
+    updatePin,
+    fetchPinImages,
+    setUploadProgress,
+    clearUploadProgress,
+    bumpPinsVersion,
+  } = usePinsCtx()
   const {
     allCategories,
     getCategory,
     saveCustomCategory,
     deleteCustomCategory,
   } = useCategoriesCtx()
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
+  const { canUploadVideo } = useSubscription()
   const { showToast } = useToast()
   const [title, setTitle] = useState(pin.title)
   const [note, setNote] = useState(pin.note ?? '')
@@ -54,7 +63,6 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   }, [pin.id, fetchPinImages])
   const [removedImages, setRemovedImages] = useState<CloudinaryDeleteAsset[]>([])
   const [newFiles, setNewFiles] = useState<File[]>([])
-  const [mediaUploading, setMediaUploading] = useState(false)
   const mediaInput = useRef<HTMLInputElement | null>(null)
   const videoInput = useRef<HTMLInputElement | null>(null)
 
@@ -148,6 +156,14 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   }
 
   function handleAddMedia(files: FileList | null, kind: 'image' | 'video') {
+    if (kind === 'video' && !canUploadVideo) {
+      setError(
+        lang === 'vi'
+          ? 'Video cần gói Plus hoặc Pro'
+          : 'Video requires Plus or Pro plan',
+      )
+      return
+    }
     const arr = Array.from(files ?? []).filter((file) => {
       if (file.size <= 0) return false
       return kind === 'video'
@@ -186,53 +202,56 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     }
     setSaving(true)
     setError(null)
-    try {
-      // 1. Delete removed media from Cloudinary and DB after the user confirms Save.
-      if (removedImages.length > 0) {
-        await deletePinMedia(removedImages)
-      }
-
-      // 2. Upload new files
-      if (newFiles.length > 0) {
-        setMediaUploading(true)
-        const uploads = await Promise.all(
-          newFiles.map(async (file) => {
-            const isVideo = file.type.startsWith('video/')
-            const toUpload = isVideo ? file : await compressImage(file)
-            return uploadToCloudinary(toUpload, { folder: `pinly/${pin.couple_id}` })
-          }),
-        )
-        const startOrder = existingImages.length
-        const rows = uploads.map((img, i) => ({
-          pin_id: pin.id,
-          cloudinary_url: img.url,
-          cloudinary_public_id: img.publicId,
-          width: img.width,
-          height: img.height,
-          sort_order: startOrder + i,
-        }))
-        const { error: imgErr } = await supabase.from('pin_images').insert(rows)
-        if (imgErr) throw imgErr
-        setMediaUploading(false)
-      }
-
-      // 3. Update pin fields
-      await updatePin(pin.id, {
+    const mediaFiles = [...newFiles]
+    const mediaToRemove = [...removedImages]
+    const startOrder = existingImages.length
+    const patch = {
         title: title.trim(),
         note: note.trim() || null,
         category: category,
         marker_emoji: markerEmoji,
         marker_image_url: markerImageUrl,
-      })
-      showToast({ type: 'success', title: t('toast.memoryUpdated') })
-      onSaved()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-      showToast({ type: 'error', title: t('toast.actionFailed') })
-    } finally {
-      setSaving(false)
-      setMediaUploading(false)
+      }
+    const hasUpload = mediaFiles.length > 0
+    if (hasUpload) {
+      setUploadProgress(pin.id, 0)
+      showToast({ type: 'info', title: t('toast.memoryUploading') })
     }
+    onSaved()
+
+    void (async () => {
+      try {
+        await updatePin(pin.id, patch)
+
+        if (mediaToRemove.length > 0) {
+          await deletePinMedia(mediaToRemove)
+        }
+
+        if (hasUpload) {
+          const uploads = await uploadPinMediaFiles(mediaFiles, `pinly/${pin.couple_id}`, (pct) =>
+            setUploadProgress(pin.id, pct),
+          )
+          if (uploads.length > 0) {
+            const { error: imgErr } = await supabase
+              .from('pin_images')
+              .insert(toPinImageRows(pin.id, uploads, startOrder))
+            if (imgErr) throw imgErr
+          }
+        }
+
+        if (hasUpload || mediaToRemove.length > 0) {
+          await fetchPinImages(pin.id)
+          bumpPinsVersion()
+        }
+
+        showToast({ type: 'success', title: t('toast.memoryUpdated') })
+      } catch (e) {
+        console.warn('Background edit failed:', e)
+        showToast({ type: 'error', title: t('toast.actionFailed') })
+      } finally {
+        if (hasUpload) clearUploadProgress(pin.id)
+      }
+    })()
   }
 
   return (
@@ -432,11 +451,19 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
             type="button"
             className="photo-btn small"
             onClick={() => {
+              if (!canUploadVideo) {
+                setError(
+                  lang === 'vi'
+                    ? 'Video cần gói Plus hoặc Pro'
+                    : 'Video requires Plus or Pro plan',
+                )
+                return
+              }
               if (videoInput.current) videoInput.current.value = ''
               videoInput.current?.click()
             }}
           >
-            <Video size={16} /> {t('pin.addVideo')}
+            <Video size={16} /> {t('pin.addVideo')} {!canUploadVideo && '🔒'}
           </button>
         </div>
         <input
@@ -469,8 +496,8 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         <Button type="button" variant="secondary" onClick={onCancel} disabled={saving}>
           {t('pin.cancel')}
         </Button>
-        <Button type="submit" disabled={saving || mediaUploading} style={{ flex: 1 }}>
-          {mediaUploading ? '⬆️ ...' : saving ? t('pin.saving') : t('pin.save')}
+        <Button type="submit" disabled={saving} style={{ flex: 1 }}>
+          {saving ? t('pin.saving') : t('pin.save')}
         </Button>
       </div>
     </form>

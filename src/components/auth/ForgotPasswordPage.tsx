@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useI18n } from "../../hooks/I18nContext";
 import { Button } from "../ui/Button";
-import { Logo } from "../ui/Logo";
-import { LangSwitch } from "../ui/LangSwitch";
+import { TextField } from "../ui/TextField";
+import { AuthShell } from "./AuthShell";
 
 const MAX_ATTEMPTS = 3;
 const LOCKOUT_MS = 60_000;
@@ -17,6 +17,7 @@ export function ForgotPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const attempts = useRef(0);
   const lockedUntil = useRef(0);
+  const errorId = "forgot-password-form-error";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -51,56 +52,54 @@ export function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <div className="auth-page">
-        <div className="auth-topbar">
-          <LangSwitch />
-        </div>
-        <div className="auth-brand">
-          <Logo size={72} />
-          <h1>{t("auth.resetEmailSentTitle")}</h1>
-        </div>
-        <p className="muted" style={{ textAlign: "center", lineHeight: 1.6 }}>
-          {t("auth.resetEmailSentDesc")}
-        </p>
-        <p className="muted" style={{ textAlign: "center", fontWeight: 600 }}>
-          {email}
-        </p>
-        <div className="auth-form">
-          <Link to="/login">
-            <Button>{t("auth.goToLogin")}</Button>
+      <AuthShell
+        title={t("auth.resetEmailSentTitle")}
+        subtitle={t("auth.resetEmailSentDesc")}
+        success
+      >
+        <div className="auth-check-email">
+          <p className="auth-email-pill">{email}</p>
+          <Link
+            to="/login"
+            className="btn lg-button lg-button-secondary lg-button-size-md lg-button-tone-neutral auth-action"
+          >
+            <span className="lg-button-label">{t("auth.goToLogin")}</span>
           </Link>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-topbar">
-        <LangSwitch />
-      </div>
-      <div className="auth-brand">
-        <Logo size={72} />
-        <h1>{t("auth.forgotPassword")}</h1>
-      </div>
-      <p className="muted">{t("auth.forgotPasswordDesc")}</p>
+    <AuthShell
+      title={t("auth.forgotPassword")}
+      subtitle={t("auth.forgotPasswordDesc")}
+      footer={
+        <p className="muted">
+          <Link to="/login">{t("auth.backToLogin")}</Link>
+        </p>
+      }
+    >
       <form onSubmit={handleSubmit} className="auth-form">
-        <input
+        <TextField
           type="email"
+          label={t("auth.email")}
           placeholder={t("auth.email")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
           autoComplete="email"
+          aria-describedby={error ? errorId : undefined}
         />
-        {error && <p className="error">{error}</p>}
-        <Button type="submit" disabled={loading}>
+        {error && (
+          <p id={errorId} className="auth-error" role="alert" aria-live="assertive">
+            {error}
+          </p>
+        )}
+        <Button type="submit" loading={loading} size="lg" className="auth-submit">
           {loading ? t("auth.sending") : t("auth.sendResetLink")}
         </Button>
       </form>
-      <p className="muted">
-        <Link to="/login">{t("auth.backToLogin")}</Link>
-      </p>
-    </div>
+    </AuthShell>
   );
 }

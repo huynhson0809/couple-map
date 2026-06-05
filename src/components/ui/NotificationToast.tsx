@@ -7,6 +7,7 @@ import { useNotifications } from '../../hooks/useNotifications'
 import { useI18n } from '../../hooks/I18nContext'
 import { getImageUrl, getVideoThumbnailUrl, isVideoUrl } from '../../lib/cloudinary'
 import { useCategoriesCtx } from '../../hooks/CategoriesContext'
+import { IconButton } from './IconButton'
 
 const TOAST_MS = 6000
 
@@ -65,36 +66,40 @@ export function NotificationToast() {
   }
 
   return (
-    <button
-      type="button"
-      className="notif-toast"
-      onClick={viewOnMap}
-      aria-label={t('notif.viewOnMap')}
-    >
-      {coverThumb ? (
-        <img src={coverThumb} alt="" className="notif-cover" />
-      ) : (
-        <div className="notif-cover empty">
-          <span>{pin.marker_emoji ?? cat?.emoji ?? '📍'}</span>
-        </div>
-      )}
-      <div className="notif-body">
-        <div className="notif-from">
-          <Sparkles size={12} /> {who} {t('notif.newMemory')}
-        </div>
-        <div className="notif-title">{pin.title}</div>
-      </div>
+    <div className="notif-toast lg-toast" role="status" aria-live="polite">
       <button
         type="button"
+        className="notif-toast-main"
+        onClick={viewOnMap}
+        aria-label={t('notif.viewOnMap')}
+      >
+        {coverThumb ? (
+          <img src={coverThumb} alt="" className="notif-cover" />
+        ) : (
+          <div className="notif-cover empty">
+            <span>{pin.marker_emoji ?? cat?.emoji ?? '📍'}</span>
+          </div>
+        )}
+        <div className="notif-body">
+          <div className="notif-from">
+            <Sparkles size={12} /> {who} {t('notif.newMemory')}
+          </div>
+          <div className="notif-title">{pin.title}</div>
+        </div>
+      </button>
+      <IconButton
+        label="Dismiss"
+        size="sm"
+        variant="ghost"
         className="notif-close"
         onClick={(e) => {
           e.stopPropagation()
           clearLatestPartnerPin()
         }}
-        aria-label="Dismiss"
       >
         <X size={16} />
-      </button>
-    </button>
+      </IconButton>
+      <span className="notif-toast-rail" aria-hidden="true" />
+    </div>
   )
 }

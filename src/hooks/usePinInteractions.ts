@@ -26,9 +26,10 @@ export function usePinInteractions(
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchInteractions = useCallback(async () => {
+  const fetchInteractions = useCallback(async (options: { silent?: boolean } = {}) => {
     if (!pinId) return
-    setLoading(true)
+    const silent = options.silent ?? false
+    if (!silent) setLoading(true)
     setError(null)
     const [reactionRes, commentRes] = await Promise.all([
       supabase
@@ -62,7 +63,7 @@ export function usePinInteractions(
         setCommentReactions([])
       }
     }
-    setLoading(false)
+    if (!silent) setLoading(false)
   }, [pinId])
 
   useEffect(() => {
@@ -77,17 +78,17 @@ export function usePinInteractions(
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'pin_reactions', filter: `pin_id=eq.${pinId}` },
-        () => void fetchInteractions(),
+        () => void fetchInteractions({ silent: true }),
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'pin_comments', filter: `pin_id=eq.${pinId}` },
-        () => void fetchInteractions(),
+        () => void fetchInteractions({ silent: true }),
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'pin_comment_reactions' },
-        () => void fetchInteractions(),
+        () => void fetchInteractions({ silent: true }),
       )
       .subscribe()
 
@@ -107,27 +108,42 @@ export function usePinInteractions(
 
   const setReaction = useCallback(async (reaction: ReactionType) => {
     if (!userId) throw new Error('Not signed in')
+    const previousReactions = reactions
     if (myReaction === reaction) {
+      setReactions((prev) => prev.filter((r) => r.user_id !== userId))
       const { error: deleteErr } = await supabase
         .from('pin_reactions')
         .delete()
         .eq('pin_id', pinId)
         .eq('user_id', userId)
-      if (deleteErr) throw deleteErr
-      setReactions((prev) => prev.filter((r) => r.user_id !== userId))
+      if (deleteErr) {
+        setReactions(previousReactions)
+        throw deleteErr
+      }
       return
     }
 
     const row = { pin_id: pinId, user_id: userId, reaction }
+    const optimisticRow: PinReaction = {
+      ...row,
+      created_at: new Date().toISOString(),
+    }
+    setReactions((prev) => [
+      ...prev.filter((r) => r.user_id !== userId),
+      optimisticRow,
+    ])
     const { data, error: insertErr } = await supabase
       .from('pin_reactions')
       .upsert(row, { onConflict: 'pin_id,user_id' })
       .select()
       .single()
-    if (insertErr) throw insertErr
+    if (insertErr) {
+      setReactions(previousReactions)
+      throw insertErr
+    }
     setReactions((prev) => [...prev.filter((r) => r.user_id !== userId), data as PinReaction])
     sendInteractionPush('reaction', data as Record<string, unknown>)
-  }, [myReaction, pinId, userId])
+  }, [myReaction, pinId, reactions, userId])
 
   const addComment = useCallback(async (body: string, parentCommentId?: string | null) => {
     if (!userId) throw new Error('Not signed in')

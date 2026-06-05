@@ -81,6 +81,19 @@ export function StreakCard({
     "--streak-week-today": markerPercent,
   } as CSSProperties;
   const pendingToday = !loading && !todayCompleted && currentCount > 0;
+  const statusTone = loading
+    ? "loading"
+    : todayCompleted
+      ? "complete"
+      : atRisk
+        ? "risk"
+        : youPosted || partnerPosted
+          ? "partial"
+          : "idle";
+  const youLabel = t("common.you");
+  const partnerLabel = partner?.display_name ?? t("common.partner");
+  const postedLabel = lang === "vi" ? "Đã lưu" : "Posted";
+  const waitingLabel = lang === "vi" ? "Đang chờ" : "Waiting";
 
   const status = loading
     ? t("streak.loading")
@@ -95,9 +108,7 @@ export function StreakCard({
             : t("streak.startToday");
 
   return (
-    <section
-      className={`streak-card ${todayCompleted ? "complete" : atRisk ? "risk" : "idle"}`}
-    >
+    <section className={`streak-card ${statusTone}`}>
       <div className="streak-card-shine" aria-hidden="true" />
       <div className="streak-copy">
         <div className="streak-kicker">
@@ -117,7 +128,7 @@ export function StreakCard({
       <div className="streak-chain" aria-label={status}>
         <div className={`streak-person ${youPosted ? "posted" : ""}`}>
           <span>{initial(profile?.display_name, "Y")}</span>
-          <small>{t("common.you")}</small>
+          <small>{youLabel}</small>
         </div>
         <div
           className={`streak-link ${todayCompleted ? "complete" : youPosted || partnerPosted ? "half" : ""}`}
@@ -126,10 +137,29 @@ export function StreakCard({
         </div>
         <div className={`streak-person ${partnerPosted ? "posted" : ""}`}>
           <span>{initial(partner?.display_name, "P")}</span>
-          <small title={partner?.display_name ?? t("common.partner")}>
-            {partner?.display_name ?? t("common.partner")}
-          </small>
+          <small title={partnerLabel}>{partnerLabel}</small>
         </div>
+      </div>
+
+      <div className="streak-status-row">
+        <span className={`streak-status-pill ${youPosted ? "posted" : "waiting"}`}>
+          <span className="streak-status-dot">
+            {initial(profile?.display_name, "Y")}
+          </span>
+          <span>
+            <strong>{youLabel}</strong>
+            {youPosted ? postedLabel : waitingLabel}
+          </span>
+        </span>
+        <span
+          className={`streak-status-pill ${partnerPosted ? "posted" : "waiting"}`}
+        >
+          <span className="streak-status-dot">{initial(partnerLabel, "P")}</span>
+          <span>
+            <strong>{partnerLabel}</strong>
+            {partnerPosted ? postedLabel : waitingLabel}
+          </span>
+        </span>
       </div>
 
       <div className="streak-week" style={weekRailStyle}>
