@@ -3,6 +3,7 @@ import {
   useContext,
   useCallback,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -91,6 +92,29 @@ interface SubscriptionContextValue {
 
 const SubscriptionCtx = createContext<SubscriptionContextValue | null>(null);
 
+type SubscriptionContextPayload = {
+  plan?: string | null;
+  subscription?: Subscription | null;
+};
+
+function normalizePlan(plan: string | null | undefined): PlanType {
+  if (plan === "plus" || plan === "pro") return plan;
+  return "free";
+}
+
+function normalizeSubscriptionContext(data: unknown): {
+  plan: PlanType;
+  subscription: Subscription | null;
+} {
+  const payload = (data ?? {}) as SubscriptionContextPayload;
+  const plan = normalizePlan(payload.plan);
+
+  return {
+    plan,
+    subscription: plan === "free" ? null : (payload.subscription ?? null),
+  };
+}
+
 export function SubscriptionProvider({
   coupleId,
   children,
@@ -101,8 +125,11 @@ export function SubscriptionProvider({
   const [plan, setPlan] = useState<PlanType>("free");
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
+  const requestIdRef = useRef(0);
 
   const fetchPlan = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+
     if (!coupleId) {
       setPlan("free");
       setSubscription(null);
@@ -110,30 +137,25 @@ export function SubscriptionProvider({
       return;
     }
 
-    const { data: couple } = await supabase
-      .from("couples")
-      .select("plan")
-      .eq("id", coupleId)
-      .single();
+    setLoading(true);
 
-    const currentPlan = (couple?.plan as PlanType) || "free";
-    setPlan(currentPlan);
+    const { data, error } = await supabase.rpc(
+      "get_subscription_context_for_couple",
+      { p_couple_id: coupleId },
+    );
 
-    if (currentPlan !== "free") {
-      const { data: sub } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("couple_id", coupleId)
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+    if (requestId !== requestIdRef.current) return;
 
-      setSubscription(sub as Subscription | null);
-    } else {
+    if (error) {
+      setPlan("free");
       setSubscription(null);
+      setLoading(false);
+      return;
     }
 
+    const context = normalizeSubscriptionContext(data);
+    setPlan(context.plan);
+    setSubscription(context.subscription);
     setLoading(false);
   }, [coupleId]);
 
@@ -159,10 +181,22 @@ export function SubscriptionProvider({
         },
         (payload) => {
           const newPlan = payload.new?.plan as PlanType;
-          if (newPlan && newPlan !== plan) {
+          if (newPlan) {
             setPlan(newPlan);
-            void fetchPlan(); // Refetch full subscription details
+            void fetchPlan();
           }
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "subscriptions",
+          filter: `couple_id=eq.${coupleId}`,
+        },
+        () => {
+          void fetchPlan();
         },
       )
       .subscribe();
@@ -170,7 +204,7 @@ export function SubscriptionProvider({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [coupleId, plan, fetchPlan]);
+  }, [coupleId, fetchPlan]);
 
   const limits = PLAN_LIMITS[plan];
 

@@ -36,6 +36,7 @@ const mapPage = read("src/pages/MapPage.tsx");
 const pinsContext = read("src/hooks/PinsContext.tsx");
 const useBucket = read("src/hooks/useBucket.ts");
 const useCouple = read("src/hooks/useCouple.ts");
+const useSubscription = read("src/hooks/useSubscription.tsx");
 const statsApi = read("src/hooks/useStatsApi.ts");
 const serviceWorker = read("src/sw-push.ts");
 const timelinePins = read("src/hooks/useTimelinePins.ts");
@@ -134,6 +135,23 @@ assert(
 assert(
   /get_couple_context_for_current_user/.test(useCouple),
   "useCouple should fetch profile/couple/partner through one RPC round-trip.",
+);
+
+assert(
+  /rpc\s*\(\s*["']get_subscription_context_for_couple["']/.test(
+    useSubscription,
+  ),
+  "useSubscription should fetch plan and active subscription through one RPC.",
+);
+
+assert(
+  !/from\(["']couples["']\)[\s\S]{0,180}\.select\(["']plan["']/.test(
+    useSubscription,
+  ) &&
+    !/from\(["']subscriptions["']\)[\s\S]{0,220}\.select\(["']\*["']/.test(
+      useSubscription,
+    ),
+  "useSubscription must not issue separate couple/subscription selects.",
 );
 
 assert(
@@ -238,6 +256,14 @@ assert(
   /v_couple_plan\s+is\s+distinct\s+from\s+'pro'/.test(subscriptionsMigration) &&
     /Video upload requires Pro/.test(subscriptionsMigration),
   "DB video upload trigger must enforce Pro-only video uploads.",
+);
+
+assert(
+  /create\s+or\s+replace\s+function\s+public\.get_subscription_context_for_couple/i.test(
+    subscriptionsMigration,
+  ) &&
+    /auth\.uid\(\)/.test(subscriptionsMigration),
+  "Subscription migration must expose an auth-scoped subscription context RPC.",
 );
 
 const subscriptionIndexStatements =

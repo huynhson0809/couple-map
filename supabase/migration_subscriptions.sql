@@ -74,6 +74,56 @@ returns text as $$
   )
 $$ language sql security definer stable;
 
+create or replace function public.get_subscription_context_for_couple(
+  p_couple_id uuid
+)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with requested_couple as (
+    select c.id, coalesce(c.plan, 'free')::text as plan
+    from public.couples c
+    where c.id = p_couple_id
+      and auth.uid() is not null
+      and (
+        c.user_a = auth.uid()
+        or c.user_b = auth.uid()
+        or c.id = public.get_my_couple_id()
+      )
+    limit 1
+  ),
+  active_subscription as (
+    select
+      s.id,
+      s.couple_id,
+      s.plan,
+      s.billing_cycle,
+      s.status,
+      s.current_period_start,
+      s.current_period_end,
+      s.created_at
+    from public.subscriptions s
+    join requested_couple c on c.id = s.couple_id
+    where s.status = 'active'
+    order by s.created_at desc
+    limit 1
+  )
+  select jsonb_build_object(
+    'plan',
+    coalesce((select plan from requested_couple), 'free'),
+    'subscription',
+    (select to_jsonb(active_subscription) from active_subscription)
+  );
+$$;
+
+revoke all on function public.get_subscription_context_for_couple(uuid)
+  from public, anon;
+grant execute on function public.get_subscription_context_for_couple(uuid)
+  to authenticated;
+
 -- ============================================
 -- 6. Pin limit enforcement trigger
 -- ============================================
