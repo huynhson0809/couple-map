@@ -99,7 +99,11 @@ self.addEventListener("notificationclick", (event) => {
       .then((clientList) => {
         for (const client of clientList) {
           if (client.url.includes(self.location.origin) && "focus" in client) {
-            client.navigate(targetUrl.href);
+            // Use postMessage to navigate without full reload
+            client.postMessage({
+              type: "NOTIFICATION_CLICK",
+              url: targetUrl.pathname + targetUrl.search,
+            });
             return client.focus();
           }
         }

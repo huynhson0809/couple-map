@@ -23,9 +23,14 @@ import { useI18n } from "../hooks/I18nContext";
 import { useNotifications } from "../hooks/useNotifications";
 import { usePushSubscription } from "../hooks/usePushSubscription";
 import { useNotificationPreferences } from "../hooks/useNotificationPreferences";
-import { useMapStyle, MAP_STYLES } from "../hooks/useMapStyle";
+import {
+  useMapStyle,
+  MAP_STYLES,
+  type MapStyleOption,
+} from "../hooks/useMapStyle";
 import { useSubscription } from "../hooks/useSubscription";
 import { PricingPage } from "./PricingPage";
+import { MapStylePreviewSheet } from "../components/settings/MapStylePreviewSheet";
 import { UpgradePrompt } from "../components/ui/UpgradePrompt";
 import { Button } from "../components/ui/Button";
 import { GlassSurface } from "../components/ui/GlassSurface";
@@ -92,6 +97,8 @@ export function SettingsPage() {
   const [bgError, setBgError] = useState<string | null>(null);
   const bgInput = useRef<HTMLInputElement | null>(null);
   const showDarkToggle = isDarkModeEnabled();
+  const [previewStyle, setPreviewStyle] = useState<MapStyleOption | null>(null);
+  const mapStylePreviewCenter = { lat: 10.8231, lng: 106.6297 };
 
   async function copyCode() {
     if (!couple) return;
@@ -284,20 +291,65 @@ export function SettingsPage() {
                         : "Premium map styles",
                     );
                   } else {
-                    setStyleId(s.id);
+                    setPreviewStyle(s);
                   }
                 }}
               >
-                <svg
-                  className="map-style-swatch"
-                  viewBox="0 0 54 32"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <rect x="0" y="0" width="18" height="32" fill={s.colors[0]} />
-                  <rect x="18" y="0" width="18" height="32" fill={s.colors[1]} />
-                  <rect x="36" y="0" width="18" height="32" fill={s.colors[2]} />
-                </svg>
+                <span className="map-style-card-visual">
+                  <img
+                    className="map-style-card-thumb"
+                    src={`/map-style-previews/${s.id}.png`}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    onError={({ currentTarget }) => {
+                      currentTarget.hidden = true;
+                    }}
+                  />
+                  <svg
+                    className="map-style-card-map"
+                    viewBox="0 0 72 48"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <rect width="72" height="48" rx="10" fill={s.colors[0]} />
+                    <path
+                      className="map-style-card-water"
+                      d="M48 -6 C43 9 48 18 62 23 C72 27 77 35 73 48 L72 48 L72 -6 Z"
+                      fill={s.colors[1]}
+                    />
+                    <path
+                      className="map-style-card-area"
+                      d="M5 31 C15 25 23 27 30 34 C36 41 47 39 58 33 L62 48 L4 48 Z"
+                      fill={s.colors[1]}
+                    />
+                    <path
+                      className="map-style-card-road-soft"
+                      d="M-5 16 C14 14 22 23 38 19 C50 16 57 7 77 10"
+                      stroke={s.colors[2]}
+                    />
+                    <path
+                      className="map-style-card-road-soft"
+                      d="M13 -4 C15 13 11 25 16 53"
+                      stroke={s.colors[2]}
+                    />
+                    <path
+                      className="map-style-card-road-soft"
+                      d="M-4 40 C16 34 34 35 76 24"
+                      stroke={s.colors[2]}
+                    />
+                    <path
+                      className="map-style-card-route"
+                      d="M-3 27 C11 22 22 24 31 18 C42 11 53 14 75 4"
+                      stroke={s.colors[2]}
+                    />
+                    <path
+                      className="map-style-card-road-line"
+                      d="M8 6 L28 20 M32 4 L50 20 M23 46 L36 29 M45 45 L55 24"
+                      stroke={s.colors[2]}
+                    />
+                  </svg>
+                </span>
                 <div className="map-style-label">
                   {label}
                   {locked && " 🔒"}
@@ -312,6 +364,34 @@ export function SettingsPage() {
           })}
         </div>
       </SettingSection>
+
+      <MapStylePreviewSheet
+        open={Boolean(previewStyle)}
+        style={previewStyle}
+        currentStyleId={styleId}
+        initialCenter={mapStylePreviewCenter}
+        lang={lang}
+        labels={{
+          title: previewStyle
+            ? t("settings.mapStylePreview").replace(
+                "{{style}}",
+                lang === "vi" ? previewStyle.labelVi : previewStyle.labelEn,
+              )
+            : t("settings.mapStyle"),
+          hint: t("settings.mapStylePreviewHint"),
+          cancel: t("common.cancel"),
+          apply: t("settings.applyMapStyle"),
+          applied: t("settings.mapStyleApplied"),
+          loading: t("settings.mapStyleLoading"),
+          error: t("settings.mapStyleLoadError"),
+        }}
+        onClose={() => setPreviewStyle(null)}
+        onApply={() => {
+          if (!previewStyle) return;
+          setStyleId(previewStyle.id);
+          setPreviewStyle(null);
+        }}
+      />
 
       <SettingSection
         title={t("notif.title")}

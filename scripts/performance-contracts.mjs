@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
@@ -32,9 +32,14 @@ function hasGetInvoke(source) {
 }
 
 const app = read("src/App.tsx");
+const packageJson = read("package.json");
 const mapPage = read("src/pages/MapPage.tsx");
 const mapView = read("src/components/map/MapView.tsx");
 const wishlistPage = read("src/pages/WishlistPage.tsx");
+const settingsPage = read("src/pages/SettingsPage.tsx");
+const mapStylePreviewSheet = readOptional(
+  "src/components/settings/MapStylePreviewSheet.tsx",
+);
 const styles = read("src/index.css");
 const pinsContext = read("src/hooks/PinsContext.tsx");
 const useBucket = read("src/hooks/useBucket.ts");
@@ -46,6 +51,10 @@ const statsApi = read("src/hooks/useStatsApi.ts");
 const serviceWorker = read("src/sw-push.ts");
 const timelinePins = read("src/hooks/useTimelinePins.ts");
 const notificationFeed = read("src/hooks/useNotificationFeed.ts");
+const mapPreviewGenerator = readOptional(
+  "scripts/generate-map-style-previews.mjs",
+);
+const generatedMapPreviewDir = resolve(root, "public/map-style-previews");
 const coupleStats = read("supabase/functions/couple-stats/index.ts");
 const checkout = read("supabase/functions/create-checkout/index.ts");
 const cloudinaryUpload = read("supabase/functions/sign-cloudinary-upload/index.ts");
@@ -188,6 +197,61 @@ assert(
   /\.map-streak-float[\s\S]{0,500}touch-action:\s*none/.test(styles) &&
     /\.map-streak-float\.dragging/.test(styles),
   "Map streak floating button CSS must disable touch gestures while dragging and expose a dragging state.",
+);
+
+assert(
+  /MapStylePreviewSheet/.test(settingsPage) &&
+    /previewStyle/.test(settingsPage) &&
+    /setPreviewStyle\(s\)/.test(settingsPage) &&
+    /map-style-card-visual/.test(settingsPage) &&
+    /map-style-card-thumb/.test(settingsPage) &&
+    /\/map-style-previews\/\$\{s\.id\}\.png/.test(settingsPage) &&
+    /currentTarget\.hidden\s*=\s*true/.test(settingsPage) &&
+    /map-style-card-map/.test(settingsPage) &&
+    /map-style-card-route/.test(settingsPage) &&
+    !/className="map-style-swatch"/.test(settingsPage) &&
+    /onApply=\{\(\) => \{[\s\S]*setStyleId\(previewStyle\.id\);[\s\S]*setPreviewStyle\(null\);[\s\S]*\}\}/.test(
+      settingsPage,
+    ) &&
+    !/else\s*\{\s*setStyleId\(s\.id\);\s*\}/.test(settingsPage) &&
+    /import\("maplibre-gl"\)/.test(mapStylePreviewSheet) &&
+    /mapRef\.current\?\.remove\(\)/.test(mapStylePreviewSheet) &&
+    /document\.body\.classList\.add\("map-style-preview-open"\)/.test(
+      mapStylePreviewSheet,
+    ) &&
+    !/useMapStyle\s*\(/.test(mapStylePreviewSheet) &&
+    /body\.map-style-preview-open\s+\.bottom-nav[\s\S]{0,240}pointer-events:\s*none/.test(
+      styles,
+    ) &&
+    /\.map-style-preview-actions[\s\S]{0,500}position:\s*sticky/.test(styles) &&
+    /\.map-style-preview-actions[\s\S]{0,500}bottom:\s*0/.test(styles),
+  "Settings map styles must prefer screenshot thumbnails, open an isolated real-map preview, hide bottom nav while previewing, and keep preview apply actions visible.",
+);
+
+assert(
+  /"generate:map-previews":\s*"node scripts\/generate-map-style-previews\.mjs"/.test(
+    packageJson,
+  ) &&
+    /public\/map-style-previews/.test(mapPreviewGenerator) &&
+    /remote-debugging-port=0/.test(mapPreviewGenerator) &&
+    /Page\.captureScreenshot/.test(mapPreviewGenerator) &&
+    /src\/hooks\/useMapStyle\.ts/.test(mapPreviewGenerator) &&
+    /minRenderedPreviewBytes/.test(mapPreviewGenerator) &&
+    /getPreviewStatus/.test(mapPreviewGenerator) &&
+    /--enable-webgl/.test(mapPreviewGenerator) &&
+    /--use-gl=swiftshader/.test(mapPreviewGenerator),
+  "Map style screenshot thumbnails must be generated automatically by a headless Chrome script that rejects blank captures.",
+);
+
+const generatedMapPreviews = readdirSync(generatedMapPreviewDir).filter((file) =>
+  file.endsWith(".png")
+);
+assert(
+  generatedMapPreviews.length >= 15 &&
+    generatedMapPreviews.every(
+      (file) => statSync(resolve(generatedMapPreviewDir, file)).size > 10_000,
+    ),
+  "Generated map style thumbnails must contain rendered map detail instead of blank canvases.",
 );
 
 assert(

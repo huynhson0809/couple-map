@@ -4,6 +4,7 @@ import {
   Route,
   Navigate,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
 import { BottomNav } from "./components/ui/BottomNav";
 import { UpdatePrompt } from "./components/ui/UpdatePrompt";
@@ -100,9 +101,23 @@ function AppStatusScreen({
 function PairedShell() {
   const { couple, profile } = useCoupleCtx();
   const location = useLocation();
+  const navigate = useNavigate();
   const isMap = location.pathname === "/";
   const bgUrl = couple?.background_image_url;
   const push = usePushSubscription(profile?.id);
+
+  // Listen for SW notification click messages
+  useEffect(() => {
+    function handleSWMessage(event: MessageEvent) {
+      if (event.data?.type === "NOTIFICATION_CLICK" && event.data.url) {
+        navigate(event.data.url);
+      }
+    }
+    navigator.serviceWorker?.addEventListener("message", handleSWMessage);
+    return () => {
+      navigator.serviceWorker?.removeEventListener("message", handleSWMessage);
+    };
+  }, [navigate]);
 
   // Auto-subscribe to push if permission already granted
   useEffect(() => {
@@ -173,11 +188,7 @@ function RoutedShell() {
 
   if (error) {
     return (
-      <AppStatusScreen
-        title="Something went wrong"
-        body={error}
-        tone="error"
-      >
+      <AppStatusScreen title="Something went wrong" body={error} tone="error">
         <p className="muted small">
           Đã chạy <code>supabase/schema.sql</code> trong Supabase SQL Editor
           chưa?

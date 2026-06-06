@@ -262,6 +262,13 @@ const dict = {
     "settings.coupleInfo": "Couple",
     "settings.inviteCode": "Invite code",
     "settings.mapStyle": "Map style",
+    "settings.mapStylePreview": "Preview {{style}}",
+    "settings.mapStylePreviewHint":
+      "Pan or zoom to see how this style feels on the map.",
+    "settings.applyMapStyle": "Apply style",
+    "settings.mapStyleApplied": "Applied",
+    "settings.mapStyleLoading": "Loading preview…",
+    "settings.mapStyleLoadError": "This style preview could not be loaded.",
     "settings.clearCache": "Clear cache & reload",
     "settings.signOut": "Sign out",
 
@@ -520,6 +527,13 @@ const dict = {
     "settings.coupleInfo": "Couple",
     "settings.inviteCode": "Mã mời",
     "settings.mapStyle": "Kiểu bản đồ",
+    "settings.mapStylePreview": "Xem trước {{style}}",
+    "settings.mapStylePreviewHint":
+      "Kéo hoặc zoom để xem kiểu bản đồ này trông như thế nào.",
+    "settings.applyMapStyle": "Áp dụng kiểu này",
+    "settings.mapStyleApplied": "Đang dùng",
+    "settings.mapStyleLoading": "Đang tải bản đồ…",
+    "settings.mapStyleLoadError": "Không tải được bản đồ xem trước.",
     "settings.clearCache": "Xóa cache & tải lại",
     "settings.signOut": "Đăng xuất",
 

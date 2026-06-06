@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "check:contracts": "node scripts/performance-contracts.mjs",
+    "generate:map-previews": "node scripts/generate-map-style-previews.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
