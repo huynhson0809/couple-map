@@ -86,6 +86,7 @@ export function MapView({
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
   const bucketMarkersRef = useRef<maplibregl.Marker[]>([]);
   const longPressTimer = useRef<number | null>(null);
+  const renderMarkersTimer = useRef<number | null>(null);
   const styleLoadedRef = useRef(false);
   const didInitialFitRef = useRef<boolean>(false);
   const pinsRef = useRef<Pin[]>([]);
@@ -140,6 +141,19 @@ export function MapView({
     const groups: Group[] = [];
     const taken = new Set<string>();
     const highlightedPinId = highlightedPinIdRef.current;
+
+    // Grid-based spatial bucketing — O(n) instead of O(n²)
+    const cellSize = CLUSTER_RADIUS_PX;
+    const grid = new Map<string, typeof items>();
+    for (const it of items) {
+      const cx = Math.floor(it.pt.x / cellSize);
+      const cy = Math.floor(it.pt.y / cellSize);
+      const key = `${cx},${cy}`;
+      const bucket = grid.get(key);
+      if (bucket) bucket.push(it);
+      else grid.set(key, [it]);
+    }
+
     for (const it of items) {
       if (taken.has(it.pin.id)) continue;
       taken.add(it.pin.id);
@@ -154,12 +168,22 @@ export function MapView({
         sumLat += current.pin.lat;
         sumLng += current.pin.lng;
 
-        for (const other of items) {
-          if (taken.has(other.pin.id)) continue;
-          if (shouldSkipHighlightedCluster(current.pin, other.pin)) continue;
-          if (shouldClusterPins(map, current, other)) {
-            taken.add(other.pin.id);
-            queue.push(other);
+        // Only check neighboring grid cells instead of all items
+        const cx = Math.floor(current.pt.x / cellSize);
+        const cy = Math.floor(current.pt.y / cellSize);
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const neighbors = grid.get(`${cx + dx},${cy + dy}`);
+            if (!neighbors) continue;
+            for (const other of neighbors) {
+              if (taken.has(other.pin.id)) continue;
+              if (shouldSkipHighlightedCluster(current.pin, other.pin))
+                continue;
+              if (shouldClusterPins(map, current, other)) {
+                taken.add(other.pin.id);
+                queue.push(other);
+              }
+            }
           }
         }
       }
@@ -206,7 +230,7 @@ export function MapView({
     const highlightedPinId = highlightedPinIdRef.current;
     return Boolean(
       highlightedPinId &&
-        (a.id === highlightedPinId || b.id === highlightedPinId),
+      (a.id === highlightedPinId || b.id === highlightedPinId),
     );
   }
 
@@ -247,7 +271,9 @@ export function MapView({
     const closeOnScreen =
       dx * dx + dy * dy < CLUSTER_RADIUS_PX * CLUSTER_RADIUS_PX;
     if (closeOnScreen) return true;
-    return zoom < CLUSTER_VENUE_MAX_ZOOM && meters <= VENUE_CLUSTER_RADIUS_METERS;
+    return (
+      zoom < CLUSTER_VENUE_MAX_ZOOM && meters <= VENUE_CLUSTER_RADIUS_METERS
+    );
   }
 
   function createPinEl(p: Pin) {
@@ -620,7 +646,10 @@ export function MapView({
     });
     map.on("moveend", () => {
       emitMapCenter(map);
-      renderMarkers();
+      if (renderMarkersTimer.current) clearTimeout(renderMarkersTimer.current);
+      renderMarkersTimer.current = window.setTimeout(() => {
+        renderMarkers();
+      }, 60);
     });
     map.on("error", (e) => console.error("[MapLibre]", e?.error ?? e));
 
@@ -656,14 +685,9 @@ export function MapView({
   // Re-render markers when pins / users / newestPinId change
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    // Force full rebuild to refresh content (color/emoji/photo can change)
-    markersRef.current.forEach((m) => m.remove());
-    markersRef.current.clear();
-    if (styleLoadedRef.current) {
-      fitToPinsOnce(map);
-      renderMarkers();
-    }
+    if (!map || !styleLoadedRef.current) return;
+    fitToPinsOnce(map);
+    renderMarkers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pins, currentUserId, partnerUserId, newestPinId, customCategories]);
 

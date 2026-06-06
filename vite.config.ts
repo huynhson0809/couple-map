@@ -10,7 +10,13 @@ export default defineConfig({
       strategies: "injectManifest",
       srcDir: "src",
       filename: "sw-push.ts",
-      includeAssets: ["favicon.svg", "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png"],
+      includeAssets: [
+        "favicon.svg",
+        "icons/apple-touch-icon.png",
+        "icons/icon-192.png",
+        "icons/icon-512.png",
+        "icons/maskable-512.png",
+      ],
       manifest: {
         name: "Pinly",
         short_name: "Pinly",
@@ -37,4 +43,14 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    target: "es2020",
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes("node_modules/@supabase")) return "supabase";
+        },
+      },
+    },
+  },
 });

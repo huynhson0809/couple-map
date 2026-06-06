@@ -1,6 +1,4 @@
 import {
-  lazy,
-  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -30,11 +28,7 @@ import { useStreak } from "../hooks/useStreak";
 import { useSubscription } from "../hooks/useSubscription";
 import type { Pin } from "../types";
 
-const MapView = lazy(() =>
-  import("../components/map/MapView").then((module) => ({
-    default: module.MapView,
-  })),
-);
+import { MapView } from "../components/map/MapView";
 
 interface FlyToState {
   flyTo?: {
@@ -123,7 +117,10 @@ function clampStreakFloatPosition(
   const bottomNavHeight = getBottomNavHeight();
   const minX = STREAK_DRAG_EDGE_PADDING;
   const minY = STREAK_DRAG_EDGE_PADDING;
-  const maxX = Math.max(minX, window.innerWidth - width - STREAK_DRAG_EDGE_PADDING);
+  const maxX = Math.max(
+    minX,
+    window.innerWidth - width - STREAK_DRAG_EDGE_PADDING,
+  );
   const maxY = Math.max(
     minY,
     window.innerHeight - bottomNavHeight - height - STREAK_DRAG_EDGE_PADDING,
@@ -165,8 +162,7 @@ export function MapPage() {
     return newest?.id ?? null;
   }, [pins]);
   const bucketMarkers = useMemo(
-    () =>
-      bucketItems.map((b) => ({ id: b.id, lat: b.lat, lng: b.lng })),
+    () => bucketItems.map((b) => ({ id: b.id, lat: b.lat, lng: b.lng })),
     [bucketItems],
   );
   const [newPinCoords, setNewPinCoords] = useState<{
@@ -272,7 +268,9 @@ export function MapPage() {
       if (!button) return;
       setStreakFloatPosition((current) => {
         const position =
-          current ?? readStreakFloatPosition() ?? getStreakButtonPosition(button);
+          current ??
+          readStreakFloatPosition() ??
+          getStreakButtonPosition(button);
         return clampStreakFloatPosition(position, button);
       });
     }
@@ -322,10 +320,7 @@ export function MapPage() {
     return initial;
   }
 
-  function getDragPosition(
-    state: StreakDragState,
-    button: HTMLButtonElement,
-  ) {
+  function getDragPosition(state: StreakDragState, button: HTMLButtonElement) {
     return clampStreakFloatPosition(
       {
         x: state.origin.x + state.latestClientX - state.startClientX,
@@ -503,24 +498,22 @@ export function MapPage() {
 
   return (
     <div className="map-page">
-      <Suspense fallback={<div className="full-center muted">Loading map…</div>}>
-        <MapView
-          pins={pins}
-          currentUserId={user.id}
-          partnerUserId={partner?.id ?? null}
-          onLongPress={handleLongPress}
-          onPinClick={handlePinClick}
-          onUserLocation={(coords) =>
-            setLastUserLocation({ ...coords, receivedAt: Date.now() })
-          }
-          onMapCenterChange={setMapCenter}
-          onBoundsChange={onViewportChange}
-          flyTo={flyTo}
-          bucketItems={bucketMarkers}
-          newestPinId={newestPinId}
-          mapStyleUrl={styleUrl}
-        />
-      </Suspense>
+      <MapView
+        pins={pins}
+        currentUserId={user.id}
+        partnerUserId={partner?.id ?? null}
+        onLongPress={handleLongPress}
+        onPinClick={handlePinClick}
+        onUserLocation={(coords) =>
+          setLastUserLocation({ ...coords, receivedAt: Date.now() })
+        }
+        onMapCenterChange={setMapCenter}
+        onBoundsChange={onViewportChange}
+        flyTo={flyTo}
+        bucketItems={bucketMarkers}
+        newestPinId={newestPinId}
+        mapStyleUrl={styleUrl}
+      />
 
       <button className="fab" onClick={handleFabClick} aria-label="Pin here">
         <Plus size={24} />

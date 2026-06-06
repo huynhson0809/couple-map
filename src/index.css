@@ -7044,3 +7044,22 @@ button.stat-card {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
+
+/* Performance: disable expensive GPU effects on low-power devices */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --glass-blur: saturate(1.4) brightness(1.04);
+    --glass-blur-strong: saturate(1.6) brightness(1.06);
+  }
+  [data-theme="dark"] {
+    --glass-blur: saturate(1.2) brightness(0.96);
+    --glass-blur-strong: saturate(1.4) brightness(0.94);
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
