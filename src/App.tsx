@@ -49,7 +49,9 @@ const CoupleSetup = lazy(() =>
     default: module.CoupleSetup,
   })),
 );
-import { MapPage } from "./pages/MapPage";
+const MapPage = lazy(() =>
+  import("./pages/MapPage").then((module) => ({ default: module.MapPage })),
+);
 
 const TimelinePage = lazy(() =>
   import("./pages/TimelinePage").then((module) => ({

@@ -646,15 +646,16 @@ export function SettingsPage() {
       <div className="settings-action-stack">
         <Button
           variant="ghost"
-          onClick={() => {
+          onClick={async () => {
             if ("caches" in window) {
-              caches
-                .keys()
-                .then((names) => names.forEach((n) => caches.delete(n)));
+              const names = await caches.keys();
+              // Only clear runtime caches; preserve precache to avoid breaking
+              // asset loading and keep SW + push subscriptions intact.
+              const runtime = names.filter(
+                (n) => !n.startsWith("workbox-precache"),
+              );
+              await Promise.all(runtime.map((n) => caches.delete(n)));
             }
-            navigator.serviceWorker
-              ?.getRegistrations()
-              .then((regs) => regs.forEach((r) => r.unregister()));
             window.location.reload();
           }}
           className="settings-full-button"

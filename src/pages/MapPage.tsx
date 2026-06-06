@@ -5,6 +5,8 @@ import {
   useMemo,
   useRef,
   useState,
+  lazy,
+  Suspense,
 } from "react";
 import type {
   CSSProperties,
@@ -28,7 +30,11 @@ import { useStreak } from "../hooks/useStreak";
 import { useSubscription } from "../hooks/useSubscription";
 import type { Pin } from "../types";
 
-import { MapView } from "../components/map/MapView";
+const MapView = lazy(() =>
+  import("../components/map/MapView").then((module) => ({
+    default: module.MapView,
+  })),
+);
 
 interface FlyToState {
   flyTo?: {
@@ -498,22 +504,24 @@ export function MapPage() {
 
   return (
     <div className="map-page">
-      <MapView
-        pins={pins}
-        currentUserId={user.id}
-        partnerUserId={partner?.id ?? null}
-        onLongPress={handleLongPress}
-        onPinClick={handlePinClick}
-        onUserLocation={(coords) =>
-          setLastUserLocation({ ...coords, receivedAt: Date.now() })
-        }
-        onMapCenterChange={setMapCenter}
-        onBoundsChange={onViewportChange}
-        flyTo={flyTo}
-        bucketItems={bucketMarkers}
-        newestPinId={newestPinId}
-        mapStyleUrl={styleUrl}
-      />
+      <Suspense fallback={<div className="full-center muted">Loading map…</div>}>
+        <MapView
+          pins={pins}
+          currentUserId={user.id}
+          partnerUserId={partner?.id ?? null}
+          onLongPress={handleLongPress}
+          onPinClick={handlePinClick}
+          onUserLocation={(coords) =>
+            setLastUserLocation({ ...coords, receivedAt: Date.now() })
+          }
+          onMapCenterChange={setMapCenter}
+          onBoundsChange={onViewportChange}
+          flyTo={flyTo}
+          bucketItems={bucketMarkers}
+          newestPinId={newestPinId}
+          mapStyleUrl={styleUrl}
+        />
+      </Suspense>
 
       <button className="fab" onClick={handleFabClick} aria-label="Pin here">
         <Plus size={24} />
