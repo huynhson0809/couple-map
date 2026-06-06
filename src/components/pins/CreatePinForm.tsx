@@ -26,6 +26,10 @@ import {
   MAX_VIDEO_BYTES,
 } from "../../lib/cloudinary";
 import { toPinImageRows, uploadPinMediaFiles } from "../../lib/pinMediaUpload";
+import {
+  savePendingUploads,
+  clearPendingUploadsForPin,
+} from "../../lib/pendingUploads";
 import { reverseGeocode } from "../../lib/geocoding";
 import { searchPlaces, type PlaceSearchResult } from "../../lib/placeSearch";
 import {
@@ -358,11 +362,15 @@ export function CreatePinForm({
         return;
       }
 
+      // Persist files to IndexedDB so uploads survive app exit
+      await savePendingUploads(pin.id, coupleId, mediaFiles);
+
       setUploadProgress(pin.id, 0);
-      showToast({ type: "info", title: t("toast.memoryUploading") });
+      showToast({ type: "success", title: t("toast.memoryCreated") });
       setSaving(false);
       onCreated();
 
+      // Upload in background
       void uploadPinMediaFiles(mediaFiles, `pinly/${coupleId}`, (pct) =>
         setUploadProgress(pin.id, pct),
       )
@@ -375,7 +383,7 @@ export function CreatePinForm({
             await fetchPinImages(pin.id);
             bumpPinsVersion();
           }
-          showToast({ type: "success", title: t("toast.memoryCreated") });
+          await clearPendingUploadsForPin(pin.id);
         })
         .catch((err) => {
           console.warn("Background upload error:", err);

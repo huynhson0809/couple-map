@@ -15,6 +15,10 @@ import {
   MAX_VIDEO_BYTES,
 } from "../../lib/cloudinary";
 import { toPinImageRows, uploadPinMediaFiles } from "../../lib/pinMediaUpload";
+import {
+  savePendingUploads,
+  clearPendingUploadsForPin,
+} from "../../lib/pendingUploads";
 import { supabase } from "../../lib/supabase";
 import {
   deletePinMedia,
@@ -257,45 +261,58 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     const hasUpload = mediaFiles.length > 0;
     if (hasUpload) {
       setUploadProgress(pin.id, 0);
-      showToast({ type: "info", title: t("toast.memoryUploading") });
     }
+
+    // Save metadata changes first (await so pin updates immediately)
+    try {
+      await updatePin(pin.id, patch);
+      if (mediaToRemove.length > 0) {
+        await deletePinMedia(mediaToRemove);
+      }
+    } catch (e) {
+      console.warn("Edit failed:", e);
+      showToast({ type: "error", title: t("toast.actionFailed") });
+      setSaving(false);
+      return;
+    }
+
+    setSaving(false);
     onSaved();
 
-    void (async () => {
-      try {
-        await updatePin(pin.id, patch);
-
-        if (mediaToRemove.length > 0) {
-          await deletePinMedia(mediaToRemove);
-        }
-
-        if (hasUpload) {
-          const uploads = await uploadPinMediaFiles(
-            mediaFiles,
-            `pinly/${pin.couple_id}`,
-            (pct) => setUploadProgress(pin.id, pct),
-          );
-          if (uploads.length > 0) {
-            const { error: imgErr } = await supabase
-              .from("pin_images")
-              .insert(toPinImageRows(pin.id, uploads, startOrder));
-            if (imgErr) throw imgErr;
-          }
-        }
-
-        if (hasUpload || mediaToRemove.length > 0) {
-          await fetchPinImages(pin.id);
-          bumpPinsVersion();
-        }
-
-        showToast({ type: "success", title: t("toast.memoryUpdated") });
-      } catch (e) {
-        console.warn("Background edit failed:", e);
-        showToast({ type: "error", title: t("toast.actionFailed") });
-      } finally {
-        if (hasUpload) clearUploadProgress(pin.id);
+    if (!hasUpload) {
+      if (mediaToRemove.length > 0) {
+        await fetchPinImages(pin.id);
+        bumpPinsVersion();
       }
-    })();
+      showToast({ type: "success", title: t("toast.memoryUpdated") });
+      return;
+    }
+
+    // Persist to IndexedDB for resilience, then upload in background
+    await savePendingUploads(pin.id, pin.couple_id, mediaFiles, startOrder);
+
+    void uploadPinMediaFiles(mediaFiles, `pinly/${pin.couple_id}`, (pct) =>
+      setUploadProgress(pin.id, pct),
+    )
+      .then(async (uploads) => {
+        if (uploads.length > 0) {
+          const { error: imgErr } = await supabase
+            .from("pin_images")
+            .insert(toPinImageRows(pin.id, uploads, startOrder));
+          if (imgErr) throw imgErr;
+        }
+        await fetchPinImages(pin.id);
+        bumpPinsVersion();
+        await clearPendingUploadsForPin(pin.id);
+        showToast({ type: "success", title: t("toast.memoryUpdated") });
+      })
+      .catch((err) => {
+        console.warn("Background upload error:", err);
+        showToast({ type: "error", title: t("toast.photoUploadFailed") });
+      })
+      .finally(() => {
+        clearUploadProgress(pin.id);
+      });
   }
 
   return (

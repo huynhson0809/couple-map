@@ -13,6 +13,7 @@ import { useViewportPins, type Viewport } from "./useViewportPins";
 import { useCoupleRealtime } from "./useCoupleRealtime";
 import { supabase } from "../lib/supabase";
 import { invalidateApiCacheByPrefix } from "../lib/apiCache";
+import { processPendingUploads } from "../lib/pendingUploads";
 import type { Pin, PinImage } from "../types";
 
 type PinsHook = ReturnType<typeof usePins>;
@@ -126,6 +127,30 @@ export function PinsProvider({
     invalidateStatsCache();
     setPinsVersion((v) => v + 1);
   }, [invalidateStatsCache]);
+
+  // Resume any pending uploads from IndexedDB on app start
+  useEffect(() => {
+    if (!coupleId) return;
+    processPendingUploads(
+      (pinId, pct) => {
+        setUploadingPins((prev) => {
+          const next = new Map(prev);
+          next.set(pinId, { progress: pct });
+          return next;
+        });
+      },
+      (pinId) => {
+        setUploadingPins((prev) => {
+          const next = new Map(prev);
+          next.delete(pinId);
+          return next;
+        });
+        invalidateStatsCache();
+        setPinsVersion((v) => v + 1);
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coupleId]);
 
   useCoupleRealtime({
     coupleId,

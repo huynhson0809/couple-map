@@ -197,7 +197,9 @@ export function SettingsPage() {
       </SettingSection>
 
       <SettingSection
-        title={showDarkToggle ? t("settings.appearance") : t("settings.language")}
+        title={
+          showDarkToggle ? t("settings.appearance") : t("settings.language")
+        }
         icon={<Globe size={14} />}
       >
         {showDarkToggle && (
@@ -644,13 +646,15 @@ export function SettingsPage() {
       <div className="settings-action-stack">
         <Button
           variant="ghost"
-          onClick={async () => {
+          onClick={() => {
             if ("caches" in window) {
-              const names = await caches.keys();
-              await Promise.all(names.map((n) => caches.delete(n)));
+              caches
+                .keys()
+                .then((names) => names.forEach((n) => caches.delete(n)));
             }
-            const regs = await navigator.serviceWorker?.getRegistrations();
-            if (regs) await Promise.all(regs.map((r) => r.unregister()));
+            navigator.serviceWorker
+              ?.getRegistrations()
+              .then((regs) => regs.forEach((r) => r.unregister()));
             window.location.reload();
           }}
           className="settings-full-button"
