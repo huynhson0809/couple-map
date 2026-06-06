@@ -75,14 +75,29 @@ export function MapStylePreviewSheet({
             new maplibregl.NavigationControl({ showCompass: false }),
             "bottom-right",
           );
+
+          const timeout = window.setTimeout(() => {
+            if (!disposed && !mapLoaded) {
+              setLoading(false);
+              setLoadError(true);
+            }
+          }, 15_000);
+
           map.once("load", () => {
             if (!disposed) {
               mapLoaded = true;
+              clearTimeout(timeout);
               setLoading(false);
             }
           });
-          map.once("error", () => {
-            if (!disposed && !mapLoaded) {
+          map.on("error", (e) => {
+            // Only treat style-level errors as fatal (not tile 404s)
+            if (
+              !disposed &&
+              !mapLoaded &&
+              e.error?.message?.includes("style")
+            ) {
+              clearTimeout(timeout);
               setLoading(false);
               setLoadError(true);
             }
