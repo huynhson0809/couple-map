@@ -35,6 +35,7 @@ const app = read("src/App.tsx");
 const mapPage = read("src/pages/MapPage.tsx");
 const mapView = read("src/components/map/MapView.tsx");
 const wishlistPage = read("src/pages/WishlistPage.tsx");
+const styles = read("src/index.css");
 const pinsContext = read("src/hooks/PinsContext.tsx");
 const useBucket = read("src/hooks/useBucket.ts");
 const useCouple = read("src/hooks/useCouple.ts");
@@ -158,6 +159,35 @@ assert(
       mapPage,
     ),
   "MapPage FAB should only reuse recent user location when its accuracy is good enough.",
+);
+
+assert(
+  /STREAK_FLOAT_STORAGE_KEY/.test(mapPage) &&
+    /handleStreakPointerDown/.test(mapPage) &&
+    /handleStreakPointerMove/.test(mapPage) &&
+    /handleStreakPointerUp/.test(mapPage) &&
+    /setPointerCapture/.test(mapPage) &&
+    /localStorage\.setItem\(STREAK_FLOAT_STORAGE_KEY/.test(mapPage) &&
+    /clampStreakFloatPosition/.test(mapPage) &&
+    /useState<StreakFloatPosition \| null>\(\(\) => readStreakFloatPosition\(\)\)/.test(
+      mapPage,
+    ) &&
+    /useLayoutEffect\(\(\) =>/.test(mapPage) &&
+    /\}, \[couple\?\.id,\s*user\?\.id\]\);/.test(mapPage) &&
+    /STREAK_CLICK_SUPPRESS_MS/.test(mapPage) &&
+    /suppressStreakClickTimerRef/.test(mapPage) &&
+    /function suppressNextStreakClickBriefly/.test(mapPage) &&
+    /window\.setTimeout\(\s*clearStreakClickSuppress,\s*STREAK_CLICK_SUPPRESS_MS\s*,?\s*\)/.test(
+      mapPage,
+    ) &&
+    /clearStreakClickSuppress\(\);\s*return;/.test(mapPage),
+  "Map streak floating button must hydrate persisted drag position before first interaction and reclamp after map context mounts.",
+);
+
+assert(
+  /\.map-streak-float[\s\S]{0,500}touch-action:\s*none/.test(styles) &&
+    /\.map-streak-float\.dragging/.test(styles),
+  "Map streak floating button CSS must disable touch gestures while dragging and expose a dragging state.",
 );
 
 assert(
