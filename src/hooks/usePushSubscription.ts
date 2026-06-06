@@ -74,9 +74,13 @@ export function usePushSubscription(userId: string | undefined) {
       let sub = await reg.pushManager.getSubscription();
 
       if (!sub) {
+        const vapidKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+          applicationServerKey: vapidKey.buffer.slice(
+            vapidKey.byteOffset,
+            vapidKey.byteOffset + vapidKey.byteLength,
+          ) as ArrayBuffer,
         });
       }
 
