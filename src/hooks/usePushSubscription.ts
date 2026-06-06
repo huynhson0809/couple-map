@@ -27,9 +27,18 @@ export function usePushSubscription(userId: string | undefined) {
     async function check() {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      setSubscribed(!!sub);
+      try {
+        const reg = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("SW ready timeout")), 5000),
+          ),
+        ]);
+        const sub = await reg.pushManager.getSubscription();
+        setSubscribed(!!sub);
+      } catch {
+        // SW not ready yet — leave as unsubscribed
+      }
     }
     check();
   }, [userId]);
@@ -53,7 +62,13 @@ export function usePushSubscription(userId: string | undefined) {
         return false;
       }
 
-      const reg = await navigator.serviceWorker.ready;
+      // Wait for SW with timeout to avoid hanging on iOS
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("SW ready timeout")), 8000),
+        ),
+      ]);
 
       // Check if already subscribed
       let sub = await reg.pushManager.getSubscription();
@@ -61,8 +76,7 @@ export function usePushSubscription(userId: string | undefined) {
       if (!sub) {
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            .buffer as ArrayBuffer,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
         });
       }
 
