@@ -33,10 +33,14 @@ function hasGetInvoke(source) {
 
 const app = read("src/App.tsx");
 const mapPage = read("src/pages/MapPage.tsx");
+const mapView = read("src/components/map/MapView.tsx");
+const wishlistPage = read("src/pages/WishlistPage.tsx");
 const pinsContext = read("src/hooks/PinsContext.tsx");
 const useBucket = read("src/hooks/useBucket.ts");
 const useCouple = read("src/hooks/useCouple.ts");
 const useSubscription = read("src/hooks/useSubscription.tsx");
+const useLocationHook = read("src/hooks/useLocation.ts");
+const useViewportPins = read("src/hooks/useViewportPins.ts");
 const statsApi = read("src/hooks/useStatsApi.ts");
 const serviceWorker = read("src/sw-push.ts");
 const timelinePins = read("src/hooks/useTimelinePins.ts");
@@ -95,6 +99,72 @@ assert(
     mapPage,
   ) && /lazy\([\s\S]*\.\.\/components\/map\/MapView/.test(mapPage),
   "MapView should be lazy-loaded so MapPage does not eagerly bundle MapLibre.",
+);
+
+assert(
+  /explicitCameraTargetRef/.test(mapView) &&
+    /didInitialFitRef\.current\s*=\s*true[\s\S]{0,500}map\.(?:easeTo|flyTo)/.test(
+      mapView,
+    ),
+  "MapView flyTo must mark an explicit camera target so initial auto-fit cannot override show-on-map.",
+);
+
+assert(
+  /function\s+hasExplicitCameraIntent/.test(mapView) &&
+    /if\s*\(hasExplicitCameraIntent\(\)\)\s*return/.test(mapView),
+  "MapView initial fit must skip while an explicit show-on-map camera target is active.",
+);
+
+assert(
+  /map\.stop\(\)/.test(mapView) &&
+    /map\.resize\(\)/.test(mapView) &&
+    /emitMapCenter\(map\)/.test(mapView),
+  "MapView flyTo must stop stale animations, resize, and emit bounds after camera changes.",
+);
+
+assert(
+  /const\s+FLY_TO_ZOOM\s*=\s*19/.test(mapView) &&
+    /const\s+FLY_TO_DURATION_MS/.test(mapView) &&
+    /duration:\s*FLY_TO_DURATION_MS/.test(mapView) &&
+    /function\s+getFlyToCenter/.test(mapView) &&
+    /function\s+ensureFlyToCentered/.test(mapView) &&
+    /function\s+isFlyToCloseEnough/.test(mapView) &&
+    /map\.easeTo\(\{[\s\S]{0,180}center:\s*getFlyToCenter\(target\)[\s\S]{0,180}duration:\s*FLY_TO_CORRECTION_MS/.test(
+      mapView,
+    ) &&
+    !/function\s+ensureFlyToCentered[\s\S]{0,360}map\.jumpTo/.test(mapView) &&
+    !/offset:\s*getVisibleFlyToOffset\(\)/.test(mapView),
+  "MapView show-on-map must animate smoothly, avoid jumpTo snaps, and correct only when meaningfully off target.",
+);
+
+assert(
+  /requestAnimationFrame\(\(\)\s*=>\s*\{[\s\S]{0,160}map\.resize\(\)[\s\S]{0,220}applyFlyTo\(pendingFlyToRef\.current\)/.test(
+    mapView,
+  ),
+  "MapView must resize the canvas before applying a pending show-on-map flyTo after map load.",
+);
+
+assert(
+  /new\s+maplibregl\.GeolocateControl[\s\S]*maximumAge:\s*0[\s\S]*timeout:\s*15_000/.test(
+    mapView,
+  ),
+  "MapView geolocate control must request fresh high-accuracy fixes instead of stale cached positions.",
+);
+
+assert(
+  /isAccurateEnough/.test(mapPage) &&
+    /GPS_QUICK_MS\s*=\s*6000/.test(mapPage) &&
+    !/Date\.now\(\)\s*-\s*lastUserLocation\.receivedAt\s*<\s*60_000\)\s*\{/.test(
+      mapPage,
+    ),
+  "MapPage FAB should only reuse recent user location when its accuracy is good enough.",
+);
+
+assert(
+  /isUsableCachedPosition/.test(useLocationHook) &&
+    /maximumAge:\s*0/.test(useLocationHook) &&
+    /GOOD_ACCURACY_METERS\s*=\s*35/.test(useLocationHook),
+  "useLocation must avoid stale/low-accuracy cached GPS positions and request fresh high-accuracy fixes.",
 );
 
 assert(
@@ -161,8 +231,36 @@ assert(
 
 assert(
   /statusFilter/.test(useBucket) &&
-    /useBucket\(couple\?\.id,\s*user\?\.id,\s*["']dream["']\)/.test(mapPage),
-  "MapPage should fetch only dream wishlist items instead of the full bucket list.",
+    /useBucket\(couple\?\.id,\s*user\?\.id\)/.test(mapPage) &&
+    !/useBucket\(couple\?\.id,\s*user\?\.id,\s*["']dream["']\)/.test(mapPage),
+  "MapPage should request all bucket markers so wishlist show-on-map works for done and dream places.",
+);
+
+assert(
+  /bucketId:\s*b\.id/.test(wishlistPage) &&
+    /highlightedBucketIdRef/.test(mapView) &&
+    /bucket-marker \$\{b\.id === highlightedBucketId/.test(mapView),
+  "Wishlist show-on-map must carry a bucketId and MapView must highlight that exact bucket marker.",
+);
+
+assert(
+  /function\s+shouldSkipHighlightedCluster/.test(mapView) &&
+    /function\s+getRenderablePins/.test(mapView) &&
+    /const\s+queue/.test(mapView) &&
+    /SAME_PLACE_RADIUS_METERS/.test(mapView) &&
+    /CLUSTER_SCREEN_MAX_ZOOM/.test(mapView) &&
+    /if\s*\(shouldSkipHighlightedCluster\(current\.pin,\s*other\.pin\)\)\s*continue/.test(
+      mapView,
+    ),
+  "MapView must cluster only renderable viewport pins, use connected groups, and avoid over-grouping at high zoom.",
+);
+
+assert(
+  /loadPinById/.test(useViewportPins) &&
+    /\.eq\(["']id["'],\s*id\)/.test(useViewportPins) &&
+    /loadPinById/.test(pinsContext) &&
+    /loadPinById\(pinId\)/.test(mapPage),
+  "MapPage show-on-map must load a missing target pin into the viewport pin store instead of calling the unrelated full fetchPins state.",
 );
 
 assert(

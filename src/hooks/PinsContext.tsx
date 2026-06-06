@@ -31,6 +31,7 @@ interface Ctx extends PinsHook {
   bumpPinsVersion: () => void;
   onViewportChange: (viewport: Viewport) => void;
   loadAllPins: () => Promise<void>;
+  loadPinById: (id: string) => Promise<Pin | null>;
   allPinsLoaded: boolean;
 }
 
@@ -60,6 +61,7 @@ export function PinsProvider({
     updatePinLocal,
     onViewportChange,
     loadAll,
+    loadPinById,
     allLoaded,
   } = viewport;
   const userIdRef = useRef(userId);
@@ -200,6 +202,7 @@ export function PinsProvider({
     bumpPinsVersion,
     onViewportChange,
     loadAllPins: loadAll,
+    loadPinById,
     allPinsLoaded: allLoaded,
   };
 

@@ -111,6 +111,19 @@ export function WishlistPage() {
     }
   }
 
+  function showBucketOnMap(b: { id: string; lat: number; lng: number }) {
+    navigate("/", {
+      state: {
+        flyTo: {
+          lat: b.lat,
+          lng: b.lng,
+          bucketId: b.id,
+          openDetail: false,
+        },
+      },
+    });
+  }
+
   const dreams = items.filter((b) => b.status === "dream");
   const done = items.filter((b) => b.status === "done");
 
@@ -269,11 +282,7 @@ export function WishlistPage() {
                       <button
                         type="button"
                         className="wish-map-btn"
-                        onClick={() =>
-                          navigate("/", {
-                            state: { flyTo: { lat: b.lat, lng: b.lng } },
-                          })
-                        }
+                        onClick={() => showBucketOnMap(b)}
                       >
                         <MapPin size={13} aria-hidden="true" />{" "}
                         {t("wish.showOnMap")}
@@ -325,11 +334,7 @@ export function WishlistPage() {
                       <button
                         type="button"
                         className="wish-map-btn"
-                        onClick={() =>
-                          navigate("/", {
-                            state: { flyTo: { lat: b.lat, lng: b.lng } },
-                          })
-                        }
+                        onClick={() => showBucketOnMap(b)}
                       >
                         <MapPin size={13} aria-hidden="true" />{" "}
                         {t("wish.showOnMap")}

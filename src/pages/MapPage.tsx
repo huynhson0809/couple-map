@@ -31,15 +31,35 @@ const MapView = lazy(() =>
 );
 
 interface FlyToState {
-  flyTo?: { lat: number; lng: number; pinId?: string; openDetail?: boolean };
+  flyTo?: {
+    lat: number;
+    lng: number;
+    pinId?: string;
+    bucketId?: string;
+    openDetail?: boolean;
+  };
+}
+
+const RECENT_LOCATION_MS = 60_000;
+const GOOD_PIN_ACCURACY_METERS = 80;
+const GPS_QUICK_MS = 6000;
+
+function isAccurateEnough(coords: { accuracy?: number | null }) {
+  return (
+    coords.accuracy !== null &&
+    coords.accuracy !== undefined &&
+    Number.isFinite(coords.accuracy) &&
+    coords.accuracy <= GOOD_PIN_ACCURACY_METERS
+  );
 }
 
 export function MapPage() {
   const { user } = useAuth();
   const { t, lang } = useI18n();
   const { couple, profile, partner } = useCoupleCtx();
-  const { pins, deletePin, fetchPins, onViewportChange } = usePinsCtx();
-  const { items: bucketItems } = useBucket(couple?.id, user?.id, "dream");
+  const { pins, deletePin, fetchPins, onViewportChange, loadPinById } =
+    usePinsCtx();
+  const { items: bucketItems } = useBucket(couple?.id, user?.id);
   const { getCurrentPosition } = useGeo();
   const { styleUrl } = useMapStyle();
   const streak = useStreak(couple, profile?.id ?? user?.id);
@@ -62,7 +82,7 @@ export function MapPage() {
 
     return newest?.id ?? null;
   }, [pins]);
-  const dreamBucketMarkers = useMemo(
+  const bucketMarkers = useMemo(
     () =>
       bucketItems.map((b) => ({ id: b.id, lat: b.lat, lng: b.lng })),
     [bucketItems],
@@ -78,6 +98,7 @@ export function MapPage() {
     lng: number;
     key: number;
     pinId?: string;
+    bucketId?: string;
   } | null>(null);
   const [lastUserLocation, setLastUserLocation] = useState<{
     lat: number;
@@ -95,6 +116,10 @@ export function MapPage() {
 
     flyKey.current += 1;
     setFlyTo({ ...s.flyTo, key: flyKey.current });
+    const targetPinId = s.flyTo.pinId;
+    if (targetPinId && !pins.some((pin) => pin.id === targetPinId)) {
+      void loadPinById(targetPinId);
+    }
     pendingPinIdRef.current =
       s.flyTo.openDetail === false ? null : (s.flyTo.pinId ?? null);
     navigate(`${routeLocation.pathname}${routeLocation.search}`, {
@@ -103,6 +128,8 @@ export function MapPage() {
     });
   }, [
     navigate,
+    loadPinById,
+    pins,
     routeLocation.key,
     routeLocation.pathname,
     routeLocation.search,
@@ -116,7 +143,7 @@ export function MapPage() {
     const pin = pins.find((p) => p.id === pinId);
     if (!pin) {
       pendingPinIdRef.current = pinId;
-      void fetchPins();
+      void loadPinById(pinId);
       return;
     }
 
@@ -129,7 +156,13 @@ export function MapPage() {
     });
     setSelectedPin(pin);
     navigate(routeLocation.pathname, { replace: true, state: null });
-  }, [fetchPins, navigate, pins, routeLocation.pathname, routeLocation.search]);
+  }, [
+    loadPinById,
+    navigate,
+    pins,
+    routeLocation.pathname,
+    routeLocation.search,
+  ]);
 
   useEffect(() => {
     const pendingPinId = pendingPinIdRef.current;
@@ -162,7 +195,11 @@ export function MapPage() {
       setShowUpgradePrompt(true);
       return;
     }
-    if (lastUserLocation && Date.now() - lastUserLocation.receivedAt < 60_000) {
+    if (
+      lastUserLocation &&
+      Date.now() - lastUserLocation.receivedAt < RECENT_LOCATION_MS &&
+      isAccurateEnough(lastUserLocation)
+    ) {
       setNewPinCoords({
         lat: lastUserLocation.lat,
         lng: lastUserLocation.lng,
@@ -171,8 +208,7 @@ export function MapPage() {
       return;
     }
 
-    // Race GPS against a short timeout so FAB never blocks more than 3s
-    const GPS_QUICK_MS = 3000;
+    // Prefer a fresh high-accuracy GPS fix before falling back to map center.
     try {
       const c = await Promise.race([
         getCurrentPosition(),
@@ -183,12 +219,23 @@ export function MapPage() {
       setLastUserLocation({ ...c, receivedAt: Date.now() });
       setNewPinCoords(c);
     } catch {
-      // GPS too slow or failed — use map center, let GPS update in background
+      // GPS too slow or failed — use map center, then replace only with better GPS.
       setNewPinCoords({ ...mapCenter, accuracy: null });
       getCurrentPosition()
         .then((c) => {
           setLastUserLocation({ ...c, receivedAt: Date.now() });
-          setNewPinCoords(c);
+          setNewPinCoords((current) => {
+            if (!current) return current;
+            const currentAccuracy =
+              current.accuracy === null || current.accuracy === undefined
+                ? Infinity
+                : current.accuracy;
+            const nextAccuracy =
+              c.accuracy === null || c.accuracy === undefined
+                ? Infinity
+                : c.accuracy;
+            return nextAccuracy < currentAccuracy ? c : current;
+          });
         })
         .catch(() => {});
     }
@@ -212,7 +259,7 @@ export function MapPage() {
           onMapCenterChange={setMapCenter}
           onBoundsChange={onViewportChange}
           flyTo={flyTo}
-          bucketItems={dreamBucketMarkers}
+          bucketItems={bucketMarkers}
           newestPinId={newestPinId}
           mapStyleUrl={styleUrl}
         />

@@ -24,7 +24,13 @@ interface Props {
     east: number;
     west: number;
   }) => void;
-  flyTo?: { lat: number; lng: number; key: number; pinId?: string } | null;
+  flyTo?: {
+    lat: number;
+    lng: number;
+    key: number;
+    pinId?: string;
+    bucketId?: string;
+  } | null;
   showHeatmap?: boolean;
   bucketItems?: { id: string; lat: number; lng: number }[];
   onBucketClick?: (id: string) => void;
@@ -36,6 +42,15 @@ const COLOR_USER_A = "#E24B4A";
 const COLOR_USER_B = "#378ADD";
 const CLUSTER_RADIUS_PX = 56;
 const VENUE_CLUSTER_RADIUS_METERS = 45;
+const SAME_PLACE_RADIUS_METERS = 4;
+const CLUSTER_SCREEN_MAX_ZOOM = 16.5;
+const CLUSTER_VENUE_MAX_ZOOM = 15.5;
+const EXPLICIT_CAMERA_INTENT_MS = 8000;
+const FLY_TO_ZOOM = 19;
+const FLY_TO_DURATION_MS = 1150;
+const FLY_TO_CORRECTION_MS = 240;
+const FLY_TO_CENTER_TOLERANCE_METERS = 2.5;
+const FLY_TO_ZOOM_TOLERANCE = 0.03;
 
 interface Group {
   key: string;
@@ -81,7 +96,13 @@ export function MapView({
   const onBoundsChangeRef = useRef(onBoundsChange);
   const newestPinIdRef = useRef(newestPinId);
   const highlightedPinIdRef = useRef<string | null>(null);
+  const highlightedBucketIdRef = useRef<string | null>(null);
   const pendingFlyToRef = useRef<Props["flyTo"]>(null);
+  const explicitCameraTargetRef = useRef<{
+    lat: number;
+    lng: number;
+    expiresAt: number;
+  } | null>(null);
   const getCategoryRef = useRef(getCategory);
   const [clusterPinIds, setClusterPinIds] = useState<string[] | null>(null);
 
@@ -112,7 +133,7 @@ export function MapView({
   }
 
   function computeGroups(map: maplibregl.Map): Group[] {
-    const items = pinsRef.current.map((p) => ({
+    const items = getRenderablePins(map).map((p) => ({
       pin: p,
       pt: map.project([p.lng, p.lat]),
     }));
@@ -122,18 +143,27 @@ export function MapView({
     for (const it of items) {
       if (taken.has(it.pin.id)) continue;
       taken.add(it.pin.id);
-      const groupPins = [it.pin];
-      let sumLat = it.pin.lat;
-      let sumLng = it.pin.lng;
-      for (const other of items) {
-        if (taken.has(other.pin.id)) continue;
-        if (shouldClusterPins(it, other)) {
-          taken.add(other.pin.id);
-          groupPins.push(other.pin);
-          sumLat += other.pin.lat;
-          sumLng += other.pin.lng;
+      const queue = [it];
+      const groupPins: Pin[] = [];
+      let sumLat = 0;
+      let sumLng = 0;
+
+      for (let i = 0; i < queue.length; i += 1) {
+        const current = queue[i];
+        groupPins.push(current.pin);
+        sumLat += current.pin.lat;
+        sumLng += current.pin.lng;
+
+        for (const other of items) {
+          if (taken.has(other.pin.id)) continue;
+          if (shouldSkipHighlightedCluster(current.pin, other.pin)) continue;
+          if (shouldClusterPins(map, current, other)) {
+            taken.add(other.pin.id);
+            queue.push(other);
+          }
         }
       }
+
       const n = groupPins.length;
       const key =
         n === 1
@@ -155,26 +185,69 @@ export function MapView({
     return groups;
   }
 
+  function getRenderablePins(map: maplibregl.Map) {
+    const bounds = map.getBounds();
+    const north = bounds.getNorth();
+    const south = bounds.getSouth();
+    const east = bounds.getEast();
+    const west = bounds.getWest();
+    const latPad = Math.max((north - south) * 0.18, 0.004);
+    const lngPad = Math.max((east - west) * 0.18, 0.004);
+    return pinsRef.current.filter(
+      (pin) =>
+        pin.lat >= south - latPad &&
+        pin.lat <= north + latPad &&
+        pin.lng >= west - lngPad &&
+        pin.lng <= east + lngPad,
+    );
+  }
+
+  function shouldSkipHighlightedCluster(a: Pin, b: Pin) {
+    const highlightedPinId = highlightedPinIdRef.current;
+    return Boolean(
+      highlightedPinId &&
+        (a.id === highlightedPinId || b.id === highlightedPinId),
+    );
+  }
+
   function distanceMeters(a: Pin, b: Pin) {
+    return distanceLngLatMeters(a.lat, a.lng, b.lat, b.lng);
+  }
+
+  function distanceLngLatMeters(
+    aLat: number,
+    aLng: number,
+    bLat: number,
+    bLng: number,
+  ) {
     const earthRadius = 6_371_000;
     const toRad = (value: number) => (value * Math.PI) / 180;
-    const dLat = toRad(b.lat - a.lat);
-    const dLng = toRad(b.lng - a.lng);
-    const lat1 = toRad(a.lat);
-    const lat2 = toRad(b.lat);
+    const dLat = toRad(bLat - aLat);
+    const dLng = toRad(bLng - aLng);
+    const lat1 = toRad(aLat);
+    const lat2 = toRad(bLat);
     const h =
       Math.sin(dLat / 2) ** 2 +
       Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
     return 2 * earthRadius * Math.asin(Math.sqrt(h));
   }
 
-  function shouldClusterPins(a: ProjectedPin, b: ProjectedPin) {
+  function shouldClusterPins(
+    map: maplibregl.Map,
+    a: ProjectedPin,
+    b: ProjectedPin,
+  ) {
+    const zoom = map.getZoom();
+    const meters = distanceMeters(a.pin, b.pin);
+    if (meters <= SAME_PLACE_RADIUS_METERS) return true;
+    if (zoom >= CLUSTER_SCREEN_MAX_ZOOM) return false;
+
     const dx = a.pt.x - b.pt.x;
     const dy = a.pt.y - b.pt.y;
     const closeOnScreen =
       dx * dx + dy * dy < CLUSTER_RADIUS_PX * CLUSTER_RADIUS_PX;
     if (closeOnScreen) return true;
-    return distanceMeters(a.pin, b.pin) <= VENUE_CLUSTER_RADIUS_METERS;
+    return zoom < CLUSTER_VENUE_MAX_ZOOM && meters <= VENUE_CLUSTER_RADIUS_METERS;
   }
 
   function createPinEl(p: Pin) {
@@ -303,6 +376,7 @@ export function MapView({
 
   function fitToPinsOnce(map: maplibregl.Map) {
     if (didInitialFitRef.current) return;
+    if (hasExplicitCameraIntent()) return;
     if (pinsRef.current.length === 0) return;
     didInitialFitRef.current = true;
     if (pinsRef.current.length === 1) {
@@ -329,31 +403,138 @@ export function MapView({
     });
   }
 
+  function hasExplicitCameraIntent() {
+    const target = explicitCameraTargetRef.current;
+    if (pendingFlyToRef.current) return true;
+    if (!target) return false;
+    if (target.expiresAt > Date.now()) return true;
+    explicitCameraTargetRef.current = null;
+    return false;
+  }
+
   function rebuildMarkers() {
     markersRef.current.forEach((m) => m.remove());
     markersRef.current.clear();
     if (styleLoadedRef.current) renderMarkers();
   }
 
-  function applyFlyTo(target: NonNullable<Props["flyTo"]>) {
+  function renderBucketMarkers() {
     const map = mapRef.current;
     if (!map) return;
-    highlightedPinIdRef.current = target.pinId ?? null;
-    rebuildMarkers();
-    map.flyTo({
-      center: [target.lng, target.lat],
-      zoom: 19,
-      speed: 0.82,
-      curve: 1.2,
+    const highlightedBucketId = highlightedBucketIdRef.current;
+    bucketMarkersRef.current.forEach((m) => m.remove());
+    bucketMarkersRef.current = [];
+    bucketItems.forEach((b) => {
+      const el = document.createElement("div");
+      el.className = `bucket-marker ${b.id === highlightedBucketId ? "showing" : ""}`;
+      el.innerHTML = "<span>★</span>";
+      const marker = new maplibregl.Marker({ element: el, anchor: "center" })
+        .setLngLat([b.lng, b.lat])
+        .addTo(map);
+      if (onBucketClick) {
+        el.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          onBucketClick(b.id);
+        });
+      }
+      bucketMarkersRef.current.push(marker);
+    });
+  }
+
+  function getFlyToCenter(target: NonNullable<Props["flyTo"]>) {
+    return [target.lng, target.lat] as [number, number];
+  }
+
+  function ensureFlyToCentered(
+    map: maplibregl.Map,
+    target: NonNullable<Props["flyTo"]>,
+  ) {
+    if (isFlyToCloseEnough(map, target)) {
+      emitMapCenter(map);
+      rebuildMarkers();
+      renderBucketMarkers();
+      return;
+    }
+
+    map.easeTo({
+      center: getFlyToCenter(target),
+      zoom: FLY_TO_ZOOM,
+      duration: FLY_TO_CORRECTION_MS,
+      easing: easeOutCubic,
       essential: true,
     });
     map.once("moveend", () => {
+      emitMapCenter(map);
       rebuildMarkers();
+      renderBucketMarkers();
+    });
+  }
+
+  function isFlyToCloseEnough(
+    map: maplibregl.Map,
+    target: NonNullable<Props["flyTo"]>,
+  ) {
+    const center = map.getCenter();
+    const distance = distanceLngLatMeters(
+      center.lat,
+      center.lng,
+      target.lat,
+      target.lng,
+    );
+    return (
+      distance <= FLY_TO_CENTER_TOLERANCE_METERS &&
+      Math.abs(map.getZoom() - FLY_TO_ZOOM) <= FLY_TO_ZOOM_TOLERANCE
+    );
+  }
+
+  function easeOutCubic(t: number) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function applyFlyTo(target: NonNullable<Props["flyTo"]>) {
+    const map = mapRef.current;
+    if (!map) return;
+    if (
+      !Number.isFinite(target.lat) ||
+      !Number.isFinite(target.lng) ||
+      Math.abs(target.lat) > 90 ||
+      Math.abs(target.lng) > 180
+    ) {
+      return;
+    }
+
+    explicitCameraTargetRef.current = {
+      lat: target.lat,
+      lng: target.lng,
+      expiresAt: Date.now() + EXPLICIT_CAMERA_INTENT_MS,
+    };
+    didInitialFitRef.current = true;
+    highlightedPinIdRef.current = target.pinId ?? null;
+    highlightedBucketIdRef.current = target.bucketId ?? null;
+    map.stop();
+    map.resize();
+    rebuildMarkers();
+    renderBucketMarkers();
+    map.flyTo({
+      center: getFlyToCenter(target),
+      zoom: FLY_TO_ZOOM,
+      duration: FLY_TO_DURATION_MS,
+      curve: 1.35,
+      easing: easeOutCubic,
+      essential: true,
+    });
+    map.once("moveend", () => {
+      ensureFlyToCentered(map, target);
     });
     window.setTimeout(() => {
       if (highlightedPinIdRef.current !== target.pinId) return;
       highlightedPinIdRef.current = null;
       rebuildMarkers();
+    }, 5000);
+    window.setTimeout(() => {
+      if (highlightedBucketIdRef.current !== target.bucketId) return;
+      highlightedBucketIdRef.current = null;
+      renderBucketMarkers();
     }, 5000);
   }
 
@@ -370,8 +551,8 @@ export function MapView({
     const geolocateControl = new maplibregl.GeolocateControl({
       positionOptions: {
         enableHighAccuracy: true,
-        maximumAge: 60_000,
-        timeout: 12_000,
+        maximumAge: 0,
+        timeout: 15_000,
       },
       trackUserLocation: false,
     });
@@ -432,8 +613,10 @@ export function MapView({
       fitToPinsOnce(map);
       emitMapCenter(map);
       renderMarkers();
-      if (pendingFlyToRef.current) applyFlyTo(pendingFlyToRef.current);
-      requestAnimationFrame(() => map.resize());
+      requestAnimationFrame(() => {
+        map.resize();
+        if (pendingFlyToRef.current) applyFlyTo(pendingFlyToRef.current);
+      });
     });
     map.on("moveend", () => {
       emitMapCenter(map);
@@ -486,25 +669,8 @@ export function MapView({
 
   // Bucket markers
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    bucketMarkersRef.current.forEach((m) => m.remove());
-    bucketMarkersRef.current = [];
-    bucketItems.forEach((b) => {
-      const el = document.createElement("div");
-      el.className = "bucket-marker";
-      el.innerHTML = "<span>★</span>";
-      const marker = new maplibregl.Marker({ element: el, anchor: "center" })
-        .setLngLat([b.lng, b.lat])
-        .addTo(map);
-      if (onBucketClick) {
-        el.addEventListener("click", (ev) => {
-          ev.stopPropagation();
-          onBucketClick(b.id);
-        });
-      }
-      bucketMarkersRef.current.push(marker);
-    });
+    renderBucketMarkers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bucketItems, onBucketClick]);
 
   // Fly to

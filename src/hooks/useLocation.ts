@@ -8,8 +8,8 @@ export interface CurrentPosition {
 
 const CACHE_MS = 60_000
 const LOCATION_WAIT_MS = 15_000
-const GOOD_ACCURACY_METERS = 60
-const FALLBACK_ACCURACY_METERS = 500
+const GOOD_ACCURACY_METERS = 35
+const FALLBACK_ACCURACY_METERS = 180
 
 let cachedPosition: (CurrentPosition & { receivedAt: number }) | null = null
 
@@ -18,7 +18,7 @@ export function useLocation() {
   const [error, setError] = useState<string | null>(null)
 
   async function getCurrentPosition(): Promise<CurrentPosition> {
-    if (cachedPosition && Date.now() - cachedPosition.receivedAt < CACHE_MS) {
+    if (isUsableCachedPosition(cachedPosition)) {
       return toCurrentPosition(cachedPosition)
     }
 
@@ -121,7 +121,7 @@ export function useLocation() {
 
       const options: PositionOptions = {
         enableHighAccuracy: true,
-        maximumAge: CACHE_MS,
+        maximumAge: 0,
         timeout: LOCATION_WAIT_MS,
       }
 
@@ -158,4 +158,12 @@ function toCurrentPosition(
     lng: position.lng,
     accuracy: position.accuracy,
   }
+}
+
+function isUsableCachedPosition(
+  position: (CurrentPosition & { receivedAt: number }) | null,
+): position is CurrentPosition & { receivedAt: number } {
+  if (!position) return false
+  if (Date.now() - position.receivedAt >= CACHE_MS) return false
+  return position.accuracy !== null && position.accuracy <= GOOD_ACCURACY_METERS
 }

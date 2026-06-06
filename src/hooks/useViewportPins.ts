@@ -140,6 +140,31 @@ export function useViewportPins(coupleId: string | null | undefined) {
     setLoading(false);
   }, [coupleId, allLoaded]);
 
+  const loadPinById = useCallback(
+    async (id: string): Promise<Pin | null> => {
+      if (!coupleId) return null;
+      const { data, error } = await supabase
+        .from("pins")
+        .select(
+          "id, couple_id, created_by, title, note, lat, lng, address, city, country, category, marker_emoji, marker_image_url, is_favorite, created_at, updated_at",
+        )
+        .eq("couple_id", coupleId)
+        .eq("id", id)
+        .maybeSingle();
+
+      if (error || !data) return null;
+      const pin = data as Pin;
+      loadedIdsRef.current.add(pin.id);
+      setPins((prev) => {
+        const exists = prev.some((p) => p.id === pin.id);
+        if (exists) return prev.map((p) => (p.id === pin.id ? pin : p));
+        return [pin, ...prev];
+      });
+      return pin;
+    },
+    [coupleId],
+  );
+
   /** Add a newly created pin to local state */
   const addPin = useCallback((pin: Pin) => {
     loadedIdsRef.current.add(pin.id);
@@ -176,6 +201,7 @@ export function useViewportPins(coupleId: string | null | undefined) {
     allLoaded,
     onViewportChange,
     loadAll,
+    loadPinById,
     addPin,
     removePin,
     updatePinLocal,
