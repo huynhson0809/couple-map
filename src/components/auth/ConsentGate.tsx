@@ -17,19 +17,10 @@ export function ConsentGate({ userId, children }: Props) {
   const consent = usePrivacyConsent(userId);
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const shouldRequestConsent =
+    consent.checked && !consent.error && !consent.hasCurrentConsent;
 
-  if (consent.loading) {
-    return (
-      <div className="full-center app-status-screen">
-        <div className="app-status-card">
-          <Logo size={44} />
-          <h2>{t("legal.loadingConsent")}</h2>
-        </div>
-      </div>
-    );
-  }
-
-  if (consent.hasCurrentConsent) return <>{children}</>;
+  if (!shouldRequestConsent) return <>{children}</>;
 
   async function handleAccept() {
     setAccepting(true);

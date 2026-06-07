@@ -16,59 +16,59 @@ export interface LegalContent {
 }
 
 const privacyVi: LegalContent = {
-  title: "Chinh sach quyen rieng tu",
+  title: "Chính sách quyền riêng tư",
   summary:
-    "Pinly giup cac cap doi luu giu ky niem tren ban do. Chinh sach nay giai thich du lieu nao duoc thu thap, cach chung minh su dung va gioi han rieng tu cua media luu tren Cloudinary.",
+    "Pinly giúp các cặp đôi lưu giữ kỷ niệm trên bản đồ chung. Chính sách này giải thích dữ liệu nào được thu thập, cách Pinly sử dụng dữ liệu và cách ảnh, video được xử lý trong dịch vụ.",
   effectiveDate: LEGAL_EFFECTIVE_DATE,
   sections: [
     {
-      title: "Du lieu chung minh thu thap",
+      title: "Dữ liệu Pinly thu thập",
       body: [
-        "Thong tin tai khoan nhu email, ten hien thi va ngon ngu.",
-        "Thong tin cap doi nhu ma moi, ngay ky niem va ket noi voi doi tac.",
-        "Noi dung ky niem nhu tieu de, ghi chu, tag, toa do, dia chi, thanh pho, quoc gia va thoi gian tao.",
-        "Anh, video, marker, hinh nen, Cloudinary public id, URL media va kich thuoc media.",
-        "Tuy chon thong bao, push subscription va du lieu ky thuat can thiet de van hanh ung dung.",
+        "Thông tin tài khoản như email, tên hiển thị và ngôn ngữ.",
+        "Thông tin couple như mã mời, ngày kỷ niệm và kết nối với đối tác.",
+        "Nội dung kỷ niệm như tiêu đề, ghi chú, tag, tọa độ, địa chỉ, thành phố, quốc gia và thời gian tạo.",
+        "Ảnh, video, marker, hình nền, mã định danh tệp media, liên kết media và kích thước media.",
+        "Tùy chọn thông báo, push subscription và dữ liệu kỹ thuật cần thiết để vận hành ứng dụng.",
       ],
     },
     {
-      title: "Cach chung minh su dung du lieu",
+      title: "Cách Pinly sử dụng dữ liệu",
       body: [
-        "Tao va bao ve tai khoan, hien thi ky niem cho dung cap doi, dong bo ban do va dong thoi gian.",
-        "Upload, hien thi, chuyen doi kich thuoc anh/video va gui thong bao hoac email reminder neu ban bat tinh nang nay.",
-        "Giam loi, chan lam dung va cai thien do on dinh cua ung dung.",
+        "Tạo và bảo vệ tài khoản, hiển thị kỷ niệm cho đúng couple, đồng bộ bản đồ và dòng thời gian.",
+        "Tải lên, hiển thị, tối ưu kích thước ảnh/video và gửi thông báo hoặc email nhắc nhở nếu bạn bật tính năng này.",
+        "Giảm lỗi, ngăn lạm dụng và cải thiện độ ổn định của ứng dụng.",
       ],
     },
     {
-      title: "Gioi han rieng tu cua anh va video",
+      title: "Ảnh và video",
       body: [
-        "Pinly gioi han metadata trong ung dung bang dang nhap va quyen truy cap theo couple.",
-        "Trong phien ban MVP nay, anh va video duoc phan phoi bang Cloudinary public-style URL de tiet kiem chi phi va giu ung dung chay nhanh tren goi mien phi.",
-        "Neu ai do co direct media URL, ho co the xem file do. Khong tai len noi dung qua nhay cam hoac hinh anh cua nguoi khac neu ban chua co quyen.",
+        "Pinly bảo vệ dữ liệu trong ứng dụng bằng đăng nhập và quyền truy cập theo couple.",
+        "Ảnh và video được xử lý qua Cloudinary để lưu trữ, tối ưu kích thước và hiển thị ổn định trên nhiều thiết bị.",
+        "Bạn nên chỉ chia sẻ liên kết media trong những ngữ cảnh đáng tin cậy và không tải lên nội dung quá nhạy cảm hoặc hình ảnh của người khác khi chưa có quyền phù hợp.",
       ],
     },
     {
-      title: "Dich vu xu ly du lieu",
+      title: "Dịch vụ xử lý dữ liệu",
       body: [
-        "Supabase duoc dung cho dang nhap, database, edge functions va du lieu push notification.",
-        "Cloudinary duoc dung de luu tru va bien doi anh/video.",
-        "Nha cung cap email, map tiles va browser push service co the xu ly du lieu can thiet de tinh nang hoat dong.",
+        "Supabase được dùng cho đăng nhập, database, edge functions và dữ liệu push notification.",
+        "Cloudinary được dùng để lưu trữ và biến đổi ảnh/video.",
+        "Nhà cung cấp email, map tiles và browser push service có thể xử lý dữ liệu cần thiết để tính năng tương ứng hoạt động.",
       ],
     },
     {
-      title: "Quyen va lua chon cua ban",
+      title: "Quyền và lựa chọn của bạn",
       body: [
-        "Ban co the xem, sua hoac xoa ky niem va media trong ung dung.",
-        "Ban co the doi tuy chon thong bao, yeu cau sua/xoa du lieu hoac rut lai dong y qua kenh ho tro.",
-        "Rut lai dong y co the lam tai khoan khong tiep tuc su dung duoc mot so tinh nang.",
+        "Bạn có thể xem, sửa hoặc xóa kỷ niệm và media trong ứng dụng.",
+        "Bạn có thể đổi tùy chọn thông báo, yêu cầu sửa/xóa dữ liệu hoặc rút lại đồng ý qua kênh hỗ trợ.",
+        "Việc rút lại đồng ý có thể làm một số tính năng tài khoản không tiếp tục hoạt động như trước.",
       ],
     },
     {
-      title: "Thoi gian luu tru va lien he",
+      title: "Thời gian lưu trữ và liên hệ",
       body: [
-        "Du lieu tai khoan duoc luu khi tai khoan con ton tai. Ky niem va media duoc luu den khi ban xoa hoac khi tai khoan/couple duoc don dep.",
-        "Mot so log ky thuat co the duoc luu trong thoi gian gioi han de bao mat va debug.",
-        "Lien he ho tro qua kenh Zalo hoac email duoc hien thi trong ung dung.",
+        "Dữ liệu tài khoản được lưu khi tài khoản còn tồn tại. Kỷ niệm và media được lưu đến khi bạn xóa hoặc khi tài khoản/couple được dọn dẹp theo quy trình của Pinly.",
+        "Một số log kỹ thuật có thể được lưu trong thời gian giới hạn để bảo mật, vận hành và debug.",
+        "Bạn có thể liên hệ hỗ trợ qua kênh Zalo hoặc email được hiển thị trong ứng dụng.",
       ],
     },
   ],
@@ -77,7 +77,7 @@ const privacyVi: LegalContent = {
 const privacyEn: LegalContent = {
   title: "Privacy Policy",
   summary:
-    "Pinly helps couples keep memories on a shared map. This policy explains what data is collected, how it is used, and the current privacy limitation of media stored on Cloudinary.",
+    "Pinly helps couples keep memories on a shared map. This policy explains what data is collected, how Pinly uses it, and how photos and videos are handled in the service.",
   effectiveDate: LEGAL_EFFECTIVE_DATE,
   sections: [
     {
@@ -86,7 +86,7 @@ const privacyEn: LegalContent = {
         "Account data such as email, display name, and language.",
         "Couple data such as invite code, anniversary date, and partner connection.",
         "Memory data such as title, note, tags, coordinates, address, city, country, and timestamps.",
-        "Photos, videos, marker images, backgrounds, Cloudinary public ids, direct media URLs, and media dimensions.",
+        "Photos, videos, marker images, backgrounds, media identifiers, media links, and media dimensions.",
         "Notification preferences, push subscriptions, and technical data needed to operate the app.",
       ],
     },
@@ -94,16 +94,16 @@ const privacyEn: LegalContent = {
       title: "How we use data",
       body: [
         "To create and secure accounts, show memories to the correct couple, and sync the map and timeline.",
-        "To upload, display, transform media, and send push notifications or optional reminder emails.",
+        "To upload, display, optimize media, and send push notifications or optional reminder emails.",
         "To debug issues, prevent abuse, and improve reliability.",
       ],
     },
     {
-      title: "Media privacy limitation",
+      title: "Photos and videos",
       body: [
-        "Pinly limits media metadata inside the app using login and couple-based database permissions.",
-        "In this MVP, photos and videos are delivered with Cloudinary public-style URLs to keep the app fast and affordable on free tiers.",
-        "Anyone with a direct media URL may be able to view that file. Do not upload highly sensitive content or images of other people unless you have the right to do so.",
+        "Pinly protects app data using login and couple-based access controls.",
+        "Photos and videos are processed through Cloudinary for storage, optimization, and reliable delivery across devices.",
+        "Share media links only in trusted contexts, and do not upload highly sensitive content or images of other people unless you have the right to do so.",
       ],
     },
     {
@@ -125,8 +125,8 @@ const privacyEn: LegalContent = {
     {
       title: "Retention and contact",
       body: [
-        "Account data is kept while the account exists. Memories and media are kept until deleted or until account/couple cleanup.",
-        "Some technical logs may be retained for a limited time for security and debugging.",
+        "Account data is kept while the account exists. Memories and media are kept until deleted or until account/couple cleanup under Pinly's operating process.",
+        "Some technical logs may be retained for a limited time for security, operations, and debugging.",
         "Contact support through the Zalo or email channel shown in the app.",
       ],
     },
@@ -134,45 +134,45 @@ const privacyEn: LegalContent = {
 };
 
 const termsVi: LegalContent = {
-  title: "Dieu khoan su dung",
+  title: "Điều khoản sử dụng",
   summary:
-    "Cac dieu khoan nay quy dinh cach ban su dung Pinly va trach nhiem cua ban khi tai len noi dung.",
+    "Các điều khoản này quy định cách bạn sử dụng Pinly và trách nhiệm của bạn khi tạo, chia sẻ hoặc tải lên nội dung.",
   effectiveDate: LEGAL_EFFECTIVE_DATE,
   sections: [
     {
-      title: "Tai khoan va quyen su dung",
+      title: "Tài khoản và quyền sử dụng",
       body: [
-        "Ban can cung cap thong tin dang ky chinh xac va bao mat tai khoan cua minh.",
-        "Ban chi nen moi dung nguoi la doi tac cua minh vao couple.",
+        "Bạn cần cung cấp thông tin đăng ký chính xác và bảo mật tài khoản của mình.",
+        "Bạn chỉ nên mời đúng người là đối tác của mình vào couple.",
       ],
     },
     {
-      title: "Noi dung nguoi dung",
+      title: "Nội dung người dùng",
       body: [
-        "Ban chiu trach nhiem voi ky niem, ghi chu, anh, video va bat ky noi dung nao ban tai len.",
-        "Khong tai noi dung bat hop phap, xam hai, quay roi, khieu dam khong dong thuan, xam pham doi tu hoac quyen rieng tu cua nguoi khac.",
-        "Neu noi dung co hinh anh hoac video cua nguoi khac, ban phai co quyen hoac su dong y phu hop truoc khi tai len.",
+        "Bạn chịu trách nhiệm với kỷ niệm, ghi chú, ảnh, video và bất kỳ nội dung nào bạn tải lên.",
+        "Không tải nội dung bất hợp pháp, xâm hại, quấy rối, thân mật không đồng thuận, xâm phạm đời tư hoặc quyền riêng tư của người khác.",
+        "Nếu nội dung có hình ảnh hoặc video của người khác, bạn phải có quyền hoặc sự đồng ý phù hợp trước khi tải lên.",
       ],
     },
     {
-      title: "Gioi han dich vu",
+      title: "Thay đổi dịch vụ",
       body: [
-        "Pinly dang trong giai doan MVP/free operation va duoc cung cap theo hien trang.",
-        "Tinh nang, gioi han goi free/pro, cach luu tru va han muc co the thay doi khi san pham phat trien.",
+        "Pinly có thể cập nhật tính năng, dung lượng lưu trữ, giới hạn gói và cách vận hành khi dịch vụ phát triển.",
+        "Một số tính năng có thể phụ thuộc vào thiết bị, trình duyệt, quyền thông báo, nhà cung cấp bản đồ hoặc nhà cung cấp lưu trữ media.",
       ],
     },
     {
-      title: "Xoa noi dung va han che truy cap",
+      title: "Xóa nội dung và hạn chế truy cập",
       body: [
-        "Ban co the xoa ky niem/media trong ung dung.",
-        "Ban hieu rang ban sao cache hoac direct URL da tung duoc chia se co the nam ngoai kha nang kiem soat truc tiep cua Pinly trong mot thoi gian.",
-        "Pinly co the go noi dung hoac han che truy cap neu noi dung vi pham dieu khoan, phap luat hoac yeu cau an toan.",
+        "Bạn có thể xóa kỷ niệm/media trong ứng dụng.",
+        "Nội dung hoặc liên kết media đã được chia sẻ ra ngoài ứng dụng có thể cần thêm thời gian để được cập nhật, gỡ bỏ hoặc hết hiệu lực ở các hệ thống liên quan.",
+        "Pinly có thể gỡ nội dung hoặc hạn chế truy cập nếu nội dung vi phạm điều khoản, pháp luật hoặc yêu cầu an toàn.",
       ],
     },
     {
-      title: "Chinh sach quyen rieng tu",
+      title: "Chính sách quyền riêng tư",
       body: [
-        "Chinh sach quyen rieng tu la mot phan cua dieu khoan nay va giai thich cach du lieu cua ban duoc xu ly.",
+        "Chính sách quyền riêng tư là một phần của các điều khoản này và giải thích cách dữ liệu của bạn được xử lý.",
       ],
     },
   ],
@@ -181,7 +181,7 @@ const termsVi: LegalContent = {
 const termsEn: LegalContent = {
   title: "Terms of Use",
   summary:
-    "These terms describe how you may use Pinly and your responsibility for uploaded content.",
+    "These terms describe how you may use Pinly and your responsibility when creating, sharing, or uploading content.",
   effectiveDate: LEGAL_EFFECTIVE_DATE,
   sections: [
     {
@@ -200,17 +200,17 @@ const termsEn: LegalContent = {
       ],
     },
     {
-      title: "Service limits",
+      title: "Service changes",
       body: [
-        "Pinly is provided as-is during MVP/free operation.",
-        "Features, free/pro limits, storage behavior, and quotas may change as the product evolves.",
+        "Pinly may update features, storage behavior, plan limits, and operating requirements as the service evolves.",
+        "Some features may depend on your device, browser, notification permissions, map provider, or media storage provider.",
       ],
     },
     {
       title: "Deletion and restrictions",
       body: [
         "You can delete memories and media in the app.",
-        "You understand that cached copies or direct URLs that were previously shared may remain outside Pinly's direct control for some time.",
+        "Content or media links shared outside the app may take additional time to update, remove, or expire across related systems.",
         "Pinly may remove content or restrict access if content violates these terms, the law, or safety requirements.",
       ],
     },

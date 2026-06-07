@@ -6,20 +6,49 @@ import {
 } from "../lib/privacyConsent";
 import { supabase } from "../lib/supabase";
 
+const CONSENT_CACHE_PREFIX = "pinly.privacyConsent.";
+
+function getCachedCurrentConsent(userId: string | null | undefined) {
+  if (!userId || typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(`${CONSENT_CACHE_PREFIX}${userId}`);
+    if (!raw) return null;
+    const consent = JSON.parse(raw) as UserConsentRow;
+    return isCurrentConsent(consent) ? consent : null;
+  } catch {
+    return null;
+  }
+}
+
+function cacheConsent(userId: string, consent: UserConsentRow | null) {
+  if (typeof window === "undefined") return;
+  const key = `${CONSENT_CACHE_PREFIX}${userId}`;
+  if (consent && isCurrentConsent(consent)) {
+    window.localStorage.setItem(key, JSON.stringify(consent));
+  } else {
+    window.localStorage.removeItem(key);
+  }
+}
+
 export function usePrivacyConsent(userId: string | null | undefined) {
   const [latestConsent, setLatestConsent] = useState<UserConsentRow | null>(
-    null,
+    () => getCachedCurrentConsent(userId),
   );
   const [loading, setLoading] = useState(Boolean(userId));
+  const [checked, setChecked] = useState(!userId);
   const [error, setError] = useState<string | null>(null);
 
   const reloadConsent = useCallback(async () => {
     if (!userId) {
       setLatestConsent(null);
       setLoading(false);
+      setChecked(true);
       setError(null);
       return;
     }
+
+    const cachedConsent = getCachedCurrentConsent(userId);
+    setLatestConsent(cachedConsent);
 
     setLoading(true);
     setError(null);
@@ -36,9 +65,12 @@ export function usePrivacyConsent(userId: string | null | undefined) {
 
     if (queryError) {
       setError(queryError.message);
-      setLatestConsent(null);
+      setChecked(false);
     } else {
-      setLatestConsent((data as UserConsentRow | null) ?? null);
+      const nextConsent = (data as UserConsentRow | null) ?? null;
+      setLatestConsent(nextConsent);
+      cacheConsent(userId, nextConsent);
+      setChecked(true);
     }
 
     setLoading(false);
@@ -71,6 +103,7 @@ export function usePrivacyConsent(userId: string | null | undefined) {
   return {
     latestConsent,
     loading,
+    checked,
     error,
     hasCurrentConsent: isCurrentConsent(latestConsent),
     acceptLatestConsent,

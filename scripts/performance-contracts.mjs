@@ -605,16 +605,19 @@ assert(
 assert(
   /function\s+usePrivacyConsent/.test(privacyConsentHook) &&
     /user_consents/.test(privacyConsentHook) &&
-    /existing_user_gate/.test(privacyConsentHook),
-  "usePrivacyConsent must fetch and insert current consent rows for existing users.",
+    /existing_user_gate/.test(privacyConsentHook) &&
+    /checked/.test(privacyConsentHook),
+  "usePrivacyConsent must fetch and insert current consent rows for existing users without blocking initial render.",
 );
 
 assert(
   /ConsentGate/.test(consentGate) &&
     /usePrivacyConsent/.test(consentGate) &&
     /\/terms/.test(consentGate) &&
-    /\/privacy/.test(consentGate),
-  "ConsentGate must block existing authenticated users until latest consent is accepted.",
+    /\/privacy/.test(consentGate) &&
+    /consent\.checked/.test(consentGate) &&
+    !/legal\.loadingConsent/.test(consentGate),
+  "ConsentGate must only show when a completed background check finds missing consent.",
 );
 
 assert(
@@ -622,8 +625,11 @@ assert(
     /privacySections/.test(legalContent) &&
     /termsSections/.test(legalContent) &&
     /Cloudinary/.test(legalContent) &&
-    /direct media URL/.test(legalContent),
-  "Policy pages must render Terms and Privacy content with Cloudinary direct URL disclosure.",
+    /liên kết media/.test(legalContent) &&
+    !/MVP|free tier|free operation|goi mien phi|gói miễn phí|public-style|miễn phí|khong|Chinh sach|Dieu khoan/.test(
+      legalContent,
+    ),
+  "Policy pages must use polished Vietnamese copy and avoid MVP/free/public-style wording.",
 );
 
 assert(

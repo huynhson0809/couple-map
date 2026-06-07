@@ -68,7 +68,7 @@ const dict = {
     "legal.consentGateDesc":
       "Please review and accept the latest Terms and Privacy Policy before continuing.",
     "legal.mediaDisclosureShort":
-      "Photos and videos are stored on Cloudinary. Pinly limits access inside the app, but anyone with a direct media URL may be able to view that file.",
+      "Photos and videos are processed through Cloudinary for storage and delivery. Share media links only in trusted contexts.",
     "legal.acceptAndContinue": "Accept and continue",
 
     "pair.title": "Pair with your partner",
@@ -354,7 +354,7 @@ const dict = {
     "legal.consentGateDesc":
       "Vui lòng xem và chấp nhận Điều khoản cùng Chính sách quyền riêng tư mới nhất trước khi tiếp tục.",
     "legal.mediaDisclosureShort":
-      "Ảnh và video được lưu trên Cloudinary. Pinly giới hạn quyền xem trong ứng dụng, nhưng ai có direct media URL vẫn có thể xem file đó.",
+      "Ảnh và video được xử lý qua Cloudinary để lưu trữ và hiển thị. Chỉ chia sẻ liên kết media trong những ngữ cảnh đáng tin cậy.",
     "legal.acceptAndContinue": "Đồng ý và tiếp tục",
 
     "pair.title": "Kết nối với người ấy",
