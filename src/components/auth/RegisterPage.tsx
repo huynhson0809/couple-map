@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useI18n } from "../../hooks/I18nContext";
+import { buildSignupConsent } from "../../lib/privacyConsent";
 import { supabase } from "../../lib/supabase";
 import { Button } from "../ui/Button";
 import { TextField } from "../ui/TextField";
@@ -19,12 +20,18 @@ export function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [registered, setRegistered] = useState(false);
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
   const attempts = useRef(0);
   const lockedUntil = useRef(0);
   const errorId = "register-form-error";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!acceptedLegal) {
+      setError(t("auth.consentRequired"));
+      return;
+    }
 
     // Client-side rate limiting
     if (Date.now() < lockedUntil.current) {
@@ -42,7 +49,12 @@ export function RegisterPage() {
     setLoading(true);
     setError(null);
 
-    const { error } = await signUp(email, password, displayName || undefined);
+    const { error } = await signUp(
+      email,
+      password,
+      displayName || undefined,
+      buildSignupConsent(),
+    );
     setLoading(false);
     if (error) {
       setError(error.message);
@@ -117,6 +129,33 @@ export function RegisterPage() {
           autoComplete="new-password"
           aria-describedby={error ? errorId : undefined}
         />
+        <label className="auth-consent-check">
+          <input
+            type="checkbox"
+            checked={acceptedLegal}
+            onChange={(e) => {
+              setAcceptedLegal(e.target.checked);
+              if (e.target.checked && error === t("auth.consentRequired")) {
+                setError(null);
+              }
+            }}
+            onInvalid={(e) => {
+              e.preventDefault();
+              setError(t("auth.consentRequired"));
+            }}
+            required
+            aria-describedby={error ? errorId : undefined}
+          />
+          <span>
+            {t("auth.consentPrefix")}{" "}
+            <Link to="/terms">{t("legal.terms")}</Link>{" "}
+            {t("auth.consentAnd")}{" "}
+            <Link to="/privacy">{t("legal.privacy")}</Link>.
+          </span>
+        </label>
+        <p className="auth-consent-disclosure">
+          {t("legal.mediaDisclosureShort")}
+        </p>
         {error && (
           <p id={errorId} className="auth-error" role="alert" aria-live="assertive">
             {error}

@@ -55,6 +55,21 @@ const dict = {
     "auth.passwordMismatch": "Passwords do not match.",
     "auth.updatePassword": "Update password",
     "auth.updating": "Updating…",
+    "auth.consentRequired":
+      "Please accept the Terms of Use and Privacy Policy to create an account.",
+    "auth.consentPrefix": "I have read and agree to Pinly's",
+    "auth.consentAnd": "and",
+    "legal.privacy": "Privacy Policy",
+    "legal.terms": "Terms of Use",
+    "legal.back": "Back",
+    "legal.effectiveDate": "Effective date",
+    "legal.loadingConsent": "Checking privacy consent…",
+    "legal.consentGateTitle": "Privacy update",
+    "legal.consentGateDesc":
+      "Please review and accept the latest Terms and Privacy Policy before continuing.",
+    "legal.mediaDisclosureShort":
+      "Photos and videos are stored on Cloudinary. Pinly limits access inside the app, but anyone with a direct media URL may be able to view that file.",
+    "legal.acceptAndContinue": "Accept and continue",
 
     "pair.title": "Pair with your partner",
     "pair.create": "Create a new couple",
@@ -271,6 +286,9 @@ const dict = {
     "settings.mapStyleLoadError": "This style preview could not be loaded.",
     "settings.clearCache": "Clear cache & reload",
     "settings.signOut": "Sign out",
+    "settings.legal": "Legal",
+    "settings.legalDesc":
+      "Review Pinly's Terms and Privacy Policy, including how photos and videos are handled.",
 
     "common.you": "You",
     "common.partner": "Partner",
@@ -323,6 +341,21 @@ const dict = {
     "auth.passwordMismatch": "Mật khẩu không khớp.",
     "auth.updatePassword": "Cập nhật mật khẩu",
     "auth.updating": "Đang cập nhật…",
+    "auth.consentRequired":
+      "Vui lòng đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư để tạo tài khoản.",
+    "auth.consentPrefix": "Tôi đã đọc và đồng ý với",
+    "auth.consentAnd": "và",
+    "legal.privacy": "Chính sách quyền riêng tư",
+    "legal.terms": "Điều khoản sử dụng",
+    "legal.back": "Quay lại",
+    "legal.effectiveDate": "Ngày hiệu lực",
+    "legal.loadingConsent": "Đang kiểm tra đồng ý quyền riêng tư…",
+    "legal.consentGateTitle": "Cập nhật quyền riêng tư",
+    "legal.consentGateDesc":
+      "Vui lòng xem và chấp nhận Điều khoản cùng Chính sách quyền riêng tư mới nhất trước khi tiếp tục.",
+    "legal.mediaDisclosureShort":
+      "Ảnh và video được lưu trên Cloudinary. Pinly giới hạn quyền xem trong ứng dụng, nhưng ai có direct media URL vẫn có thể xem file đó.",
+    "legal.acceptAndContinue": "Đồng ý và tiếp tục",
 
     "pair.title": "Kết nối với người ấy",
     "pair.create": "Tạo couple mới",
@@ -536,6 +569,9 @@ const dict = {
     "settings.mapStyleLoadError": "Không tải được bản đồ xem trước.",
     "settings.clearCache": "Xóa cache & tải lại",
     "settings.signOut": "Đăng xuất",
+    "settings.legal": "Pháp lý",
+    "settings.legalDesc":
+      "Xem lại Điều khoản và Chính sách quyền riêng tư của Pinly, bao gồm cách xử lý ảnh và video.",
 
     "common.you": "Bạn",
     "common.partner": "Người ấy",

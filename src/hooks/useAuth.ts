@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Session, User as SupaUser } from "@supabase/supabase-js";
+import type { ConsentPayload } from "../lib/privacyConsent";
 import { supabase } from "../lib/supabase";
 
 const RECOVERY_KEY = "pinly_password_recovery";
@@ -47,13 +48,19 @@ export function useAuth() {
     loading,
     isRecovery,
     clearRecovery,
-    signUp: async (email: string, password: string, displayName?: string) => {
+    signUp: async (
+      email: string,
+      password: string,
+      displayName?: string,
+      consent?: ConsentPayload,
+    ) => {
       const res = await supabase.functions.invoke("secure-signup", {
         body: {
           email,
           password,
           display_name: displayName,
           redirect_to: window.location.origin,
+          consent,
         },
       });
       if (res.error) {

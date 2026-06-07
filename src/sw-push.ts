@@ -39,20 +39,6 @@ registerRoute(
   }),
 );
 
-// Cloudinary images
-registerRoute(
-  ({ url }) => url.hostname === "res.cloudinary.com",
-  new CacheFirst({
-    cacheName: "cloudinary-images",
-    plugins: [
-      new ExpirationPlugin({
-        maxEntries: 200,
-        maxAgeSeconds: 60 * 60 * 24 * 30,
-      }),
-    ],
-  }),
-);
-
 // --- Web Push ---
 
 // Handle incoming push events

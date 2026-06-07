@@ -14,8 +14,11 @@ import {
   RefreshCw,
   CheckCircle2,
   Crown,
+  FileText,
+  ShieldCheck,
 } from "lucide-react";
 import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useCoupleCtx } from "../hooks/CoupleContext";
 import { isDarkModeEnabled, useTheme } from "../hooks/ThemeContext";
@@ -69,6 +72,7 @@ function SettingSection({
 }
 
 export function SettingsPage() {
+  const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { profile, partner, couple, updateCouple } = useCoupleCtx();
   const { theme, setTheme } = useTheme();
@@ -611,6 +615,34 @@ export function SettingsPage() {
           {bgError && <p className="error">{bgError}</p>}
         </SettingSection>
       )}
+
+      <SettingSection
+        title={t("settings.legal")}
+        icon={<ShieldCheck size={14} />}
+        className="setting-section-legal"
+      >
+        <p className="muted small settings-legal-desc">
+          {t("settings.legalDesc")}
+        </p>
+        <div className="settings-legal-actions">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => navigate("/privacy")}
+            className="settings-legal-button"
+          >
+            <ShieldCheck size={16} /> {t("legal.privacy")}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => navigate("/terms")}
+            className="settings-legal-button"
+          >
+            <FileText size={16} /> {t("legal.terms")}
+          </Button>
+        </div>
+      </SettingSection>
 
       <SettingSection
         title={t("settings.account")}

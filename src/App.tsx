@@ -44,9 +44,24 @@ const ResetPasswordPage = lazy(() =>
     default: module.ResetPasswordPage,
   })),
 );
+const ConsentGate = lazy(() =>
+  import("./components/auth/ConsentGate").then((module) => ({
+    default: module.ConsentGate,
+  })),
+);
 const CoupleSetup = lazy(() =>
   import("./components/auth/CoupleSetup").then((module) => ({
     default: module.CoupleSetup,
+  })),
+);
+const PrivacyPage = lazy(() =>
+  import("./components/legal/PolicyPage").then((module) => ({
+    default: () => <module.PolicyPage kind="privacy" />,
+  })),
+);
+const TermsPage = lazy(() =>
+  import("./components/legal/PolicyPage").then((module) => ({
+    default: () => <module.PolicyPage kind="terms" />,
   })),
 );
 const MapPage = lazy(() =>
@@ -220,6 +235,8 @@ function AppRoutes() {
   if (isRecovery && user) {
     return (
       <Routes>
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="*" element={<ResetPasswordPage />} />
       </Routes>
     );
@@ -232,15 +249,28 @@ function AppRoutes() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
   }
 
   return (
-    <CoupleProvider userId={user.id}>
-      <PinsScope />
-    </CoupleProvider>
+    <Routes>
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route
+        path="*"
+        element={
+          <ConsentGate userId={user.id}>
+            <CoupleProvider userId={user.id}>
+              <PinsScope />
+            </CoupleProvider>
+          </ConsentGate>
+        }
+      />
+    </Routes>
   );
 }
 

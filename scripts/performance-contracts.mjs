@@ -21,6 +21,18 @@ function assert(condition, message) {
   }
 }
 
+function stripComments(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|\s)\/\/.*$/gm, "$1");
+}
+
+function indexOfRequired(source, needle, label) {
+  const index = source.indexOf(needle);
+  assert(index >= 0, `${label} must exist.`);
+  return index;
+}
+
 function hasGetInvoke(source) {
   const invokeIndex = source.indexOf("functions.invoke");
   if (invokeIndex < 0) return false;
@@ -66,6 +78,15 @@ const notificationsMigration = read("supabase/migration_notifications.sql");
 const apiPerformanceMigration = readOptional(
   "supabase/migration_api_performance.sql",
 );
+const privacyConsent = readOptional("src/lib/privacyConsent.ts");
+const legalContent = readOptional("src/lib/legalContent.ts");
+const privacyConsentHook = readOptional("src/hooks/usePrivacyConsent.ts");
+const policyPage = readOptional("src/components/legal/PolicyPage.tsx");
+const consentGate = readOptional("src/components/auth/ConsentGate.tsx");
+const registerPage = read("src/components/auth/RegisterPage.tsx");
+const secureSignup = read("supabase/functions/secure-signup/index.ts");
+const secureSignupCode = stripComments(secureSignup);
+const consentMigration = readOptional("supabase/migration_user_consents.sql");
 
 assert(
   hasGetInvoke(statsApi),
@@ -503,6 +524,127 @@ assert(
       notificationsMigration,
     ),
   "Notifications realtime publication migration must be rerunnable.",
+);
+
+assert(
+  /TERMS_VERSION\s*=\s*["']2026-06-07["']/.test(privacyConsent) &&
+    /PRIVACY_VERSION\s*=\s*["']2026-06-07["']/.test(privacyConsent) &&
+    /buildSignupConsent/.test(privacyConsent) &&
+    /isCurrentConsent/.test(privacyConsent),
+  "Privacy consent constants and helpers must exist with current versions.",
+);
+
+assert(
+  /create table if not exists public\.user_consents/.test(consentMigration) &&
+    /terms_version text not null/.test(consentMigration) &&
+    /privacy_version text not null/.test(consentMigration) &&
+    /accepted_at timestamptz not null default now\(\)/.test(consentMigration) &&
+    /source text not null/.test(consentMigration) &&
+    /enable row level security/.test(consentMigration) &&
+    /Users can read own consent rows/.test(consentMigration) &&
+    /Users can insert own consent rows/.test(consentMigration) &&
+    /set_user_consent_server_timestamp/.test(consentMigration) &&
+    /insert into public\.user_consents/.test(consentMigration),
+  "A user_consents migration must create append-only consent history, RLS, and signup trigger insertion.",
+);
+
+assert(
+  /consent/.test(secureSignupCode) &&
+    /terms_version/.test(secureSignupCode) &&
+    /privacy_version/.test(secureSignupCode) &&
+    /CONSENT_SOURCE_SIGNUP/.test(secureSignupCode) &&
+    /Missing required consent/.test(secureSignupCode) &&
+    /options:\s*\{[\s\S]*data:\s*\{[\s\S]*consent/.test(secureSignupCode) &&
+    !/accepted_at/.test(secureSignupCode),
+  "secure-signup must validate consent and pass consent metadata into auth signup.",
+);
+
+const passwordValidationIndex = indexOfRequired(
+  secureSignupCode,
+  "Password must be at least 6 characters",
+  "secure-signup password validation",
+);
+const consentValidationIndex = indexOfRequired(
+  secureSignupCode,
+  "Missing required consent",
+  "secure-signup consent validation",
+);
+const supabaseClientIndex = indexOfRequired(
+  secureSignupCode,
+  "const supabaseAdmin = createClient",
+  "secure-signup Supabase client creation",
+);
+const authSignupIndex = indexOfRequired(
+  secureSignupCode,
+  "auth.signUp",
+  "secure-signup auth signup",
+);
+
+assert(
+  passwordValidationIndex < consentValidationIndex &&
+    consentValidationIndex < supabaseClientIndex &&
+    consentValidationIndex < authSignupIndex,
+  "secure-signup must validate consent after password checks and before user lookup/signup.",
+);
+
+assert(
+  /signUp:\s*async\s*\([^)]*consent/.test(read("src/hooks/useAuth.ts")) &&
+    /body:\s*\{[\s\S]*consent/.test(read("src/hooks/useAuth.ts")),
+  "useAuth.signUp must accept and forward consent payload.",
+);
+
+assert(
+  /type="checkbox"/.test(registerPage) &&
+    /buildSignupConsent/.test(registerPage) &&
+    /\/terms/.test(registerPage) &&
+    /\/privacy/.test(registerPage) &&
+    /auth\.consentRequired/.test(registerPage),
+  "RegisterPage must require Terms and Privacy consent before signup.",
+);
+
+assert(
+  /function\s+usePrivacyConsent/.test(privacyConsentHook) &&
+    /user_consents/.test(privacyConsentHook) &&
+    /existing_user_gate/.test(privacyConsentHook),
+  "usePrivacyConsent must fetch and insert current consent rows for existing users.",
+);
+
+assert(
+  /ConsentGate/.test(consentGate) &&
+    /usePrivacyConsent/.test(consentGate) &&
+    /\/terms/.test(consentGate) &&
+    /\/privacy/.test(consentGate),
+  "ConsentGate must block existing authenticated users until latest consent is accepted.",
+);
+
+assert(
+  /PolicyPage/.test(policyPage) &&
+    /privacySections/.test(legalContent) &&
+    /termsSections/.test(legalContent) &&
+    /Cloudinary/.test(legalContent) &&
+    /direct media URL/.test(legalContent),
+  "Policy pages must render Terms and Privacy content with Cloudinary direct URL disclosure.",
+);
+
+assert(
+  /path="\/privacy"/.test(app) &&
+    /path="\/terms"/.test(app) &&
+    /ConsentGate/.test(app),
+  "App must expose public Terms/Privacy routes and gate authenticated users without current consent.",
+);
+
+assert(
+  /settings\.legal/.test(settingsPage) &&
+    /settings\.legalDesc/.test(settingsPage) &&
+    /navigate\(["']\/privacy["']\)/.test(settingsPage) &&
+    /navigate\(["']\/terms["']\)/.test(settingsPage),
+  "SettingsPage must expose Privacy and Terms links for authenticated users.",
+);
+
+assert(
+  !/url\.hostname\s*===\s*["']res\.cloudinary\.com["']/.test(serviceWorker) &&
+    !/cacheName:\s*["']cloudinary-images["']/.test(serviceWorker),
+  "Service worker must not keep an app-managed Cloudinary media cache.",
 );
 
 console.log("Performance/API/security contracts passed.");
