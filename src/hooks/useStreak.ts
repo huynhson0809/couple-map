@@ -23,10 +23,7 @@ function addDaysIso(isoDate: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-export function useStreak(
-  couple: Couple | null,
-  userId: string | undefined,
-) {
+export function useStreak(couple: Couple | null, userId: string | undefined) {
   const [streak, setStreak] = useState<CoupleStreak | null>(null);
   const [today, setToday] = useState<CoupleStreakDay | null>(null);
   const [loading, setLoading] = useState(false);
