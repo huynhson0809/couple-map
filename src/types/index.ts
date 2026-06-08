@@ -4,6 +4,8 @@ export interface User {
   display_name: string | null;
   avatar_url: string | null;
   couple_id: string | null;
+  first_couple_id: string | null;
+  couple_locked_at: string | null;
   created_at: string;
 }
 

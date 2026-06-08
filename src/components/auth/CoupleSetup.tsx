@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../ui/Button'
 import { useAuth } from '../../hooks/useAuth'
@@ -17,6 +17,7 @@ export function CoupleSetup() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<'create' | 'join' | null>(null)
   const [copied, setCopied] = useState(false)
+  const [acceptedCoupleLock, setAcceptedCoupleLock] = useState(false)
 
   useEffect(() => {
     if (couple && couple.user_b) {
@@ -24,27 +25,53 @@ export function CoupleSetup() {
     }
   }, [couple, navigate])
 
+  function pairErrorMessage(err: unknown) {
+    if (err instanceof Error) return err.message
+    if (err && typeof err === 'object' && 'message' in err) {
+      return String((err as { message: unknown }).message)
+    }
+    return String(err)
+  }
+
+  function formatPairError(err: unknown) {
+    const message = pairErrorMessage(err)
+    if (/ONE_COUPLE_ACCOUNT_LOCKED/i.test(message) || /already in another couple/i.test(message)) {
+      return t('pair.lockedError')
+    }
+    return message
+  }
+
   async function handleCreate() {
+    if (!acceptedCoupleLock) {
+      setError(t('pair.lockRequired'))
+      return
+    }
+
     setBusy('create')
     setError(null)
     try {
       await createCouple()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(formatPairError(e))
     } finally {
       setBusy(null)
     }
   }
 
-  async function handleJoin(e: React.FormEvent) {
+  async function handleJoin(e: FormEvent) {
     e.preventDefault()
+    if (!acceptedCoupleLock) {
+      setError(t('pair.lockRequired'))
+      return
+    }
+
     setBusy('join')
     setError(null)
     try {
       await joinCouple(inviteCode)
       navigate('/', { replace: true })
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(formatPairError(e))
     } finally {
       setBusy(null)
     }
@@ -73,43 +100,63 @@ export function CoupleSetup() {
 
       {couple ? (
         <div className="stack">
-          <p>{t('pair.share')}</p>
+          <p>{t('pair.lockedWaiting')}</p>
           <button
             type="button"
             onClick={copyCode}
             className="invite-code"
             style={{ cursor: 'pointer', font: 'inherit', fontSize: 32, letterSpacing: 6, fontWeight: 700 }}
-            aria-label="Copy invite code"
+            aria-label={t('pair.copyInviteCode')}
           >
             {couple.invite_code}
           </button>
           <p className="muted small">{copied ? t('pair.copied') : t('pair.tapCopy')}</p>
         </div>
       ) : (
-        <div className="stack">
-          <Button onClick={handleCreate} disabled={busy !== null}>
-            {busy === 'create' ? t('pair.creating') : t('pair.create')}
-          </Button>
-        </div>
+        <>
+          <div className="pair-lock-notice">
+            <p>{t('pair.oneCoupleWarning')}</p>
+            <label className="pair-lock-check">
+              <input
+                type="checkbox"
+                checked={acceptedCoupleLock}
+                onChange={(e) => {
+                  setAcceptedCoupleLock(e.target.checked)
+                  if (e.target.checked) setError(null)
+                }}
+              />
+              <span>{t('pair.oneCoupleConfirm')}</span>
+            </label>
+          </div>
+
+          <div className="stack">
+            <Button onClick={handleCreate} disabled={busy !== null || !acceptedCoupleLock}>
+              {busy === 'create' ? t('pair.creating') : t('pair.create')}
+            </Button>
+          </div>
+
+          <div className="divider">
+            <span>{t('pair.or')}</span>
+          </div>
+
+          <form onSubmit={handleJoin} className="auth-form">
+            <input
+              value={inviteCode}
+              onChange={(e) => {
+                setInviteCode(e.target.value.toUpperCase())
+                if (error) setError(null)
+              }}
+              placeholder={t('pair.code')}
+              maxLength={12}
+              autoComplete="off"
+              required
+            />
+            <Button type="submit" disabled={busy !== null || !acceptedCoupleLock || !inviteCode.trim()}>
+              {busy === 'join' ? t('pair.joining') : t('pair.join')}
+            </Button>
+          </form>
+        </>
       )}
-
-      <div className="divider">
-        <span>{couple ? t('pair.orJoin') : t('pair.or')}</span>
-      </div>
-
-      <form onSubmit={handleJoin} className="auth-form">
-        <input
-          value={inviteCode}
-          onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-          placeholder={t('pair.code')}
-          maxLength={12}
-          autoComplete="off"
-          required
-        />
-        <Button type="submit" disabled={busy !== null || !inviteCode.trim()}>
-          {busy === 'join' ? t('pair.joining') : t('pair.join')}
-        </Button>
-      </form>
 
       {error && <p className="error">{error}</p>}
 

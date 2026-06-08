@@ -206,8 +206,7 @@ function RoutedShell() {
     return (
       <AppStatusScreen title="Something went wrong" body={error} tone="error">
         <p className="muted small">
-          Đã chạy <code>supabase/schema.sql</code> trong Supabase SQL Editor
-          chưa?
+          Nếu lỗi vẫn tiếp diễn, hãy thử tải lại ứng dụng hoặc liên hệ hỗ trợ.
         </p>
       </AppStatusScreen>
     );

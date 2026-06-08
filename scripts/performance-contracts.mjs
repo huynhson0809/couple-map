@@ -33,6 +33,56 @@ function indexOfRequired(source, needle, label) {
   return index;
 }
 
+function escapeRegExp(source) {
+  return source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function sqlFunctionBlock(source, functionName) {
+  const pattern = new RegExp(
+    `create\\s+or\\s+replace\\s+function\\s+public\\.${escapeRegExp(
+      functionName,
+    )}\\s*\\([^)]*\\)[\\s\\S]*?\\$\\$;`,
+    "i",
+  );
+  return source.match(pattern)?.[0] ?? "";
+}
+
+function jsFunctionBlock(source, functionName) {
+  const declaration = new RegExp(
+    `(?:async\\s+)?function\\s+${escapeRegExp(functionName)}\\s*\\([^)]*\\)`,
+  );
+  const match = declaration.exec(source);
+  if (!match) return "";
+
+  const openBrace = source.indexOf("{", match.index + match[0].length);
+  if (openBrace < 0) return "";
+
+  let depth = 0;
+  for (let index = openBrace; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === "{") depth += 1;
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return source.slice(match.index, index + 1);
+      }
+    }
+  }
+
+  return "";
+}
+
+function appStatusScreenErrorBlock(source) {
+  const start = source.indexOf('<AppStatusScreen title="Something went wrong"');
+  if (start < 0) return "";
+
+  const close = "</AppStatusScreen>";
+  const end = source.indexOf(close, start);
+  if (end < 0) return "";
+
+  return source.slice(start, end + close.length);
+}
+
 function hasGetInvoke(source) {
   const invokeIndex = source.indexOf("functions.invoke");
   if (invokeIndex < 0) return false;
@@ -80,10 +130,31 @@ const apiPerformanceMigration = readOptional(
 );
 const privacyConsent = readOptional("src/lib/privacyConsent.ts");
 const legalContent = readOptional("src/lib/legalContent.ts");
+const i18nContext = read("src/hooks/I18nContext.tsx");
 const privacyConsentHook = readOptional("src/hooks/usePrivacyConsent.ts");
 const policyPage = readOptional("src/components/legal/PolicyPage.tsx");
 const consentGate = readOptional("src/components/auth/ConsentGate.tsx");
 const registerPage = read("src/components/auth/RegisterPage.tsx");
+const oneCoupleLockMigration = readOptional(
+  "supabase/migration_one_couple_lock.sql",
+);
+const coupleSetup = read("src/components/auth/CoupleSetup.tsx");
+const appStatusErrorCopy = appStatusScreenErrorBlock(app);
+const userFacingCopy = [legalContent, i18nContext, appStatusErrorCopy].join("\n");
+const createCoupleLockFunction = sqlFunctionBlock(
+  oneCoupleLockMigration,
+  "create_couple_for_current_user",
+);
+const joinCoupleLockFunction = sqlFunctionBlock(
+  oneCoupleLockMigration,
+  "join_couple_by_invite",
+);
+const protectUserIdentityFieldsFunction = sqlFunctionBlock(
+  oneCoupleLockMigration,
+  "protect_user_identity_fields",
+);
+const handleCreateCoupleBlock = jsFunctionBlock(coupleSetup, "handleCreate");
+const handleJoinCoupleBlock = jsFunctionBlock(coupleSetup, "handleJoin");
 const secureSignup = read("supabase/functions/secure-signup/index.ts");
 const secureSignupCode = stripComments(secureSignup);
 const consentMigration = readOptional("supabase/migration_user_consents.sql");
@@ -624,12 +695,18 @@ assert(
   /PolicyPage/.test(policyPage) &&
     /privacySections/.test(legalContent) &&
     /termsSections/.test(legalContent) &&
-    /Cloudinary/.test(legalContent) &&
-    /liên kết media/.test(legalContent) &&
+    /liên kết media|đường dẫn media/.test(legalContent) &&
     !/MVP|free tier|free operation|goi mien phi|gói miễn phí|public-style|miễn phí|khong|Chinh sach|Dieu khoan/.test(
       legalContent,
     ),
-  "Policy pages must use polished Vietnamese copy and avoid MVP/free/public-style wording.",
+  "Policy pages must use polished Vietnamese copy and avoid temporary/free/public-style wording.",
+);
+
+assert(
+  !/\b(Supabase|Cloudinary|Cloudiary|OpenFreeMap|Gemini)\b/i.test(
+    userFacingCopy,
+  ),
+  "User-facing legal/auth/setup copy must not expose provider or internal technology names.",
 );
 
 assert(
@@ -645,6 +722,84 @@ assert(
     /navigate\(["']\/privacy["']\)/.test(settingsPage) &&
     /navigate\(["']\/terms["']\)/.test(settingsPage),
   "SettingsPage must expose Privacy and Terms links for authenticated users.",
+);
+
+assert(
+  /first_couple_id\s+uuid/.test(oneCoupleLockMigration) &&
+    /couple_locked_at\s+timestamptz/.test(oneCoupleLockMigration) &&
+    /update\s+public\.users[\s\S]*first_couple_id\s*=\s*couple_id/i.test(
+      oneCoupleLockMigration,
+    ) &&
+    /couple_locked_at\s*=\s*coalesce\s*\(\s*couple_locked_at\s*,\s*now\(\)\s*\)/i.test(
+      oneCoupleLockMigration,
+    ),
+  "One-couple migration must add permanent lock fields and backfill existing coupled users.",
+);
+
+assert(
+  /ONE_COUPLE_ACCOUNT_LOCKED/.test(createCoupleLockFunction) &&
+    /locked_couple_id\s+is\s+not\s+null/i.test(createCoupleLockFunction) &&
+    /locked_couple_id[\s\S]{0,500}select[\s\S]{0,500}into\s+c[\s\S]{0,500}locked_couple_id/i.test(
+      createCoupleLockFunction,
+    ) &&
+    /locked_couple_id[\s\S]{0,700}return\s+c/i.test(
+      createCoupleLockFunction,
+    ) &&
+    /raise\s+exception\s+['"]ONE_COUPLE_ACCOUNT_LOCKED['"]/i.test(
+      createCoupleLockFunction,
+    ) &&
+    /first_couple_id\s*=\s*c\.id/i.test(
+      createCoupleLockFunction,
+    ) &&
+    /ONE_COUPLE_ACCOUNT_LOCKED/.test(joinCoupleLockFunction) &&
+    /locked_couple_id\s+is\s+not\s+null[\s\S]*locked_couple_id\s*<>\s*c\.id/i.test(
+      joinCoupleLockFunction,
+    ) &&
+    /raise\s+exception\s+['"]ONE_COUPLE_ACCOUNT_LOCKED['"]/i.test(
+      joinCoupleLockFunction,
+    ),
+  "Create/join RPCs must reject accounts locked to a different couple.",
+);
+
+assert(
+  /old\.couple_id\s+is\s+distinct\s+from\s+new\.couple_id/.test(
+    protectUserIdentityFieldsFunction,
+  ) &&
+    /old\.first_couple_id\s+is\s+distinct\s+from\s+new\.first_couple_id/.test(
+      protectUserIdentityFieldsFunction,
+    ) &&
+    /old\.couple_locked_at\s+is\s+distinct\s+from\s+new\.couple_locked_at/.test(
+      protectUserIdentityFieldsFunction,
+    ) &&
+    /if\s+not\s+public\.pinly_membership_mutation_allowed\(\)\s+then[\s\S]*raise\s+exception/i.test(
+      protectUserIdentityFieldsFunction,
+    ) &&
+    /drop\s+trigger\s+if\s+exists\s+protect_user_identity_fields\s+on\s+public\.users/i.test(
+      oneCoupleLockMigration,
+    ) &&
+    /create\s+trigger\s+protect_user_identity_fields[\s\S]*before\s+update\s+on\s+public\.users[\s\S]*execute\s+function\s+public\.protect_user_identity_fields\(\)/i.test(
+      oneCoupleLockMigration,
+    ),
+  "Direct user profile updates must not bypass one-couple lock fields.",
+);
+
+assert(
+  /pair\.oneCoupleWarning/.test(coupleSetup) &&
+    /pair\.oneCoupleConfirm/.test(coupleSetup) &&
+    /acceptedCoupleLock/.test(coupleSetup) &&
+    /!acceptedCoupleLock[\s\S]{0,240}pair\.lockRequired[\s\S]{0,120}return/.test(
+      handleCreateCoupleBlock,
+    ) &&
+    /!acceptedCoupleLock[\s\S]{0,240}pair\.lockRequired[\s\S]{0,120}return/.test(
+      handleJoinCoupleBlock,
+    ) &&
+    /onClick=\{handleCreate\}[\s\S]{0,240}disabled=\{[^}]*!acceptedCoupleLock/.test(
+      coupleSetup,
+    ) &&
+    /type="submit"[\s\S]{0,260}disabled=\{[^}]*!acceptedCoupleLock/.test(
+      coupleSetup,
+    ),
+  "Couple setup must require an explicit one-couple acknowledgement before create/join.",
 );
 
 assert(

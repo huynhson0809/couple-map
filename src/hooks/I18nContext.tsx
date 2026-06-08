@@ -68,18 +68,29 @@ const dict = {
     "legal.consentGateDesc":
       "Please review and accept the latest Terms and Privacy Policy before continuing.",
     "legal.mediaDisclosureShort":
-      "Photos and videos are processed through Cloudinary for storage and delivery. Share media links only in trusted contexts.",
+      "Photos and videos may be processed by media storage services so they can be uploaded and shown reliably. Share media links only in trusted contexts.",
     "legal.acceptAndContinue": "Accept and continue",
 
     "pair.title": "Pair with your partner",
     "pair.create": "Create a new couple",
     "pair.creating": "Creating…",
     "pair.or": "or",
-    "pair.orJoin": "or join a different couple",
+    "pair.oneCoupleWarning":
+      "Each account can join only one couple. After you continue, this account cannot switch to another couple.",
+    "pair.oneCoupleConfirm":
+      "I understand this account can only be used with one couple.",
+    "pair.lockRequired":
+      "Please confirm the one-couple account rule before continuing.",
+    "pair.lockedError":
+      "This account is already linked to a couple and cannot join another one.",
+    "pair.lockedWaiting":
+      "This account is now linked to this couple. Share the invite code with your partner to finish pairing.",
+    "pair.orJoin": "or join with an invite code",
     "pair.code": "ENTER INVITE CODE",
     "pair.join": "Join with code",
     "pair.joining": "Joining…",
     "pair.share": "Your invite code — share it with your partner:",
+    "pair.copyInviteCode": "Copy invite code",
     "pair.copied": "✓ Copied!",
     "pair.tapCopy": "Tap to copy. Waiting for your partner…",
 
@@ -354,18 +365,29 @@ const dict = {
     "legal.consentGateDesc":
       "Vui lòng xem và chấp nhận Điều khoản cùng Chính sách quyền riêng tư mới nhất trước khi tiếp tục.",
     "legal.mediaDisclosureShort":
-      "Ảnh và video được xử lý qua Cloudinary để lưu trữ và hiển thị. Chỉ chia sẻ liên kết media trong những ngữ cảnh đáng tin cậy.",
+      "Ảnh và video có thể được xử lý qua dịch vụ lưu trữ media để tải lên và hiển thị ổn định. Chỉ chia sẻ đường dẫn media trong những ngữ cảnh đáng tin cậy.",
     "legal.acceptAndContinue": "Đồng ý và tiếp tục",
 
     "pair.title": "Kết nối với người ấy",
     "pair.create": "Tạo couple mới",
     "pair.creating": "Đang tạo…",
     "pair.or": "hoặc",
-    "pair.orJoin": "hoặc tham gia couple khác",
+    "pair.oneCoupleWarning":
+      "Mỗi tài khoản chỉ có thể tham gia một couple. Sau khi tiếp tục, tài khoản này không thể chuyển sang couple khác.",
+    "pair.oneCoupleConfirm":
+      "Tôi hiểu tài khoản này chỉ có thể dùng với một couple.",
+    "pair.lockRequired":
+      "Vui lòng xác nhận quy định một tài khoản chỉ thuộc một couple trước khi tiếp tục.",
+    "pair.lockedError":
+      "Tài khoản này đã được liên kết với một couple và không thể tham gia couple khác.",
+    "pair.lockedWaiting":
+      "Tài khoản này đã được liên kết với couple này. Hãy gửi mã mời cho người ấy để hoàn tất kết nối.",
+    "pair.orJoin": "hoặc tham gia bằng mã mời",
     "pair.code": "NHẬP MÃ MỜI",
     "pair.join": "Tham gia",
     "pair.joining": "Đang vào…",
     "pair.share": "Mã của bạn — gửi cho người ấy:",
+    "pair.copyInviteCode": "Sao chép mã mời",
     "pair.copied": "✓ Đã copy!",
     "pair.tapCopy": "Bấm để copy. Đang chờ bạn ấy…",
 
