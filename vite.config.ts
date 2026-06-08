@@ -15,6 +15,7 @@ export default defineConfig({
         "icons/apple-touch-icon.png",
         "icons/icon-192.png",
         "icons/icon-512.png",
+        "icons/maskable-192.png",
         "icons/maskable-512.png",
       ],
       manifest: {
@@ -31,10 +32,16 @@ export default defineConfig({
           { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
           {
+            src: "/icons/maskable-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "maskable",
+          },
+          {
             src: "/icons/maskable-512.png",
             sizes: "512x512",
             type: "image/png",
-            purpose: "maskable any",
+            purpose: "maskable",
           },
         ],
       },

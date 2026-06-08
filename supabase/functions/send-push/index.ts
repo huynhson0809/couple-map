@@ -65,15 +65,23 @@ function eventTypeFromBody(value: unknown): EventType {
 
 function notificationKindForEvent(eventType: EventType): NotificationKind {
   if (eventType === "reaction") return "reactions";
-  if (eventType === "comment" || eventType === "comment_reply" || eventType === "comment_reaction") {
+  if (
+    eventType === "comment" ||
+    eventType === "comment_reply" ||
+    eventType === "comment_reaction"
+  ) {
     return "comments";
   }
   return "memory_added";
 }
 
 function isUuid(value: unknown) {
-  return typeof value === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  );
 }
 
 function requireUuid(value: unknown, label: string) {
@@ -81,7 +89,11 @@ function requireUuid(value: unknown, label: string) {
   return value as string;
 }
 
-async function getAuthenticatedUserId(req: Request, supabaseUrl: string, anonKey: string) {
+async function getAuthenticatedUserId(
+  req: Request,
+  supabaseUrl: string,
+  anonKey: string,
+) {
   const token = getBearerToken(req);
   if (!token) return null;
 
@@ -99,8 +111,10 @@ async function assertActorAllowed(
   trustedWebhook: boolean,
 ) {
   if (trustedWebhook) return;
-  if (!authenticatedUserId) throw Object.assign(new Error("Unauthorized"), { status: 401 });
-  if (actorId !== authenticatedUserId) throw Object.assign(new Error("Forbidden actor"), { status: 403 });
+  if (!authenticatedUserId)
+    throw Object.assign(new Error("Unauthorized"), { status: 401 });
+  if (actorId !== authenticatedUserId)
+    throw Object.assign(new Error("Forbidden actor"), { status: 403 });
 }
 
 async function loadEventContext(
@@ -121,16 +135,22 @@ async function loadEventContext(
       .single();
     if (!pin) throw Object.assign(new Error("Pin not found"), { status: 404 });
 
-    await assertActorAllowed(pin.created_by, authenticatedUserId, trustedWebhook);
+    await assertActorAllowed(
+      pin.created_by,
+      authenticatedUserId,
+      trustedWebhook,
+    );
 
     const { data: couple } = await supabase
       .from("couples")
       .select("user_a,user_b")
       .eq("id", pin.couple_id)
       .single();
-    if (!couple) throw Object.assign(new Error("Couple not found"), { status: 404 });
+    if (!couple)
+      throw Object.assign(new Error("Couple not found"), { status: 404 });
 
-    const recipientId = couple.user_a === pin.created_by ? couple.user_b : couple.user_a;
+    const recipientId =
+      couple.user_a === pin.created_by ? couple.user_b : couple.user_a;
     return {
       eventType,
       notificationKind,
@@ -162,7 +182,8 @@ async function loadEventContext(
         .eq("id", pinId)
         .single(),
     ]);
-    if (!reactionRow || !pin) throw Object.assign(new Error("Reaction not found"), { status: 404 });
+    if (!reactionRow || !pin)
+      throw Object.assign(new Error("Reaction not found"), { status: 404 });
 
     return {
       eventType,
@@ -184,9 +205,14 @@ async function loadEventContext(
       .select("id,pin_id,user_id,body,parent_comment_id")
       .eq("id", commentId)
       .single();
-    if (!comment) throw Object.assign(new Error("Comment not found"), { status: 404 });
+    if (!comment)
+      throw Object.assign(new Error("Comment not found"), { status: 404 });
 
-    await assertActorAllowed(comment.user_id, authenticatedUserId, trustedWebhook);
+    await assertActorAllowed(
+      comment.user_id,
+      authenticatedUserId,
+      trustedWebhook,
+    );
 
     const [{ data: pin }, parentResult] = await Promise.all([
       supabase
@@ -196,20 +222,26 @@ async function loadEventContext(
         .single(),
       comment.parent_comment_id
         ? supabase
-          .from("pin_comments")
-          .select("id,user_id")
-          .eq("id", comment.parent_comment_id)
-          .single()
+            .from("pin_comments")
+            .select("id,user_id")
+            .eq("id", comment.parent_comment_id)
+            .single()
         : Promise.resolve({ data: null }),
     ]);
     if (!pin) throw Object.assign(new Error("Pin not found"), { status: 404 });
+
+    // Determine recipient: prefer parent comment author, but if that's the actor, fall back to pin creator
+    let recipientId = parentResult.data?.user_id ?? pin.created_by;
+    if (recipientId === comment.user_id) {
+      recipientId = pin.created_by;
+    }
 
     return {
       eventType: comment.parent_comment_id ? "comment_reply" : "comment",
       notificationKind,
       eventKey: `${comment.parent_comment_id ? "comment_reply" : "comment"}:${comment.id}`,
       actorId: comment.user_id,
-      recipientId: parentResult.data?.user_id ?? pin.created_by,
+      recipientId,
       pinId: pin.id,
       pinTitle: pin.title || "một kỷ niệm",
       interactionBody: String(comment.body || ""),
@@ -235,7 +267,9 @@ async function loadEventContext(
       .single(),
   ]);
   if (!reactionRow || !comment) {
-    throw Object.assign(new Error("Comment reaction not found"), { status: 404 });
+    throw Object.assign(new Error("Comment reaction not found"), {
+      status: 404,
+    });
   }
 
   const { data: pin } = await supabase
@@ -261,15 +295,13 @@ async function claimNotificationEvent(
   supabase: ReturnType<typeof createClient>,
   context: EventContext,
 ) {
-  const { error } = await supabase
-    .from("notification_delivery_events")
-    .insert({
-      event_key: context.eventKey,
-      event_type: context.eventType,
-      actor_id: context.actorId,
-      recipient_id: context.recipientId,
-      pin_id: context.pinId,
-    });
+  const { error } = await supabase.from("notification_delivery_events").insert({
+    event_key: context.eventKey,
+    event_type: context.eventType,
+    actor_id: context.actorId,
+    recipient_id: context.recipientId,
+    pin_id: context.pinId,
+  });
 
   if (!error) return true;
   if (error.code === "23505") return false;
@@ -294,13 +326,22 @@ serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get(
+      "SUPABASE_SERVICE_ROLE_KEY",
+    )!;
     const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY")!;
     const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY")!;
-    const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") || "mailto:hello@pinly.app";
+    const VAPID_SUBJECT =
+      Deno.env.get("VAPID_SUBJECT") || "mailto:hello@pinly.app";
     const webhookSecret = Deno.env.get("SEND_PUSH_SECRET");
-    const trustedWebhook = !!webhookSecret && req.headers.get("x-send-push-secret") === webhookSecret;
-    const authenticatedUserId = await getAuthenticatedUserId(req, SUPABASE_URL, SUPABASE_ANON_KEY);
+    const trustedWebhook =
+      !!webhookSecret &&
+      req.headers.get("x-send-push-secret") === webhookSecret;
+    const authenticatedUserId = await getAuthenticatedUserId(
+      req,
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY,
+    );
 
     if (!trustedWebhook && !authenticatedUserId) {
       return jsonResponse({ error: "Unauthorized" }, 401);
@@ -329,7 +370,8 @@ serve(async (req) => {
       },
     );
     if (rateError) throw rateError;
-    if (allowed === false) return jsonResponse({ error: "Rate limit exceeded" }, 429);
+    if (allowed === false)
+      return jsonResponse({ error: "Rate limit exceeded" }, 429);
 
     const claimed = await claimNotificationEvent(supabase, context);
     if (!claimed) {
@@ -380,7 +422,8 @@ serve(async (req) => {
     const notificationBody =
       context.eventType === "reaction"
         ? `${context.reaction} · ${context.pinTitle}`
-        : context.eventType === "comment" || context.eventType === "comment_reply"
+        : context.eventType === "comment" ||
+            context.eventType === "comment_reply"
           ? bodyPreview
           : context.eventType === "comment_reaction"
             ? `${context.reaction} · ${bodyPreview}`
@@ -423,10 +466,17 @@ serve(async (req) => {
       total: subscriptions.length,
     });
   } catch (err) {
-    const status = typeof (err as { status?: unknown }).status === "number"
-      ? (err as { status: number }).status
-      : 500;
+    const status =
+      typeof (err as { status?: unknown }).status === "number"
+        ? (err as { status: number }).status
+        : 500;
     console.error("send-push error:", err);
-    return jsonResponse({ error: status === 500 ? "Internal server error" : (err as Error).message }, status);
+    return jsonResponse(
+      {
+        error:
+          status === 500 ? "Internal server error" : (err as Error).message,
+      },
+      status,
+    );
   }
 });

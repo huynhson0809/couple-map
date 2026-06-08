@@ -183,24 +183,59 @@ returns trigger as $$
 declare
   v_pin record;
   v_commenter_name text;
+  v_parent_comment record;
+  v_recipient_id uuid;
 begin
   select * into v_pin from public.pins where id = NEW.pin_id;
   if v_pin is null then return NEW; end if;
-  -- Don't notify yourself
-  if v_pin.created_by = NEW.user_id then return NEW; end if;
 
   select coalesce(display_name, 'Bạn ấy') into v_commenter_name
     from public.users where id = NEW.user_id;
 
-  insert into public.notifications (user_id, couple_id, type, title, body, data)
-  values (
-    v_pin.created_by,
-    v_pin.couple_id,
-    'comment',
-    v_commenter_name || ' đã bình luận',
-    left(NEW.body, 100),
-    jsonb_build_object('pin_id', NEW.pin_id, 'comment_id', NEW.id)
-  );
+  -- If this is a reply, notify the parent comment author
+  if NEW.parent_comment_id is not null then
+    select * into v_parent_comment from public.pin_comments where id = NEW.parent_comment_id;
+    if v_parent_comment is not null and v_parent_comment.user_id != NEW.user_id then
+      v_recipient_id := v_parent_comment.user_id;
+
+      insert into public.notifications (user_id, couple_id, type, title, body, data)
+      values (
+        v_recipient_id,
+        v_pin.couple_id,
+        'comment',
+        v_commenter_name || ' đã trả lời bình luận của bạn',
+        left(NEW.body, 100),
+        jsonb_build_object('pin_id', NEW.pin_id, 'comment_id', NEW.id, 'parent_comment_id', NEW.parent_comment_id)
+      );
+    end if;
+
+    -- Also notify pin creator if they are different from parent comment author and from commenter
+    if v_pin.created_by != NEW.user_id
+       and (v_parent_comment is null or v_pin.created_by != v_parent_comment.user_id) then
+      insert into public.notifications (user_id, couple_id, type, title, body, data)
+      values (
+        v_pin.created_by,
+        v_pin.couple_id,
+        'comment',
+        v_commenter_name || ' đã bình luận',
+        left(NEW.body, 100),
+        jsonb_build_object('pin_id', NEW.pin_id, 'comment_id', NEW.id)
+      );
+    end if;
+  else
+    -- Top-level comment: notify pin creator
+    if v_pin.created_by = NEW.user_id then return NEW; end if;
+
+    insert into public.notifications (user_id, couple_id, type, title, body, data)
+    values (
+      v_pin.created_by,
+      v_pin.couple_id,
+      'comment',
+      v_commenter_name || ' đã bình luận',
+      left(NEW.body, 100),
+      jsonb_build_object('pin_id', NEW.pin_id, 'comment_id', NEW.id)
+    );
+  end if;
 
   return NEW;
 end;
@@ -210,6 +245,44 @@ drop trigger if exists trg_notify_pin_comment on public.pin_comments;
 create trigger trg_notify_pin_comment
   after insert on public.pin_comments
   for each row execute function public.notify_pin_comment();
+
+-- Auto-create notification when a comment reaction is added
+create or replace function public.notify_comment_reaction()
+returns trigger as $$
+declare
+  v_comment record;
+  v_pin record;
+  v_reactor_name text;
+begin
+  select * into v_comment from public.pin_comments where id = NEW.comment_id;
+  if v_comment is null then return NEW; end if;
+  -- Don't notify yourself
+  if v_comment.user_id = NEW.user_id then return NEW; end if;
+
+  select * into v_pin from public.pins where id = v_comment.pin_id;
+  if v_pin is null then return NEW; end if;
+
+  select coalesce(display_name, 'Bạn ấy') into v_reactor_name
+    from public.users where id = NEW.user_id;
+
+  insert into public.notifications (user_id, couple_id, type, title, body, data)
+  values (
+    v_comment.user_id,
+    v_pin.couple_id,
+    'reaction',
+    v_reactor_name || ' đã bày tỏ cảm xúc với bình luận của bạn',
+    left(v_comment.body, 100),
+    jsonb_build_object('pin_id', v_comment.pin_id, 'comment_id', NEW.comment_id, 'reaction', NEW.reaction)
+  );
+
+  return NEW;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists trg_notify_comment_reaction on public.pin_comment_reactions;
+create trigger trg_notify_comment_reaction
+  after insert on public.pin_comment_reactions
+  for each row execute function public.notify_comment_reaction();
 
 -- Enable realtime for notifications
 do $$
