@@ -80,9 +80,7 @@ interface SubscriptionContextValue {
   canCreateCollection: (currentCount: number) => boolean;
   hasWatermark: boolean;
   refetch: () => Promise<void>;
-  activateCode: (
-    code: string,
-  ) => Promise<{
+  activateCode: (code: string) => Promise<{
     success: boolean;
     message: string;
     plan?: string;
@@ -239,6 +237,7 @@ export function SubscriptionProvider({
 
   const canUseMapStyle = useCallback(
     (styleId: string) => {
+      if (loading) return true; // Don't gate while plan is loading
       if (plan === "pro") return true;
       if (plan === "plus") {
         const idx = MAP_STYLE_IDS.indexOf(styleId);
@@ -246,7 +245,7 @@ export function SubscriptionProvider({
       }
       return FREE_STYLE_IDS.includes(styleId);
     },
-    [plan],
+    [loading, plan],
   );
 
   const value: SubscriptionContextValue = {

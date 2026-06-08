@@ -48,7 +48,7 @@ interface FlyToState {
 
 const RECENT_LOCATION_MS = 60_000;
 const GOOD_PIN_ACCURACY_METERS = 80;
-const GPS_QUICK_MS = 2000;
+const GPS_QUICK_MS = 6000;
 const STREAK_FLOAT_STORAGE_KEY = "pinly.map.streakFloatPosition";
 const STREAK_DRAG_HOLD_MS = 220;
 const STREAK_DRAG_EDGE_PADDING = 12;

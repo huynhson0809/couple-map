@@ -147,22 +147,19 @@ export function sanitizeMapStyleId(
 
 export function useMapStyle(canUseMapStyle?: (styleId: string) => boolean) {
   const [styleId, setStyleIdState] = useState<MapStyleId>(() => {
-    // On init, always trust localStorage — don't sanitize against plan
-    // (plan may not be loaded yet). Sanitization happens reactively below.
-    const stored = localStorage.getItem(KEY);
-    if (stored && MAP_STYLES.some((s) => s.id === stored))
-      return stored as MapStyleId;
-    return "bright";
+    return sanitizeMapStyleId(localStorage.getItem(KEY), canUseMapStyle);
   });
 
-  // Render-time state correction: if plan loaded and style is now locked, fallback
-  // Only sanitize when canUseMapStyle is actually provided (plan loaded)
-  const sanitized = canUseMapStyle
-    ? sanitizeMapStyleId(styleId, canUseMapStyle)
-    : styleId;
-  if (sanitized !== styleId && canUseMapStyle) {
-    setStyleIdState(sanitized);
-    localStorage.setItem(KEY, sanitized);
+  // Keep state in sync with localStorage when plan loads and unlocks the style
+  const sanitized = sanitizeMapStyleId(styleId, canUseMapStyle);
+  const stored = localStorage.getItem(KEY) as MapStyleId | null;
+  if (stored && stored !== styleId && MAP_STYLES.some((s) => s.id === stored)) {
+    // localStorage has a different value than state (e.g., state was downgraded
+    // on a previous render but localStorage kept the real choice).
+    // If canUseMapStyle now allows it, restore from localStorage.
+    if (!canUseMapStyle || canUseMapStyle(stored)) {
+      setStyleIdState(stored);
+    }
   }
 
   const setStyleId = useCallback(
