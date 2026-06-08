@@ -20,6 +20,7 @@ import { useCoupleCtx } from "../hooks/CoupleContext";
 import { useBucket } from "../hooks/useBucket";
 import { useI18n } from "../hooks/I18nContext";
 import { useStreak } from "../hooks/useStreak";
+import { useNudge } from "../hooks/useNudge";
 import { useStatsApi } from "../hooks/useStatsApi";
 import { Button } from "../components/ui/Button";
 import { BottomSheet } from "../components/ui/BottomSheet";
@@ -35,6 +36,7 @@ export function WishlistPage() {
   );
   const { t } = useI18n();
   const streak = useStreak(couple, profile?.id ?? user?.id);
+  const nudge = useNudge(couple?.id ?? null);
   const { stats } = useStatsApi(couple?.id, couple);
   const navigate = useNavigate();
 
@@ -147,6 +149,10 @@ export function WishlistPage() {
           loading={streak.loading}
           profile={profile}
           partner={partner}
+          canNudge={nudge.canNudge}
+          nudgeSending={nudge.sending}
+          nudgeSent={nudge.sent}
+          onNudge={nudge.sendNudge}
         />
       )}
 

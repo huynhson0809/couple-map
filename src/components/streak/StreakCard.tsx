@@ -1,4 +1,4 @@
-import { CheckCircle2, Flame, Link2 } from "lucide-react";
+import { Bell, CheckCircle2, Flame, Link2 } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useI18n } from "../../hooks/I18nContext";
 import type { User } from "../../types";
@@ -35,6 +35,10 @@ interface StreakCardProps {
   loading?: boolean;
   profile: User | null;
   partner: User | null;
+  canNudge?: boolean;
+  nudgeSending?: boolean;
+  nudgeSent?: boolean;
+  onNudge?: () => void;
 }
 
 export function StreakCard({
@@ -49,6 +53,10 @@ export function StreakCard({
   loading,
   profile,
   partner,
+  canNudge,
+  nudgeSending,
+  nudgeSent,
+  onNudge,
 }: StreakCardProps) {
   const { t, lang } = useI18n();
   const weekLabels =
@@ -142,7 +150,9 @@ export function StreakCard({
       </div>
 
       <div className="streak-status-row">
-        <span className={`streak-status-pill ${youPosted ? "posted" : "waiting"}`}>
+        <span
+          className={`streak-status-pill ${youPosted ? "posted" : "waiting"}`}
+        >
           <span className="streak-status-dot">
             {initial(profile?.display_name, "Y")}
           </span>
@@ -154,7 +164,9 @@ export function StreakCard({
         <span
           className={`streak-status-pill ${partnerPosted ? "posted" : "waiting"}`}
         >
-          <span className="streak-status-dot">{initial(partnerLabel, "P")}</span>
+          <span className="streak-status-dot">
+            {initial(partnerLabel, "P")}
+          </span>
           <span>
             <strong>{partnerLabel}</strong>
             {partnerPosted ? postedLabel : waitingLabel}
@@ -185,8 +197,28 @@ export function StreakCard({
 
       <p className="streak-howto">{t("streak.howTo")}</p>
 
-      <div className="streak-best">
-        {t("streak.best")} <strong>{bestCount}</strong>
+      <div className="streak-footer">
+        <div className="streak-best">
+          {t("streak.best")} <strong>{bestCount}</strong>
+        </div>
+        {onNudge && !todayCompleted && youPosted && !partnerPosted && (
+          <button
+            type="button"
+            className={`streak-nudge-btn ${nudgeSent ? "sent" : ""}`}
+            disabled={!canNudge || nudgeSending}
+            onClick={onNudge}
+            title={t("streak.nudgeHint")}
+          >
+            <Bell size={14} />
+            <span>
+              {nudgeSending
+                ? t("streak.nudgeSending")
+                : nudgeSent
+                  ? t("streak.nudgeSent")
+                  : t("streak.nudge")}
+            </span>
+          </button>
+        )}
       </div>
     </section>
   );

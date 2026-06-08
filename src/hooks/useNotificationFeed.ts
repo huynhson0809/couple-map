@@ -46,7 +46,10 @@ function mergeNotifications(
   return Array.from(byId.values()).sort(byNewestFirst);
 }
 
-export function useNotificationFeed(userId: string | undefined) {
+export function useNotificationFeed(
+  userId: string | undefined,
+  onNewNotification?: (notif: AppNotification) => void,
+) {
   const instanceId = useId();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -56,6 +59,10 @@ export function useNotificationFeed(userId: string | undefined) {
   const nextOffsetRef = useRef(0);
   const notificationsRef = useRef<AppNotification[]>([]);
   const requestIdRef = useRef(0);
+  const onNewNotifRef = useRef(onNewNotification);
+  useEffect(() => {
+    onNewNotifRef.current = onNewNotification;
+  });
 
   const setNotificationState = useCallback(
     (updater: (current: AppNotification[]) => AppNotification[]) => {
@@ -93,9 +100,7 @@ export function useNotificationFeed(userId: string | undefined) {
           ? rows.length
           : nextOffsetRef.current + rows.length;
         setNotificationState((prev) =>
-          reset
-            ? mergeNotifications([], rows)
-            : mergeNotifications(prev, rows),
+          reset ? mergeNotifications([], rows) : mergeNotifications(prev, rows),
         );
         setHasMore(rows.length === PAGE_SIZE);
         setUnreadCount(nextUnreadCount);
@@ -206,6 +211,7 @@ export function useNotificationFeed(userId: string | undefined) {
           setNotificationState((prev) => mergeNotifications(prev, [newNotif]));
           if (!alreadyLoaded && !newNotif.read) {
             setUnreadCount((count) => count + 1);
+            onNewNotifRef.current?.(newNotif);
           }
         },
       )

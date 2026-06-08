@@ -3637,10 +3637,15 @@ button.stat-card {
   font-weight: 650;
   line-height: 1.35;
 }
-.streak-best {
+.streak-footer {
   grid-column: 1 / -1;
-  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-top: -6px;
+}
+.streak-best {
+  width: fit-content;
   padding: 5px 9px;
   border: 0;
   border-radius: 999px;
@@ -3652,6 +3657,32 @@ button.stat-card {
 }
 .streak-best strong {
   color: var(--coral);
+}
+.streak-nudge-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--coral);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.streak-nudge-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+.streak-nudge-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.streak-nudge-btn.sent {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--muted);
 }
 @keyframes streak-shine {
   0%, 48% { opacity: 0; transform: rotate(-12deg) translateX(-45%); }

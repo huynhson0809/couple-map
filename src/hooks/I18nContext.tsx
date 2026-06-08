@@ -244,6 +244,10 @@ const dict = {
     "streak.howTo":
       "The streak continues when both of you save at least one memory before the day ends.",
     "streak.pendingToday": "Today is still waiting for both memory pieces.",
+    "streak.nudge": "Nudge",
+    "streak.nudgeSent": "Sent",
+    "streak.nudgeSending": "Sending…",
+    "streak.nudgeHint": "Remind your partner",
 
     "stats.title": "Our journey",
     "stats.memories": "Memories",
@@ -539,6 +543,10 @@ const dict = {
     "streak.howTo":
       "Chuỗi tiếp tục khi cả hai đều lưu ít nhất một khoảnh khắc trước khi ngày kết thúc.",
     "streak.pendingToday": "Hôm nay chuỗi vẫn đang chờ hai bạn.",
+    "streak.nudge": "Nhắc nhẹ",
+    "streak.nudgeSent": "Đã gửi",
+    "streak.nudgeSending": "Đang gửi…",
+    "streak.nudgeHint": "Nhắc người ấy",
 
     "stats.title": "Hành trình của tụi mình",
     "stats.memories": "Kỷ niệm",
