@@ -30,7 +30,8 @@ declare
   run_count int := 0;
   computed_current int := 0;
   computed_best int := 0;
-  computed_last_completed date;
+  computed_last_completed date;       -- last completed day (any)
+  last_completed_before_today date;   -- last completed day BEFORE today
   effective_current int := 0;
   effective_best int := 0;
   bonus_count int := 0;
@@ -131,6 +132,9 @@ begin
 
     computed_best := greatest(computed_best, run_count);
     computed_last_completed := day_row.streak_date;
+    if day_row.streak_date < streak_today then
+      last_completed_before_today := day_row.streak_date;
+    end if;
     previous_completed_date := day_row.streak_date;
   end loop;
 
@@ -148,22 +152,25 @@ begin
     computed_current := computed_current + 1;
   end loop;
 
-  -- If today is already completed, include it
+  -- If yesterday was consecutive and existing streak is larger (due to prior
+  -- grace protection bridging a gap), use the stored count as floor.
+  if computed_current > 0
+    and coalesce(existing_summary.current_count, 0) > computed_current
+  then
+    computed_current := existing_summary.current_count;
+  end if;
+
+  -- Get today's status
   select user_a_posted, user_b_posted, completed
     into today_a, today_b, today_done
     from public.couple_streak_days
     where couple_id = target_couple_id
       and streak_date = streak_today;
 
-  if coalesce(today_done, false) then
-    computed_current := computed_current + 1;
-  end if;
-
-  -- Grace protection: count gap days between last_completed and yesterday.
-  -- Today is still open (not a miss yet). Only past days count as gaps.
-  if computed_last_completed is not null and not coalesce(today_done, false) then
-    gap_days := (streak_today - 1) - computed_last_completed;
-    -- gap_days < 0 means last_completed IS yesterday → no gap
+  -- Grace protection: count gap days between last completed (before today)
+  -- and yesterday. Must run BEFORE adding today so grace sees the real gap.
+  if last_completed_before_today is not null and computed_current = 0 then
+    gap_days := (streak_today - 1) - last_completed_before_today;
     if gap_days < 0 then
       gap_days := 0;
     end if;
@@ -174,11 +181,10 @@ begin
   -- Determine if grace covers the gap
   remaining_grace := grace_budget - v_grace_used;
 
-  if gap_days > 0 and computed_current = 0 and computed_last_completed is not null then
+  if gap_days > 0 and computed_current = 0 and last_completed_before_today is not null then
     -- Check if this gap was already grace-protected in a previous refresh
-    -- (existing streak was alive and anchored to the same last_completed_date)
     if coalesce(existing_summary.current_count, 0) > 0
-      and existing_summary.last_completed_date = computed_last_completed
+      and existing_summary.last_completed_date = last_completed_before_today
     then
       -- Gap already covered by grace in a previous run. Just maintain streak.
       computed_current := existing_summary.current_count;
@@ -192,19 +198,16 @@ begin
     end if;
   end if;
 
-  -- Migrate old manual bonus corrections
-  if bonus_count = 0
-    and coalesce(existing_summary.current_count, 0) > computed_current
-    and existing_summary.last_completed_date = computed_last_completed
-  then
-    bonus_count := coalesce(existing_summary.current_count, 0) - computed_current;
+  -- NOW add today if completed (after grace has been applied)
+  if coalesce(today_done, false) then
+    computed_current := computed_current + 1;
+    computed_last_completed := streak_today;
   end if;
 
   -- Add manual bonus only while the real chain is still alive.
-  effective_current := case
-    when computed_current > 0 then computed_current + bonus_count
-    else 0
-  end;
+  -- Skip bonus migration when grace is actively protecting the streak
+  -- (existing count was preserved from DB, bonus would double-count).
+  effective_current := computed_current;
 
   if effective_current > 0 and computed_last_completed is null then
     computed_last_completed := existing_summary.last_completed_date;
