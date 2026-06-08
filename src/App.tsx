@@ -10,6 +10,7 @@ import { BottomNav } from "./components/ui/BottomNav";
 import { UpdatePrompt } from "./components/ui/UpdatePrompt";
 import { AnniversaryPrompt } from "./components/onboard/AnniversaryPrompt";
 import { NotificationToast } from "./components/ui/NotificationToast";
+import { DesktopGate } from "./components/ui/DesktopGate";
 import { Logo } from "./components/ui/Logo";
 import { getImageUrl } from "./lib/cloudinary";
 import { useAuth } from "./hooks/useAuth";
@@ -62,6 +63,11 @@ const PrivacyPage = lazy(() =>
 const TermsPage = lazy(() =>
   import("./components/legal/PolicyPage").then((module) => ({
     default: () => <module.PolicyPage kind="terms" />,
+  })),
+);
+const LandingPage = lazy(() =>
+  import("./pages/LandingPage").then((module) => ({
+    default: module.LandingPage,
   })),
 );
 const MapPage = lazy(() =>
@@ -244,13 +250,14 @@ function AppRoutes() {
   if (!user) {
     return (
       <Routes>
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   }
@@ -262,11 +269,13 @@ function AppRoutes() {
       <Route
         path="*"
         element={
-          <ConsentGate userId={user.id}>
-            <CoupleProvider userId={user.id}>
-              <PinsScope />
-            </CoupleProvider>
-          </ConsentGate>
+          <DesktopGate>
+            <ConsentGate userId={user.id}>
+              <CoupleProvider userId={user.id}>
+                <PinsScope />
+              </CoupleProvider>
+            </ConsentGate>
+          </DesktopGate>
         }
       />
     </Routes>
