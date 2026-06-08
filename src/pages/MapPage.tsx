@@ -146,12 +146,8 @@ export function MapPage() {
     usePinsCtx();
   const { items: bucketItems } = useBucket(couple?.id, user?.id);
   const { getCurrentPosition } = useGeo();
-  const {
-    canCreatePin,
-    canUseMapStyle,
-    loading: subLoading,
-  } = useSubscription();
-  const { styleUrl } = useMapStyle(subLoading ? undefined : canUseMapStyle);
+  const { canCreatePin, canUseMapStyle } = useSubscription();
+  const { styleUrl } = useMapStyle(canUseMapStyle);
   const streak = useStreak(couple, profile?.id ?? user?.id);
   const routeLocation = useLocation();
   const navigate = useNavigate();

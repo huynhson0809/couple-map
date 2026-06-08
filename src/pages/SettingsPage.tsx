@@ -80,15 +80,8 @@ export function SettingsPage() {
   const notif = useNotifications();
   const push = usePushSubscription(user?.id);
   const notifPrefs = useNotificationPreferences(user?.id);
-  const {
-    plan,
-    subscription,
-    canUseMapStyle,
-    loading: subLoading,
-  } = useSubscription();
-  const { styleId, setStyleId } = useMapStyle(
-    subLoading ? undefined : canUseMapStyle,
-  );
+  const { plan, subscription, canUseMapStyle } = useSubscription();
+  const { styleId, setStyleId } = useMapStyle(canUseMapStyle);
   const [initialStyle] = useState(styleId);
   const sortedStyles = useMemo(
     () =>

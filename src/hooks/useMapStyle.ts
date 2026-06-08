@@ -147,12 +147,20 @@ export function sanitizeMapStyleId(
 
 export function useMapStyle(canUseMapStyle?: (styleId: string) => boolean) {
   const [styleId, setStyleIdState] = useState<MapStyleId>(() => {
-    return sanitizeMapStyleId(localStorage.getItem(KEY), canUseMapStyle);
+    // On init, always trust localStorage — don't sanitize against plan
+    // (plan may not be loaded yet). Sanitization happens reactively below.
+    const stored = localStorage.getItem(KEY);
+    if (stored && MAP_STYLES.some((s) => s.id === stored))
+      return stored as MapStyleId;
+    return "bright";
   });
 
-  // Render-time state correction: if plan changed and style is now locked, fallback
-  const sanitized = sanitizeMapStyleId(styleId, canUseMapStyle);
-  if (sanitized !== styleId) {
+  // Render-time state correction: if plan loaded and style is now locked, fallback
+  // Only sanitize when canUseMapStyle is actually provided (plan loaded)
+  const sanitized = canUseMapStyle
+    ? sanitizeMapStyleId(styleId, canUseMapStyle)
+    : styleId;
+  if (sanitized !== styleId && canUseMapStyle) {
     setStyleIdState(sanitized);
     localStorage.setItem(KEY, sanitized);
   }
