@@ -23,26 +23,19 @@ declare
   streak_tz text := 'Asia/Ho_Chi_Minh';
   streak_today date := (now() at time zone streak_tz)::date;
   current_month text := to_char(streak_today, 'YYYY-MM');
-  anchor_date date;
-  anchor_completed boolean;
   day_row record;
   previous_completed_date date;
   run_count int := 0;
-  computed_current int := 0;
-  computed_best int := 0;
-  computed_last_completed date;       -- last completed day (any)
-  last_completed_before_today date;   -- last completed day BEFORE today
-  effective_current int := 0;
-  effective_best int := 0;
-  bonus_count int := 0;
+  longest_run int := 0;
+  last_completed date;
   today_a boolean := false;
   today_b boolean := false;
   today_done boolean := false;
-  existing_summary record;
-  gap_days int := 0;
+  existing record;
   v_grace_used int := 0;
   v_grace_month text := '';
-  remaining_grace int := 0;
+  final_current int := 0;
+  final_best int := 0;
   result public.couple_streaks;
 begin
   select id, user_a, user_b, plan
@@ -54,7 +47,6 @@ begin
     return null;
   end if;
 
-  -- Determine grace budget based on plan
   couple_plan := coalesce(couple_row.plan, 'free');
   grace_budget := case couple_plan
     when 'pro' then 3
@@ -62,64 +54,57 @@ begin
     else 0
   end;
 
-  select current_count, best_count, last_completed_date, streak_bonus_count,
-         grace_used_this_month, grace_month
-    into existing_summary
+  -- Get existing streak state
+  select current_count, best_count, last_completed_date,
+         grace_used_this_month, grace_month, streak_bonus_count
+    into existing
     from public.couple_streaks
     where couple_id = target_couple_id;
 
-  bonus_count := greatest(coalesce(existing_summary.streak_bonus_count, 0), 0);
-
-  -- Reset grace charges if new month
-  v_grace_month := coalesce(existing_summary.grace_month, '');
-  v_grace_used := coalesce(existing_summary.grace_used_this_month, 0);
+  -- Reset grace if new month
+  v_grace_month := coalesce(existing.grace_month, '');
+  v_grace_used := coalesce(existing.grace_used_this_month, 0);
   if v_grace_month <> current_month then
     v_grace_used := 0;
     v_grace_month := current_month;
   end if;
 
-  delete from public.couple_streak_days
-    where couple_id = target_couple_id;
+  -- Rebuild streak_days from pins
+  delete from public.couple_streak_days where couple_id = target_couple_id;
 
   insert into public.couple_streak_days (
-    couple_id,
-    streak_date,
-    user_a_pin_count,
-    user_b_pin_count,
-    user_a_posted,
-    user_b_posted,
-    completed,
-    completed_at,
-    updated_at
+    couple_id, streak_date,
+    user_a_pin_count, user_b_pin_count,
+    user_a_posted, user_b_posted,
+    completed, completed_at, updated_at
   )
   with daily as (
     select
       (p.created_at at time zone streak_tz)::date as streak_date,
-      count(*) filter (where p.created_by = couple_row.user_a)::int as user_a_pin_count,
-      count(*) filter (where p.created_by = couple_row.user_b)::int as user_b_pin_count,
-      max(p.created_at) as latest_pin_at
+      count(*) filter (where p.created_by = couple_row.user_a)::int as a_count,
+      count(*) filter (where p.created_by = couple_row.user_b)::int as b_count,
+      max(p.created_at) as latest
     from public.pins p
     where p.couple_id = target_couple_id
     group by (p.created_at at time zone streak_tz)::date
   )
-  select
-    target_couple_id,
-    streak_date,
-    user_a_pin_count,
-    user_b_pin_count,
-    user_a_pin_count > 0,
-    user_b_pin_count > 0,
-    user_a_pin_count > 0 and user_b_pin_count > 0,
-    case when user_a_pin_count > 0 and user_b_pin_count > 0 then latest_pin_at else null end,
-    now()
+  select target_couple_id, streak_date, a_count, b_count,
+         a_count > 0, b_count > 0,
+         a_count > 0 and b_count > 0,
+         case when a_count > 0 and b_count > 0 then latest else null end,
+         now()
   from daily;
 
-  -- Compute the longest real consecutive streak and current run
-  for day_row in
-    select streak_date
+  -- Get today's status
+  select user_a_posted, user_b_posted, completed
+    into today_a, today_b, today_done
     from public.couple_streak_days
-    where couple_id = target_couple_id
-      and completed = true
+    where couple_id = target_couple_id and streak_date = streak_today;
+
+  -- Find longest consecutive run (for best_count)
+  for day_row in
+    select streak_date from public.couple_streak_days
+    where couple_id = target_couple_id and completed = true
     order by streak_date
   loop
     if previous_completed_date is not null
@@ -129,118 +114,86 @@ begin
     else
       run_count := 1;
     end if;
-
-    computed_best := greatest(computed_best, run_count);
-    computed_last_completed := day_row.streak_date;
-    if day_row.streak_date < streak_today then
-      last_completed_before_today := day_row.streak_date;
-    end if;
+    longest_run := greatest(longest_run, run_count);
+    last_completed := day_row.streak_date;
     previous_completed_date := day_row.streak_date;
   end loop;
 
-  -- Count backward from yesterday to find current real consecutive streak
-  computed_current := 0;
-  anchor_date := streak_today - 1;
-  loop
-    select completed
-      into anchor_completed
-      from public.couple_streak_days
-      where couple_id = target_couple_id
-        and streak_date = anchor_date - computed_current;
+  -- ============================================================
+  -- SIMPLE STREAK LOGIC:
+  -- The stored current_count is the source of truth.
+  -- We only INCREMENT it (today completed) or BREAK it (gap too large).
+  -- ============================================================
 
-    exit when not coalesce(anchor_completed, false);
-    computed_current := computed_current + 1;
-  end loop;
+  final_current := coalesce(existing.current_count, 0);
 
-  -- If yesterday was consecutive and existing streak is larger (due to prior
-  -- grace protection bridging a gap), use the stored count as floor.
-  if computed_current > 0
-    and coalesce(existing_summary.current_count, 0) > computed_current
-  then
-    computed_current := existing_summary.current_count;
-  end if;
-
-  -- Get today's status
-  select user_a_posted, user_b_posted, completed
-    into today_a, today_b, today_done
-    from public.couple_streak_days
-    where couple_id = target_couple_id
-      and streak_date = streak_today;
-
-  -- Grace protection: count gap days between last completed (before today)
-  -- and yesterday. Must run BEFORE adding today so grace sees the real gap.
-  if last_completed_before_today is not null and computed_current = 0 then
-    gap_days := (streak_today - 1) - last_completed_before_today;
-    if gap_days < 0 then
-      gap_days := 0;
-    end if;
-  else
-    gap_days := 0;
-  end if;
-
-  -- Determine if grace covers the gap
-  remaining_grace := grace_budget - v_grace_used;
-
-  if gap_days > 0 and computed_current = 0 and last_completed_before_today is not null then
-    -- Check if this gap was already grace-protected in a previous refresh
-    if coalesce(existing_summary.current_count, 0) > 0
-      and existing_summary.last_completed_date = last_completed_before_today
-    then
-      -- Gap already covered by grace in a previous run. Just maintain streak.
-      computed_current := existing_summary.current_count;
-    elsif gap_days <= remaining_grace then
-      -- New gap: consume grace charges
-      v_grace_used := v_grace_used + gap_days;
-      computed_current := coalesce(existing_summary.current_count, 0);
-    else
-      -- Grace exhausted: streak breaks
-      computed_current := 0;
-    end if;
-  end if;
-
-  -- NOW add today if completed (after grace has been applied)
   if coalesce(today_done, false) then
-    computed_current := computed_current + 1;
-    computed_last_completed := streak_today;
+    -- Today is completed. Was it already counted?
+    if existing.last_completed_date = streak_today then
+      -- Already counted today, no change
+      null;
+    elsif existing.last_completed_date = streak_today - 1 then
+      -- Yesterday was the last completed → today continues the streak
+      final_current := final_current + 1;
+    elsif existing.last_completed_date is not null
+      and (streak_today - existing.last_completed_date) <= (grace_budget - v_grace_used + 1)
+    then
+      -- Gap exists but grace covers it
+      v_grace_used := v_grace_used + (streak_today - existing.last_completed_date - 1);
+      final_current := final_current + 1;
+    else
+      -- Gap too large or no previous streak → start fresh
+      final_current := 1;
+    end if;
+    last_completed := streak_today;
+  else
+    -- Today not completed yet. Check if streak is still alive.
+    if existing.last_completed_date is not null then
+      declare
+        days_since int := streak_today - existing.last_completed_date;
+      begin
+        if days_since <= 1 then
+          -- Yesterday or today is last completed → streak alive (open day)
+          null;
+        elsif days_since <= (grace_budget - v_grace_used + 1) then
+          -- Within grace window → streak alive, consume grace
+          v_grace_used := v_grace_used + (days_since - 1);
+        else
+          -- Grace exhausted → streak breaks
+          final_current := 0;
+        end if;
+      end;
+    end if;
   end if;
 
-  -- Add manual bonus only while the real chain is still alive.
-  -- Skip bonus migration when grace is actively protecting the streak
-  -- (existing count was preserved from DB, bonus would double-count).
-  effective_current := computed_current;
+  -- Best is max of longest real run and current (which includes grace continuity)
+  final_best := greatest(longest_run, final_current, coalesce(existing.best_count, 0));
+  -- But never let best be inflated above what pins can prove + grace
+  -- Keep it simple: best = max(real_longest, current)
+  final_best := greatest(longest_run, final_current);
 
-  if effective_current > 0 and computed_last_completed is null then
-    computed_last_completed := existing_summary.last_completed_date;
+  -- Use existing best if larger (don't downgrade)
+  if coalesce(existing.best_count, 0) > final_best
+    and coalesce(existing.best_count, 0) <= final_current + grace_budget
+  then
+    final_best := existing.best_count;
   end if;
-
-  -- Best streak is based on real pin-derived streak only, not inflated by bonus.
-  effective_best := greatest(computed_best, computed_current);
 
   insert into public.couple_streaks (
-    couple_id,
-    current_count,
-    best_count,
-    last_completed_date,
-    today_date,
-    today_user_a_posted,
-    today_user_b_posted,
-    today_completed,
-    streak_bonus_count,
-    grace_used_this_month,
-    grace_month,
-    timezone,
-    updated_at
+    couple_id, current_count, best_count, last_completed_date,
+    today_date, today_user_a_posted, today_user_b_posted, today_completed,
+    streak_bonus_count, grace_used_this_month, grace_month, timezone, updated_at
   )
   values (
     target_couple_id,
-    effective_current,
-    effective_best,
-    computed_last_completed,
+    final_current,
+    final_best,
+    coalesce(last_completed, existing.last_completed_date),
     streak_today,
     coalesce(today_a, false),
     coalesce(today_b, false),
     coalesce(today_done, false),
-    bonus_count,
+    coalesce(existing.streak_bonus_count, 0),
     v_grace_used,
     v_grace_month,
     streak_tz,
@@ -265,12 +218,5 @@ begin
 end;
 $$;
 
--- Refresh all streaks with the new plan-aware grace logic
-do $$
-declare
-  c record;
-begin
-  for c in select id from public.couples loop
-    perform public.refresh_couple_streak(c.id);
-  end loop;
-end $$;
+-- NOTE: Do NOT run refresh all here. The function relies on existing.current_count
+-- being correct. Only deploy the function, then manually fix affected couples.

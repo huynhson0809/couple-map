@@ -670,10 +670,17 @@ export function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Change map style when mapStyleUrl changes
+  // Change map style when mapStyleUrl changes (skip initial render)
+  const initialStyleRef = useRef(mapStyleUrl);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    if (mapStyleUrl === initialStyleRef.current) {
+      initialStyleRef.current = "";
+      return;
+    }
+    initialStyleRef.current = "";
+    styleLoadedRef.current = false;
     map.setStyle(mapStyleUrl);
     map.once("styledata", () => {
       styleLoadedRef.current = true;
