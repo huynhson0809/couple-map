@@ -196,11 +196,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
 
   function handleAddMedia(files: FileList | null, kind: "image" | "video") {
     if (kind === "video" && !canUploadVideo) {
-      setError(
-        lang === "vi"
-          ? "Video cần gói Plus hoặc Pro"
-          : "Video requires Plus or Pro plan",
-      );
+      setError(lang === "vi" ? "Video cần gói Pro" : "Video requires Pro plan");
       return;
     }
     const arr = Array.from(files ?? []).filter((file) => {
@@ -551,8 +547,8 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
               if (!canUploadVideo) {
                 setError(
                   lang === "vi"
-                    ? "Video cần gói Plus hoặc Pro"
-                    : "Video requires Plus or Pro plan",
+                    ? "Video cần gói Pro"
+                    : "Video requires Pro plan",
                 );
                 return;
               }

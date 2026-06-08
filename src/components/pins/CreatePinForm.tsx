@@ -695,8 +695,8 @@ export function CreatePinForm({
               if (!canUploadVideo) {
                 setError(
                   lang === "vi"
-                    ? "Video cần gói Plus hoặc Pro"
-                    : "Video requires Plus or Pro plan",
+                    ? "Video cần gói Pro"
+                    : "Video requires Pro plan",
                 );
                 return;
               }
