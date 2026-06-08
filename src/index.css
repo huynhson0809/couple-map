@@ -1207,10 +1207,9 @@ body { -webkit-tap-highlight-color: transparent; }
 }
 
 .auth-consent-check {
-  display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
-  gap: 10px;
+  display: flex;
   align-items: flex-start;
+  gap: 10px;
   color: var(--fg);
   font-size: 13px;
   font-weight: 700;
@@ -1218,10 +1217,13 @@ body { -webkit-tap-highlight-color: transparent; }
 }
 
 .auth-consent-check input {
-  width: 18px;
-  height: 18px;
-  margin-top: 2px;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
   accent-color: var(--coral);
+  -webkit-appearance: checkbox;
+  appearance: checkbox;
 }
 
 .auth-consent-check a,
