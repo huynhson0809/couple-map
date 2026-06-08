@@ -39,7 +39,7 @@ function escapeRegExp(source) {
 
 function sqlFunctionBlock(source, functionName) {
   const pattern = new RegExp(
-    `create\\s+or\\s+replace\\s+function\\s+public\\.${escapeRegExp(
+    `create\\s+or\\s+replace\\s+function\\s+(?:public\\.)?${escapeRegExp(
       functionName,
     )}\\s*\\([^)]*\\)[\\s\\S]*?\\$\\$;`,
     "i",
@@ -96,6 +96,7 @@ function hasGetInvoke(source) {
 const app = read("src/App.tsx");
 const packageJson = read("package.json");
 const mapPage = read("src/pages/MapPage.tsx");
+const pricingPage = read("src/pages/PricingPage.tsx");
 const mapView = read("src/components/map/MapView.tsx");
 const wishlistPage = read("src/pages/WishlistPage.tsx");
 const settingsPage = read("src/pages/SettingsPage.tsx");
@@ -107,6 +108,7 @@ const pinsContext = read("src/hooks/PinsContext.tsx");
 const useBucket = read("src/hooks/useBucket.ts");
 const useCouple = read("src/hooks/useCouple.ts");
 const useSubscription = read("src/hooks/useSubscription.tsx");
+const useMapStyleHook = read("src/hooks/useMapStyle.ts");
 const useLocationHook = read("src/hooks/useLocation.ts");
 const useViewportPins = read("src/hooks/useViewportPins.ts");
 const statsApi = read("src/hooks/useStatsApi.ts");
@@ -318,6 +320,71 @@ assert(
     /\.map-style-preview-actions[\s\S]{0,500}position:\s*sticky/.test(styles) &&
     /\.map-style-preview-actions[\s\S]{0,500}bottom:\s*0/.test(styles),
   "Settings map styles must prefer screenshot thumbnails, open an isolated real-map preview, hide bottom nav while previewing, and keep preview apply actions visible.",
+);
+
+assert(
+  /plus:\s*\{[\s\S]*pins:\s*300/.test(useSubscription) &&
+    !/plus:\s*\{[\s\S]*pins:\s*500/.test(useSubscription),
+  "Plus plan must allow exactly 300 memories in frontend limits.",
+);
+
+assert(
+  /\{\s*key:\s*"pins",\s*value:\s*"300"\s*\}/.test(pricingPage) &&
+    /plus:\s*cycle\s*===\s*"annual"\s*\?\s*278400\s*:\s*29000/.test(
+      pricingPage,
+    ) &&
+    /pro:\s*cycle\s*===\s*"annual"\s*\?\s*374400\s*:\s*39000/.test(
+      pricingPage,
+    ) &&
+    !/470000|49000|950000|99000/.test(pricingPage),
+  "Pricing page must show Plus 29k/month, Plus 278.4k/year, Pro 39k/month, and Pro 374.4k/year.",
+);
+
+const checkPinLimitSql = sqlFunctionBlock(
+  subscriptionsMigration,
+  "check_pin_limit",
+);
+assert(
+  /when\s+'plus'\s+then\s+300/i.test(checkPinLimitSql) &&
+    !/when\s+'plus'\s+then\s+500/i.test(checkPinLimitSql),
+  "Subscription SQL pin limit must enforce Plus at 300 memories.",
+);
+
+assert(
+  /export\s+function\s+sanitizeMapStyleId/.test(useMapStyleHook) &&
+    /canUseMapStyle\?:\s*\(styleId:\s*string\)\s*=>\s*boolean/.test(
+      useMapStyleHook,
+    ) &&
+    /sanitizeMapStyleId\(\s*localStorage\.getItem\(KEY\),\s*canUseMapStyle\s*\)/.test(
+      useMapStyleHook,
+    ) &&
+    /sanitizeMapStyleId\(\s*styleId,\s*canUseMapStyle\s*\)/.test(
+      useMapStyleHook,
+    ) &&
+    /const\s+next\s*=\s*sanitizeMapStyleId\(\s*id,\s*canUseMapStyle\s*\)[\s\S]{0,300}localStorage\.setItem\(KEY,\s*next\)/.test(
+      useMapStyleHook,
+    ),
+  "useMapStyle must sanitize stored and requested style IDs against the active plan.",
+);
+
+assert(
+  /const\s+\{(?=[^}]*\bcanCreatePin\b)(?=[^}]*\bcanUseMapStyle\b)[^}]*\}\s*=\s*useSubscription\(\)/.test(
+    mapPage,
+  ) &&
+    /useMapStyle\(canUseMapStyle\)/.test(mapPage),
+  "MapPage must sanitize the real map style against active plan permissions.",
+);
+
+assert(
+  /const\s+\{\s*plan,\s*subscription,\s*canUseMapStyle\s*\}\s*=\s*useSubscription\(\)/.test(
+    settingsPage,
+  ) &&
+    /useMapStyle\(canUseMapStyle\)/.test(settingsPage) &&
+    /onClick=\{\(\)\s*=>\s*setPreviewStyle\(s\)\}/.test(settingsPage) &&
+    /onApply=\{\(\)\s*=>\s*\{[\s\S]*if\s*\(!previewStyle\)\s*return;[\s\S]*if\s*\(!canUseMapStyle\(previewStyle\.id\)\)\s*\{[\s\S]*setUpgradeFeature[\s\S]*return;[\s\S]*\}[\s\S]*setStyleId\(previewStyle\.id\);[\s\S]*setPreviewStyle\(null\);/.test(
+      settingsPage,
+    ),
+  "Settings must preview locked map styles but guard the apply handler before persisting.",
 );
 
 assert(

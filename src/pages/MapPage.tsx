@@ -146,9 +146,9 @@ export function MapPage() {
     usePinsCtx();
   const { items: bucketItems } = useBucket(couple?.id, user?.id);
   const { getCurrentPosition } = useGeo();
-  const { styleUrl } = useMapStyle();
+  const { canCreatePin, canUseMapStyle } = useSubscription();
+  const { styleUrl } = useMapStyle(canUseMapStyle);
   const streak = useStreak(couple, profile?.id ?? user?.id);
-  const { canCreatePin } = useSubscription();
   const routeLocation = useLocation();
   const navigate = useNavigate();
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
@@ -504,7 +504,9 @@ export function MapPage() {
 
   return (
     <div className="map-page">
-      <Suspense fallback={<div className="full-center muted">Loading map…</div>}>
+      <Suspense
+        fallback={<div className="full-center muted">Loading map…</div>}
+      >
         <MapView
           pins={pins}
           currentUserId={user.id}

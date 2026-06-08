@@ -11,6 +11,7 @@ interface Props {
   style: MapStyleOption | null;
   open: boolean;
   currentStyleId: MapStyleId;
+  locked?: boolean;
   initialCenter: { lat: number; lng: number };
   lang: Lang;
   labels: {
@@ -21,6 +22,7 @@ interface Props {
     applied: string;
     loading: string;
     error: string;
+    upgrade?: string;
   };
   onApply: () => void;
   onClose: () => void;
@@ -30,6 +32,7 @@ export function MapStylePreviewSheet({
   style,
   open,
   currentStyleId,
+  locked,
   initialCenter,
   lang,
   labels,
@@ -162,8 +165,15 @@ export function MapStylePreviewSheet({
           <Button variant="ghost" onClick={onClose}>
             {labels.cancel}
           </Button>
-          <Button onClick={onApply} disabled={applied || loading || loadError}>
-            {applied ? labels.applied : labels.apply}
+          <Button
+            onClick={onApply}
+            disabled={locked || applied || loading || loadError}
+          >
+            {locked
+              ? (labels.upgrade ?? labels.apply)
+              : applied
+                ? labels.applied
+                : labels.apply}
           </Button>
         </div>
       </div>

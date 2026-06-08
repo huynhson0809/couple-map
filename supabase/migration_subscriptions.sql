@@ -129,7 +129,10 @@ grant execute on function public.get_subscription_context_for_couple(uuid)
 -- ============================================
 
 create or replace function check_pin_limit()
-returns trigger as $$
+returns trigger
+language plpgsql
+security definer
+as $$
 declare
   v_couple_plan text;
   v_pin_count integer;
@@ -141,7 +144,7 @@ begin
   -- Determine limit based on plan
   v_limit := case v_couple_plan
     when 'pro' then 999999999  -- unlimited
-    when 'plus' then 500
+    when 'plus' then 300
     else 100  -- free
   end;
 
@@ -156,7 +159,7 @@ begin
 
   return NEW;
 end;
-$$ language plpgsql security definer;
+$$;
 
 drop trigger if exists trg_check_pin_limit on public.pins;
 create trigger trg_check_pin_limit

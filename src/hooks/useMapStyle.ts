@@ -135,19 +135,38 @@ export const MAP_STYLES: MapStyleOption[] = [
 
 const KEY = "pinly.map-style";
 
-export function useMapStyle() {
+export function sanitizeMapStyleId(
+  raw: string | null,
+  canUseMapStyle?: (styleId: string) => boolean,
+): MapStyleId {
+  if (raw && MAP_STYLES.some((s) => s.id === raw)) {
+    if (!canUseMapStyle || canUseMapStyle(raw)) return raw as MapStyleId;
+  }
+  return "bright";
+}
+
+export function useMapStyle(canUseMapStyle?: (styleId: string) => boolean) {
   const [styleId, setStyleIdState] = useState<MapStyleId>(() => {
-    const stored = localStorage.getItem(KEY) as MapStyleId | null;
-    if (stored && MAP_STYLES.some((s) => s.id === stored)) return stored;
-    return "bright";
+    return sanitizeMapStyleId(localStorage.getItem(KEY), canUseMapStyle);
   });
 
-  const setStyleId = useCallback((id: MapStyleId) => {
-    setStyleIdState(id);
-    localStorage.setItem(KEY, id);
-  }, []);
+  // Render-time state correction: if plan changed and style is now locked, fallback
+  const sanitized = sanitizeMapStyleId(styleId, canUseMapStyle);
+  if (sanitized !== styleId) {
+    setStyleIdState(sanitized);
+    localStorage.setItem(KEY, sanitized);
+  }
 
-  const styleUrl = MAP_STYLES.find((s) => s.id === styleId)!.url;
+  const setStyleId = useCallback(
+    (id: MapStyleId) => {
+      const next = sanitizeMapStyleId(id, canUseMapStyle);
+      setStyleIdState(next);
+      localStorage.setItem(KEY, next);
+    },
+    [canUseMapStyle],
+  );
 
-  return { styleId, setStyleId, styleUrl };
+  const styleUrl = MAP_STYLES.find((s) => s.id === sanitized)!.url;
+
+  return { styleId: sanitized, setStyleId, styleUrl };
 }

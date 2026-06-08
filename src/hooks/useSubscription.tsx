@@ -42,7 +42,7 @@ const PLAN_LIMITS = {
     shareCardWatermark: true,
   },
   plus: {
-    pins: 500,
+    pins: 300,
     photosPerPin: 5,
     video: false,
     mapStyles: 10,
@@ -237,14 +237,8 @@ export function SubscriptionProvider({
     [fetchPlan],
   );
 
-  const value: SubscriptionContextValue = {
-    plan,
-    subscription,
-    loading,
-    limits,
-    isPremium: plan !== "free",
-    canUploadVideo: limits.video,
-    canUseMapStyle: (styleId: string) => {
+  const canUseMapStyle = useCallback(
+    (styleId: string) => {
       if (plan === "pro") return true;
       if (plan === "plus") {
         const idx = MAP_STYLE_IDS.indexOf(styleId);
@@ -252,6 +246,17 @@ export function SubscriptionProvider({
       }
       return FREE_STYLE_IDS.includes(styleId);
     },
+    [plan],
+  );
+
+  const value: SubscriptionContextValue = {
+    plan,
+    subscription,
+    loading,
+    limits,
+    isPremium: plan !== "free",
+    canUploadVideo: limits.video,
+    canUseMapStyle,
     canCreatePin: (currentCount: number) => currentCount < limits.pins,
     canAddPhoto: (currentCount: number) => currentCount < limits.photosPerPin,
     canCreateCategory: (currentCount: number) =>

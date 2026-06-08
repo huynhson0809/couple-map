@@ -80,7 +80,8 @@ export function SettingsPage() {
   const notif = useNotifications();
   const push = usePushSubscription(user?.id);
   const notifPrefs = useNotificationPreferences(user?.id);
-  const { styleId, setStyleId } = useMapStyle();
+  const { plan, subscription, canUseMapStyle } = useSubscription();
+  const { styleId, setStyleId } = useMapStyle(canUseMapStyle);
   const [initialStyle] = useState(styleId);
   const sortedStyles = useMemo(
     () =>
@@ -91,7 +92,6 @@ export function SettingsPage() {
       }),
     [initialStyle],
   );
-  const { plan, subscription, canUseMapStyle } = useSubscription();
   const [showPricing, setShowPricing] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -289,17 +289,7 @@ export function SettingsPage() {
                 aria-pressed={active}
                 aria-label={`${label}, ${stateLabel}, ${accessLabel}`}
                 className={`map-style-card ${active ? "active" : ""} ${locked ? "locked" : ""}`}
-                onClick={() => {
-                  if (locked) {
-                    setUpgradeFeature(
-                      lang === "vi"
-                        ? "Map styles premium"
-                        : "Premium map styles",
-                    );
-                  } else {
-                    setPreviewStyle(s);
-                  }
-                }}
+                onClick={() => setPreviewStyle(s)}
               >
                 <span className="map-style-card-visual">
                   <img
@@ -375,6 +365,7 @@ export function SettingsPage() {
         open={Boolean(previewStyle)}
         style={previewStyle}
         currentStyleId={styleId}
+        locked={previewStyle ? !canUseMapStyle(previewStyle.id) : false}
         initialCenter={mapStylePreviewCenter}
         lang={lang}
         labels={{
@@ -394,6 +385,13 @@ export function SettingsPage() {
         onClose={() => setPreviewStyle(null)}
         onApply={() => {
           if (!previewStyle) return;
+          if (!canUseMapStyle(previewStyle.id)) {
+            setUpgradeFeature(
+              lang === "vi" ? "Map styles premium" : "Premium map styles",
+            );
+            setPreviewStyle(null);
+            return;
+          }
           setStyleId(previewStyle.id);
           setPreviewStyle(null);
         }}

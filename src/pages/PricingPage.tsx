@@ -17,7 +17,7 @@ const PLAN_FEATURES: Record<
     { key: "watermark", value: true },
   ],
   plus: [
-    { key: "pins", value: "500" },
+    { key: "pins", value: "300" },
     { key: "photos", value: "5" },
     { key: "video", value: false },
     { key: "styles", value: "10" },
@@ -62,8 +62,8 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
   } | null>(null);
 
   const prices = {
-    plus: cycle === "annual" ? 470000 : 49000,
-    pro: cycle === "annual" ? 950000 : 99000,
+    plus: cycle === "annual" ? 278400 : 29000,
+    pro: cycle === "annual" ? 374400 : 39000,
   };
 
   const formatPrice = (amount: number) => {
