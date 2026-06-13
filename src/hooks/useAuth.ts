@@ -14,20 +14,61 @@ export function useAuth() {
   );
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
+    let cancelled = false;
+
+    async function loadValidatedSession() {
+      const { data } = await supabase.auth.getSession();
+      const cachedSession = data.session;
+
+      if (!cachedSession) {
+        if (!cancelled) {
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+        }
+        return;
+      }
+
+      const { data: userData, error } = await supabase.auth.getUser();
+      const validatedUser = userData.user ?? null;
+
+      if (cancelled) return;
+
+      if (error || !validatedUser) {
+        await supabase.auth.signOut({ scope: "local" });
+        if (!cancelled) {
+          sessionStorage.removeItem(RECOVERY_KEY);
+          setSession(null);
+          setUser(null);
+          setIsRecovery(false);
+          setLoading(false);
+        }
+        return;
+      }
+
+      setSession(cachedSession);
+      setUser(validatedUser);
       setLoading(false);
-    });
+    }
+
+    void loadValidatedSession();
+
     const { data: sub } = supabase.auth.onAuthStateChange((evt, s) => {
       setSession(s);
       setUser(s?.user ?? null);
       if (evt === "PASSWORD_RECOVERY") {
         sessionStorage.setItem(RECOVERY_KEY, "1");
         setIsRecovery(true);
+      } else if (evt === "SIGNED_OUT") {
+        sessionStorage.removeItem(RECOVERY_KEY);
+        setIsRecovery(false);
       }
     });
-    return () => sub.subscription.unsubscribe();
+
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const clearRecovery = useCallback(() => {

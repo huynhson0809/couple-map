@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download, Share2, X, MapPin, Calendar } from "lucide-react";
 import type { Pin } from "../../types";
 import { getImageUrl } from "../../lib/cloudinary";
@@ -13,6 +13,23 @@ interface Props {
   pin: Pin;
   onClose: () => void;
 }
+
+interface ShareCardAsset {
+  dataUrl: string;
+  file: File;
+  filename: string;
+  key: string;
+}
+
+type ShareCardAssetState =
+  | { key: string; status: "generating"; asset: null }
+  | { key: string; status: "ready"; asset: ShareCardAsset }
+  | { key: string; status: "error"; asset: null };
+
+type FileShareNavigator = {
+  share?: (data?: ShareData) => Promise<void>;
+  canShare?: (data?: ShareData) => boolean;
+};
 
 // --- Canvas-based card generation (works on iOS) ---
 
@@ -74,6 +91,79 @@ const SHARE_TAG_GAP = 20;
 interface ShareTag {
   label: string;
   emoji: string;
+}
+
+function sanitizeShareFilename(title: string): string {
+  const safeName = title
+    .trim()
+    .replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return `${safeName || "memory"}.png`;
+}
+
+function dataUrlToFile(dataUrl: string, filename: string): File {
+  const [header, base64 = ""] = dataUrl.split(",");
+  const mime = header.match(/^data:([^;]+)/)?.[1] ?? "image/png";
+  const binary = window.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return new File([bytes], filename, { type: mime });
+}
+
+function canShareFile(file: File): boolean {
+  const nav = navigator as unknown as FileShareNavigator;
+
+  try {
+    return Boolean(nav.share && nav.canShare?.({ files: [file] }));
+  } catch {
+    return false;
+  }
+}
+
+function isIOSDevice(): boolean {
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+function isShareAbort(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function triggerBrowserDownload(asset: ShareCardAsset) {
+  const link = document.createElement("a");
+  link.download = asset.filename;
+  link.href = asset.dataUrl;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function openImageInNewTab(dataUrl: string, title: string): boolean {
+  const win = window.open("", "_blank");
+  if (!win) return false;
+
+  win.opener = null;
+  win.document.title = title;
+  win.document.body.style.margin = "0";
+  win.document.body.style.background = "#111";
+
+  const img = win.document.createElement("img");
+  img.src = dataUrl;
+  img.alt = title;
+  img.style.display = "block";
+  img.style.width = "100%";
+  img.style.height = "auto";
+  win.document.body.appendChild(img);
+
+  return true;
 }
 
 /** Draw the Pinly logo at (x, y) with given size */
@@ -492,18 +582,26 @@ export function ShareCard({ pin, onClose }: Props) {
   const { profile, partner } = useCoupleCtx();
   const { getCategory } = useCategoriesCtx();
   const { hasWatermark } = useSubscription();
-  const [generating, setGenerating] = useState(false);
+  const [assetState, setAssetState] = useState<ShareCardAssetState>({
+    key: "",
+    status: "generating",
+    asset: null,
+  });
 
   const images = pin.images ?? [];
   const coverImage = images[0];
   const coverUrl = coverImage?.cloudinary_url ?? null;
   const category = getCategory(pin.category);
-  const tag: ShareTag | null = category
-    ? {
-        label: category.label,
-        emoji: category.emoji,
-      }
-    : null;
+  const tag: ShareTag | null = useMemo(
+    () =>
+      category
+        ? {
+            label: category.label,
+            emoji: category.emoji,
+          }
+        : null,
+    [category],
+  );
   const markerEmoji = pin.marker_emoji ?? category?.emoji ?? "📍";
   const dateStr = new Date(pin.created_at).toLocaleDateString(
     lang === "vi" ? "vi-VN" : undefined,
@@ -514,102 +612,165 @@ export function ShareCard({ pin, onClose }: Props) {
     .join(" & ");
   const location =
     pin.city || pin.address || `${pin.lat.toFixed(3)}, ${pin.lng.toFixed(3)}`;
+  const filename = useMemo(() => sanitizeShareFilename(pin.title), [pin.title]);
+  const assetKey = useMemo(
+    () =>
+      [
+        coverUrl ?? "",
+        pin.title,
+        tag?.label ?? "",
+        tag?.emoji ?? "",
+        location,
+        dateStr,
+        coupleNames,
+        hasWatermark ? "1" : "0",
+        markerEmoji,
+        pin.marker_image_url ?? "",
+        filename,
+      ].join("\u001F"),
+    [
+      coupleNames,
+      coverUrl,
+      dateStr,
+      filename,
+      hasWatermark,
+      location,
+      markerEmoji,
+      pin.marker_image_url,
+      pin.title,
+      tag,
+    ],
+  );
+  const asset =
+    assetState.status === "ready" && assetState.key === assetKey
+      ? assetState.asset
+      : null;
+  const generating =
+    assetState.key !== assetKey || assetState.status === "generating";
+  const generationError =
+    assetState.status === "error" && assetState.key === assetKey;
 
-  async function generateImage(): Promise<string | null> {
-    setGenerating(true);
-    try {
-      if (coverUrl) {
-        return await drawCardWithPhoto(
-          coverUrl,
-          pin.title,
-          tag,
-          location,
-          dateStr,
-          coupleNames,
-          hasWatermark,
-        );
-      } else {
-        return await drawCardNoPhoto(
-          markerEmoji,
-          pin.marker_image_url,
-          pin.title,
-          tag,
-          location,
-          dateStr,
-          coupleNames,
-          hasWatermark,
-        );
-      }
-    } catch (err) {
-      console.error("Card generation failed:", err);
-      return null;
-    } finally {
-      setGenerating(false);
-    }
-  }
+  useEffect(() => {
+    let cancelled = false;
+    const currentAssetKey = assetKey;
 
-  async function handleDownload() {
-    const dataUrl = await generateImage();
-    if (!dataUrl) return;
-
-    // iOS Safari doesn't support <a download> — use share or open in new tab
-    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-      // Try Web Share first
+    async function prepareAsset() {
       try {
-        const res = await fetch(dataUrl);
-        const blob = await res.blob();
-        const file = new File([blob], "memory.png", { type: "image/png" });
-        if (navigator.share && navigator.canShare?.({ files: [file] })) {
-          await navigator.share({ files: [file] });
-          return;
+        const dataUrl = coverUrl
+          ? await drawCardWithPhoto(
+              coverUrl,
+              pin.title,
+              tag,
+              location,
+              dateStr,
+              coupleNames,
+              hasWatermark,
+            )
+          : await drawCardNoPhoto(
+              markerEmoji,
+              pin.marker_image_url,
+              pin.title,
+              tag,
+              location,
+              dateStr,
+              coupleNames,
+              hasWatermark,
+            );
+        const file = dataUrlToFile(dataUrl, filename);
+
+        if (!cancelled) {
+          setAssetState({
+            key: currentAssetKey,
+            status: "ready",
+            asset: { dataUrl, file, filename, key: currentAssetKey },
+          });
         }
-      } catch {
-        /* fall through */
+      } catch (err) {
+        console.error("Card generation failed:", err);
+        if (!cancelled) {
+          setAssetState({ key: currentAssetKey, status: "error", asset: null });
+        }
       }
-      // Fallback: open image in new tab so user can long-press to save
-      const win = window.open();
-      if (win) {
-        win.document.write(
-          `<img src="${dataUrl}" style="max-width:100%;height:auto" />`,
-        );
-        win.document.title = pin.title;
-      }
-    } else {
-      const link = document.createElement("a");
-      link.download = `${pin.title.replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/g, "_")}.png`;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
     }
+
+    void prepareAsset();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    assetKey,
+    coupleNames,
+    coverUrl,
+    dateStr,
+    filename,
+    hasWatermark,
+    location,
+    markerEmoji,
+    pin.marker_image_url,
+    pin.title,
+    tag,
+  ]);
+
+  function fallbackToImage(asset: ShareCardAsset) {
+    if (isIOSDevice()) {
+      if (openImageInNewTab(asset.dataUrl, pin.title)) return;
+    } else {
+      triggerBrowserDownload(asset);
+      return;
+    }
+
+    triggerBrowserDownload(asset);
   }
 
-  async function handleShare() {
-    const dataUrl = await generateImage();
-    if (!dataUrl) return;
+  function shareAsset(asset: ShareCardAsset) {
+    void navigator
+      .share({
+        title: pin.title,
+        text: `${pin.title} — ${pin.address ?? ""}`,
+        files: [asset.file],
+      })
+      .catch((err: unknown) => {
+        if (!isShareAbort(err)) {
+          fallbackToImage(asset);
+        }
+      });
+  }
 
-    try {
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-      const file = new File([blob], "memory.png", { type: "image/png" });
+  function handleDownload() {
+    if (!asset) return;
 
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          title: pin.title,
-          text: `${pin.title} — ${pin.address ?? ""}`,
-          files: [file],
-        });
+    if (isIOSDevice()) {
+      if (canShareFile(asset.file)) {
+        void navigator
+          .share({ title: pin.title, files: [asset.file] })
+          .catch((err: unknown) => {
+            if (!isShareAbort(err)) {
+              fallbackToImage(asset);
+            }
+          });
         return;
       }
-    } catch {
-      /* cancelled or unsupported */
+      fallbackToImage(asset);
+      return;
     }
 
-    // Fallback
-    handleDownload();
+    triggerBrowserDownload(asset);
+  }
+
+  function handleShare() {
+    if (!asset) return;
+
+    if (canShareFile(asset.file)) {
+      shareAsset(asset);
+      return;
+    }
+
+    fallbackToImage(asset);
   }
 
   const hasPhoto = !!coverUrl;
+  const actionDisabled = generating || generationError || !asset;
 
   return (
     <div className="share-card-overlay" onClick={onClose}>
@@ -715,13 +876,13 @@ export function ShareCard({ pin, onClose }: Props) {
 
         {/* Actions */}
         <div className="share-card-actions">
-          <Button onClick={handleShare} disabled={generating}>
+          <Button onClick={handleShare} disabled={actionDisabled}>
             <Share2 size={16} /> {generating ? "…" : t("pin.share")}
           </Button>
           <Button
             variant="secondary"
             onClick={handleDownload}
-            disabled={generating}
+            disabled={actionDisabled}
           >
             <Download size={16} /> {t("share.download")}
           </Button>

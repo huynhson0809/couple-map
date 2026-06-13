@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "check:auth-session": "node scripts/auth-session-contract.mjs",
     "check:contracts": "node scripts/performance-contracts.mjs",
+    "check:share-card-gesture": "node scripts/share-card-gesture-contract.mjs",
     "generate:map-previews": "node scripts/generate-map-style-previews.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
