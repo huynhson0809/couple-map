@@ -258,7 +258,7 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
           )}
           <div className="pricing-contact-buttons">
             <a
-              href="https://zalo.me/0969696969"
+              href="https://zalo.me/0965125914"
               target="_blank"
               rel="noopener noreferrer"
               className="pricing-contact-btn pricing-contact-zalo"
@@ -266,7 +266,7 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
               💬 Zalo
             </a>
             <a
-              href="mailto:support@pinly.app"
+              href="mailto:huynhngocson8902@gmail.com"
               className="pricing-contact-btn pricing-contact-email"
             >
               ✉️ Email
