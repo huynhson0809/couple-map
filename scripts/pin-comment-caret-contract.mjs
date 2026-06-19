@@ -22,8 +22,18 @@ const commentComposer = cssBlock(".pin-comment-form textarea");
 
 assert.match(
   pinDetail,
-  /scrollIntoView\(\{\s*block:\s*"nearest",\s*inline:\s*"nearest"\s*\}\)/,
-  "comment input focus should only keep the field nearby during keyboard open",
+  /<textarea[\s\S]*rows=\{1\}[\s\S]*value=\{commentText\}/,
+  "comment composer should use a one-row textarea so iOS does not mispaint the empty caret baseline",
+);
+assert.doesNotMatch(
+  pinDetail,
+  /scrollIntoView\(/,
+  "comment composer focus should not programmatically scroll after iOS places the native caret",
+);
+assert.doesNotMatch(
+  pinDetail,
+  /setTimeout\([\s\S]{0,160}scrollIntoView/,
+  "comment composer should not delay-scroll during keyboard open because it desynchronizes the iOS caret overlay",
 );
 assert.doesNotMatch(
   pinDetail,
@@ -31,11 +41,6 @@ assert.doesNotMatch(
   "comment input focus must not smooth-scroll during mobile keyboard open",
 );
 
-assert.match(
-  pinDetail,
-  /<textarea[\s\S]*rows=\{1\}[\s\S]*value=\{commentText\}/,
-  "comment composer should use a one-row textarea so iOS does not mispaint the empty caret baseline",
-);
 assert.doesNotMatch(
   pinDetail,
   /<form className="pin-comment-form"[\s\S]*<input\b/,
@@ -85,6 +90,11 @@ assert.match(
   commentComposer,
   /overflow:\s*hidden/,
   "comment textarea should stay visually one-line while typing",
+);
+assert.match(
+  commentComposer,
+  /scroll-margin-bottom:\s*18px/,
+  "comment textarea should leave a small keyboard margin without JS scrolling",
 );
 
 console.log("Pin comment caret contract passed.");

@@ -940,12 +940,6 @@ export function PinDetail({
             placeholder={t("pin.commentPlaceholder")}
             maxLength={500}
             enterKeyHint="send"
-            onFocus={(e) => {
-              const input = e.currentTarget;
-              setTimeout(() => {
-                input.scrollIntoView({ block: "nearest", inline: "nearest" });
-              }, 250);
-            }}
           />
           <button
             type="submit"

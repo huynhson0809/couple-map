@@ -2316,6 +2316,7 @@ body { -webkit-tap-highlight-color: transparent; }
   line-height: 20px;
   white-space: nowrap;
   caret-color: var(--coral);
+  scroll-margin-bottom: 18px;
 }
 .pin-comment-form button {
   display: grid;

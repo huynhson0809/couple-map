@@ -90,6 +90,11 @@ assert.doesNotMatch(
   /behavior:\s*["']smooth["']/,
   "comment input focus should not smooth-scroll during mobile keyboard open",
 );
+assert.doesNotMatch(
+  pinDetail,
+  /scrollIntoView\(/,
+  "comment focus should not trigger delayed JS scrolling because it can desync the iOS native caret overlay",
+);
 assert.match(
   styles,
   /\.pin-comment-form textarea[\s\S]{0,420}-webkit-appearance:\s*none/,
@@ -114,4 +119,9 @@ assert.match(
   pinDetail,
   /<textarea[\s\S]*rows=\{1\}[\s\S]*value=\{commentText\}/,
   "comment composer should use a one-row textarea instead of the old empty-caret-sensitive input",
+);
+assert.match(
+  styles,
+  /\.pin-comment-form textarea[\s\S]{0,520}scroll-margin-bottom:\s*18px/,
+  "comment textarea should use scroll margin instead of JS scrolling around the mobile keyboard",
 );
