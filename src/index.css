@@ -2303,13 +2303,13 @@ body { -webkit-tap-highlight-color: transparent; }
 .pin-comment-form input {
   height: 42px;
   min-height: 42px;
-  padding: 10px 12px;
+  padding: 0 12px;
   -webkit-appearance: none;
   appearance: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   font-size: 16px;
-  line-height: 20px;
+  line-height: normal;
 }
 .pin-comment-form button {
   display: grid;

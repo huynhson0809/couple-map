@@ -52,6 +52,7 @@ const GPS_QUICK_MS = 6000;
 const STREAK_FLOAT_STORAGE_KEY = "pinly.map.streakFloatPosition";
 const STREAK_DRAG_HOLD_MS = 220;
 const STREAK_DRAG_EDGE_PADDING = 12;
+const STREAK_DRAG_SAFE_TOP_GAP = 58;
 const STREAK_DRAG_MOVE_TOLERANCE = 6;
 const STREAK_CLICK_SUPPRESS_MS = 180;
 
@@ -71,6 +72,8 @@ interface StreakDragState {
   dragging: boolean;
   moved: boolean;
 }
+
+let streakSafeAreaInsetTopProbe: HTMLDivElement | null = null;
 
 function isAccurateEnough(coords: { accuracy?: number | null }) {
   return (
@@ -113,6 +116,25 @@ function getStreakButtonPosition(button: HTMLElement): StreakFloatPosition {
   return { x: rect.left, y: rect.top };
 }
 
+function getSafeAreaInsetTop() {
+  if (!streakSafeAreaInsetTopProbe?.isConnected) {
+    const probe = document.createElement("div");
+    probe.style.position = "fixed";
+    probe.style.top = "0";
+    probe.style.width = "0";
+    probe.style.height = "0";
+    probe.style.visibility = "hidden";
+    probe.style.pointerEvents = "none";
+    probe.style.paddingTop = "env(safe-area-inset-top)";
+    document.documentElement.appendChild(probe);
+    streakSafeAreaInsetTopProbe = probe;
+  }
+  const inset = parseFloat(
+    getComputedStyle(streakSafeAreaInsetTopProbe).paddingTop,
+  );
+  return Number.isFinite(inset) ? inset : 0;
+}
+
 function clampStreakFloatPosition(
   position: StreakFloatPosition,
   button: HTMLElement,
@@ -122,7 +144,7 @@ function clampStreakFloatPosition(
   const height = rect.height || button.offsetHeight || 44;
   const bottomNavHeight = getBottomNavHeight();
   const minX = STREAK_DRAG_EDGE_PADDING;
-  const minY = STREAK_DRAG_EDGE_PADDING;
+  const minY = STREAK_DRAG_SAFE_TOP_GAP + getSafeAreaInsetTop();
   const maxX = Math.max(
     minX,
     window.innerWidth - width - STREAK_DRAG_EDGE_PADDING,

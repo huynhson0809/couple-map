@@ -9,8 +9,11 @@
     "check:auth-session": "node scripts/auth-session-contract.mjs",
     "check:contracts": "node scripts/performance-contracts.mjs",
     "check:interaction-notifications": "node scripts/interaction-notifications-contract.mjs",
+    "check:map-cluster-marker": "node scripts/map-cluster-marker-contract.mjs",
+    "check:map-streak-safe-top": "node scripts/map-streak-safe-top-contract.mjs",
     "check:mobile-media-ui": "node scripts/mobile-media-ui-contract.mjs",
     "check:nudge-notifications": "node scripts/nudge-notifications-contract.mjs",
+    "check:pin-comment-caret": "node scripts/pin-comment-caret-contract.mjs",
     "check:timeline-filter-popover": "node scripts/timeline-filter-popover-contract.mjs",
     "check:timeline-circle-layout": "node --experimental-strip-types scripts/timeline-circle-layout-contract.mjs",
     "check:share-card-gesture": "node scripts/share-card-gesture-contract.mjs",
@@ -27,6 +30,7 @@
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.15.1",
     "react-window": "^2.2.7",
+    "supercluster": "^8.0.1",
     "workbox-window": "^7.4.1"
   },
   "devDependencies": {
@@ -34,6 +38,7 @@
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/supercluster": "^7.1.3",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",

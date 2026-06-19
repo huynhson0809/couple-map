@@ -97,8 +97,13 @@ assert.match(
 );
 assert.match(
   styles,
-  /\.pin-comment-form input[\s\S]{0,360}line-height:\s*20px/,
-  "comment input should use stable explicit line-height for mobile caret alignment",
+  /\.pin-comment-form input[\s\S]{0,360}padding:\s*0\s+12px/,
+  "comment input should let the native single-line control center empty caret vertically",
+);
+assert.match(
+  styles,
+  /\.pin-comment-form input[\s\S]{0,360}line-height:\s*normal/,
+  "comment input should avoid fixed line-height for empty iOS caret alignment",
 );
 assert.match(
   styles,

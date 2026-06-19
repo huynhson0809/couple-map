@@ -497,15 +497,18 @@ assert(
 );
 
 assert(
-  /function\s+shouldSkipHighlightedCluster/.test(mapView) &&
-    /function\s+getRenderablePins/.test(mapView) &&
-    /const\s+queue/.test(mapView) &&
-    /SAME_PLACE_RADIUS_METERS/.test(mapView) &&
-    /CLUSTER_SCREEN_MAX_ZOOM/.test(mapView) &&
-    /if\s*\(shouldSkipHighlightedCluster\(current\.pin,\s*other\.pin\)\)\s*continue/.test(
+  /const\s+MEMORY_SOURCE_ID\s*=\s*["']memory-pins["']/.test(mapView) &&
+    /map\.addSource\(MEMORY_SOURCE_ID,\s*\{[\s\S]*cluster:\s*true/.test(
       mapView,
-    ),
-  "MapView must cluster only renderable viewport pins, use connected groups, and avoid over-grouping at high zoom.",
+    ) &&
+    /clusterProperties/.test(mapView) &&
+    /syncMemorySource/.test(mapView) &&
+    /handleMemoryFeatureClick/.test(mapView) &&
+    !/from\s+["']supercluster["']/.test(mapView) &&
+    !/function\s+renderMarkers/.test(mapView) &&
+    !/function\s+createClusterEl/.test(mapView) &&
+    !/function\s+createPinEl/.test(mapView),
+  "MapView must render memory pins/clusters through a clustered MapLibre GeoJSON source, not DOM marker clustering.",
 );
 
 assert(

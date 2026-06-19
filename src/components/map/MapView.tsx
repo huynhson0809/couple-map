@@ -40,11 +40,21 @@ interface Props {
 
 const COLOR_USER_A = "#E24B4A";
 const COLOR_USER_B = "#378ADD";
-const CLUSTER_RADIUS_PX = 56;
-const VENUE_CLUSTER_RADIUS_METERS = 45;
-const SAME_PLACE_RADIUS_METERS = 4;
-const CLUSTER_SCREEN_MAX_ZOOM = 16.5;
-const CLUSTER_VENUE_MAX_ZOOM = 15.5;
+const SAME_PLACE_RADIUS_METERS = 8;
+const MEMORY_SOURCE_ID = "memory-pins";
+const MEMORY_CLUSTER_CIRCLE_LAYER = "memory-cluster-circle";
+const MEMORY_CLUSTER_COUNT_LAYER = "memory-cluster-count";
+const MEMORY_SAME_PLACE_CIRCLE_LAYER = "memory-same-place-circle";
+const MEMORY_SAME_PLACE_COUNT_LAYER = "memory-same-place-count";
+const MEMORY_PIN_CIRCLE_LAYER = "memory-pin-circle";
+const MEMORY_PIN_LABEL_LAYER = "memory-pin-label";
+const MEMORY_PIN_HIGHLIGHT_LAYER = "memory-pin-highlight";
+const MEMORY_CLUSTER_MAX_ZOOM = 15;
+const MEMORY_CLUSTER_RADIUS_PX = 56;
+const MEMORY_PIN_SPRITE_SIZE = 56;
+const MEMORY_PIN_SPRITE_PIXEL_RATIO = 2;
+const MEMORY_PIN_BADGE_RADIUS = 22;
+const MEMORY_PIN_IMAGE_RADIUS = 17.5;
 const EXPLICIT_CAMERA_INTENT_MS = 8000;
 const FLY_TO_ZOOM = 19;
 const FLY_TO_DURATION_MS = 1150;
@@ -52,17 +62,54 @@ const FLY_TO_CORRECTION_MS = 240;
 const FLY_TO_CENTER_TOLERANCE_METERS = 2.5;
 const FLY_TO_ZOOM_TOLERANCE = 0.03;
 
-interface Group {
-  key: string;
-  center: { lat: number; lng: number };
-  pins: Pin[];
-  highlighted: boolean;
-}
+const MEMORY_LAYER_IDS = [
+  MEMORY_CLUSTER_CIRCLE_LAYER,
+  MEMORY_CLUSTER_COUNT_LAYER,
+  MEMORY_SAME_PLACE_CIRCLE_LAYER,
+  MEMORY_SAME_PLACE_COUNT_LAYER,
+  MEMORY_PIN_HIGHLIGHT_LAYER,
+  MEMORY_PIN_CIRCLE_LAYER,
+  MEMORY_PIN_LABEL_LAYER,
+] as const;
 
-interface ProjectedPin {
-  pin: Pin;
-  pt: { x: number; y: number };
-}
+const MEMORY_INTERACTION_LAYER_IDS = [
+  MEMORY_CLUSTER_CIRCLE_LAYER,
+  MEMORY_CLUSTER_COUNT_LAYER,
+  MEMORY_SAME_PLACE_CIRCLE_LAYER,
+  MEMORY_SAME_PLACE_COUNT_LAYER,
+  MEMORY_PIN_CIRCLE_LAYER,
+  MEMORY_PIN_LABEL_LAYER,
+] as const;
+
+type MemoryFeatureType = "memory-pin" | "same-place";
+
+type MemoryFeatureProperties = {
+  type: MemoryFeatureType;
+  pinId: string;
+  pinIdsJson: string;
+  memoryCount: number;
+  emoji: string;
+  markerImageUrl: string;
+  iconImageId: string;
+  color: string;
+  highlighted: boolean;
+};
+
+type MemorySpriteInput = {
+  emoji: string;
+  color: string;
+  markerImageUrl: string;
+};
+
+type MemorySpriteRenderInput = MemorySpriteInput & {
+  image?: HTMLImageElement;
+};
+
+type MemoryFeature = GeoJSON.Feature<GeoJSON.Point, MemoryFeatureProperties>;
+type MemoryFeatureCollection = GeoJSON.FeatureCollection<
+  GeoJSON.Point,
+  MemoryFeatureProperties
+>;
 
 export function MapView({
   pins,
@@ -83,10 +130,14 @@ export function MapView({
   const { customCategories, getCategory } = useCategoriesCtx();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const memoryFeaturesRef = useRef<MemoryFeatureCollection>({
+    type: "FeatureCollection",
+    features: [],
+  });
+  const memoryLayerReadyRef = useRef(false);
+  const memorySpriteLoadIdsRef = useRef<Set<string>>(new Set());
   const bucketMarkersRef = useRef<maplibregl.Marker[]>([]);
   const longPressTimer = useRef<number | null>(null);
-  const renderMarkersTimer = useRef<number | null>(null);
   const styleLoadedRef = useRef(false);
   const didInitialFitRef = useRef<boolean>(false);
   const pinsRef = useRef<Pin[]>([]);
@@ -133,109 +184,107 @@ export function MapView({
     return "#9333ea";
   }
 
-  function computeGroups(map: maplibregl.Map): Group[] {
-    const items = getRenderablePins(map).map((p) => ({
-      pin: p,
-      pt: map.project([p.lng, p.lat]),
-    }));
-    const groups: Group[] = [];
-    const taken = new Set<string>();
-    const highlightedPinId = highlightedPinIdRef.current;
+  function buildMemoryFeatureCollection(): MemoryFeatureCollection {
+    const groups = groupPinsBySamePlace(getClusterablePins());
+    return {
+      type: "FeatureCollection",
+      features: groups.map((groupPins) =>
+        groupPins.length === 1
+          ? pinToMemoryFeature(groupPins[0])
+          : samePlacePinsToMemoryFeature(groupPins),
+      ),
+    };
+  }
 
-    // Grid-based spatial bucketing — O(n) instead of O(n²)
-    const cellSize = CLUSTER_RADIUS_PX;
-    const grid = new Map<string, typeof items>();
-    for (const it of items) {
-      const cx = Math.floor(it.pt.x / cellSize);
-      const cy = Math.floor(it.pt.y / cellSize);
-      const key = `${cx},${cy}`;
-      const bucket = grid.get(key);
-      if (bucket) bucket.push(it);
-      else grid.set(key, [it]);
-    }
+  function getClusterablePins() {
+    return pinsRef.current;
+  }
 
-    for (const it of items) {
-      if (taken.has(it.pin.id)) continue;
-      taken.add(it.pin.id);
-      const queue = [it];
-      const groupPins: Pin[] = [];
-      let sumLat = 0;
-      let sumLng = 0;
+  function groupPinsBySamePlace(sourcePins: Pin[]) {
+    const groups: Pin[][] = [];
+    const consumed = new Set<string>();
 
-      for (let i = 0; i < queue.length; i += 1) {
-        const current = queue[i];
-        groupPins.push(current.pin);
-        sumLat += current.pin.lat;
-        sumLng += current.pin.lng;
+    for (const pin of sourcePins) {
+      if (consumed.has(pin.id)) continue;
+      const group = [pin];
+      consumed.add(pin.id);
 
-        // Only check neighboring grid cells instead of all items
-        const cx = Math.floor(current.pt.x / cellSize);
-        const cy = Math.floor(current.pt.y / cellSize);
-        for (let dx = -1; dx <= 1; dx++) {
-          for (let dy = -1; dy <= 1; dy++) {
-            const neighbors = grid.get(`${cx + dx},${cy + dy}`);
-            if (!neighbors) continue;
-            for (const other of neighbors) {
-              if (taken.has(other.pin.id)) continue;
-              if (shouldSkipHighlightedCluster(current.pin, other.pin))
-                continue;
-              if (shouldClusterPins(map, current, other)) {
-                taken.add(other.pin.id);
-                queue.push(other);
-              }
-            }
-          }
-        }
+      for (const other of sourcePins) {
+        if (consumed.has(other.id)) continue;
+        if (!isSamePlaceGroup([...group, other])) continue;
+        group.push(other);
+        consumed.add(other.id);
       }
 
-      const n = groupPins.length;
-      const key =
-        n === 1
-          ? `pin:${groupPins[0].id}`
-          : `cl:${groupPins
-              .map((p) => p.id)
-              .sort((a, b) => a.localeCompare(b))
-              .join(",")}`;
-      groups.push({
-        key,
-        center: { lat: sumLat / n, lng: sumLng / n },
-        pins: groupPins,
-        highlighted: Boolean(
-          highlightedPinId &&
-          groupPins.some((pin) => pin.id === highlightedPinId),
-        ),
-      });
+      groups.push(group);
     }
+
     return groups;
   }
 
-  function getRenderablePins(map: maplibregl.Map) {
-    const bounds = map.getBounds();
-    const north = bounds.getNorth();
-    const south = bounds.getSouth();
-    const east = bounds.getEast();
-    const west = bounds.getWest();
-    const latPad = Math.max((north - south) * 0.18, 0.004);
-    const lngPad = Math.max((east - west) * 0.18, 0.004);
-    return pinsRef.current.filter(
-      (pin) =>
-        pin.lat >= south - latPad &&
-        pin.lat <= north + latPad &&
-        pin.lng >= west - lngPad &&
-        pin.lng <= east + lngPad,
-    );
+  function pinToMemoryFeature(pin: Pin): MemoryFeature {
+    const cat = getCategoryRef.current(pin.category);
+    const emoji = pin.marker_emoji ?? cat?.emoji ?? "📍";
+    const color = pinColor(pin);
+    const markerImageUrl = pin.marker_image_url
+      ? getImageUrl(pin.marker_image_url, 120, 80)
+      : "";
+    return {
+      type: "Feature",
+      properties: {
+        type: "memory-pin",
+        pinId: pin.id,
+        pinIdsJson: JSON.stringify([pin.id]),
+        memoryCount: 1,
+        emoji,
+        markerImageUrl,
+        iconImageId: getMemorySpriteId({ emoji, color, markerImageUrl }),
+        color,
+        highlighted: Boolean(
+          newestPinIdRef.current === pin.id || highlightedPinIdRef.current === pin.id,
+        ),
+      },
+      geometry: {
+        type: "Point",
+        coordinates: [pin.lng, pin.lat],
+      },
+    };
   }
 
-  function shouldSkipHighlightedCluster(a: Pin, b: Pin) {
-    const highlightedPinId = highlightedPinIdRef.current;
-    return Boolean(
-      highlightedPinId &&
-      (a.id === highlightedPinId || b.id === highlightedPinId),
+  function samePlacePinsToMemoryFeature(groupPins: Pin[]): MemoryFeature {
+    const sortedPins = [...groupPins].sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
-  }
-
-  function distanceMeters(a: Pin, b: Pin) {
-    return distanceLngLatMeters(a.lat, a.lng, b.lat, b.lng);
+    const representative = sortedPins[0];
+    const cat = getCategoryRef.current(representative.category);
+    const emoji = representative.marker_emoji ?? cat?.emoji ?? "📍";
+    const color = pinColor(representative);
+    const markerImageUrl = representative.marker_image_url
+      ? getImageUrl(representative.marker_image_url, 120, 80)
+      : "";
+    return {
+      type: "Feature",
+      properties: {
+        type: "same-place",
+        pinId: representative.id,
+        pinIdsJson: JSON.stringify(sortedPins.map((pin) => pin.id)),
+        memoryCount: sortedPins.length,
+        emoji,
+        markerImageUrl,
+        iconImageId: getMemorySpriteId({ emoji, color, markerImageUrl }),
+        color,
+        highlighted: sortedPins.some(
+          (pin) =>
+            newestPinIdRef.current === pin.id ||
+            highlightedPinIdRef.current === pin.id,
+        ),
+      },
+      geometry: {
+        type: "Point",
+        coordinates: [representative.lng, representative.lat],
+      },
+    };
   }
 
   function distanceLngLatMeters(
@@ -256,64 +305,17 @@ export function MapView({
     return 2 * earthRadius * Math.asin(Math.sqrt(h));
   }
 
-  function shouldClusterPins(
-    map: maplibregl.Map,
-    a: ProjectedPin,
-    b: ProjectedPin,
-  ) {
-    const zoom = map.getZoom();
-    const meters = distanceMeters(a.pin, b.pin);
-    if (meters <= SAME_PLACE_RADIUS_METERS) return true;
-    if (zoom >= CLUSTER_SCREEN_MAX_ZOOM) return false;
-
-    const dx = a.pt.x - b.pt.x;
-    const dy = a.pt.y - b.pt.y;
-    const closeOnScreen =
-      dx * dx + dy * dy < CLUSTER_RADIUS_PX * CLUSTER_RADIUS_PX;
-    if (closeOnScreen) return true;
-    return (
-      zoom < CLUSTER_VENUE_MAX_ZOOM && meters <= VENUE_CLUSTER_RADIUS_METERS
-    );
-  }
-
-  function createPinEl(p: Pin) {
-    const el = document.createElement("div");
-    el.className = "circle-marker";
-    if (newestPinIdRef.current && p.id === newestPinIdRef.current)
-      el.classList.add("pulse");
-    if (highlightedPinIdRef.current && p.id === highlightedPinIdRef.current)
-      el.classList.add("showing");
-    el.style.borderColor = pinColor(p);
-    const cat = getCategoryRef.current(p.category);
-    if (p.marker_image_url) {
-      const img = document.createElement("img");
-      img.src = getImageUrl(p.marker_image_url, 80);
-      img.alt = "";
-      el.appendChild(img);
-    } else {
-      const span = document.createElement("span");
-      const text = p.marker_emoji ?? cat?.emoji ?? "📍";
-      span.textContent = text;
-      // Auto-scale font for multi-character text markers
-      const len = [...text].length;
-      if (len > 2) span.style.fontSize = "12px";
-      else if (len > 1) span.style.fontSize = "16px";
-      el.appendChild(span);
-    }
-    el.addEventListener("click", (e) => {
-      e.stopPropagation();
-      onPinClickRef.current(p);
-    });
-    return el;
-  }
-
   function pinsShareLocation(groupPins: Pin[]) {
+    return isSamePlaceGroup(groupPins);
+  }
+
+  function isSamePlaceGroup(groupPins: Pin[]) {
     if (groupPins.length < 2) return false;
     const first = groupPins[0];
     return groupPins.every(
       (pin) =>
-        Math.abs(pin.lat - first.lat) < 0.000003 &&
-        Math.abs(pin.lng - first.lng) < 0.000003,
+        distanceLngLatMeters(pin.lat, pin.lng, first.lat, first.lng) <=
+        SAME_PLACE_RADIUS_METERS,
     );
   }
 
@@ -325,79 +327,455 @@ export function MapView({
     setClusterPinIds(null);
   }, []);
 
-  function createClusterEl(
-    count: number,
-    _pins: Pin[],
-    map: maplibregl.Map,
-    _center: { lat: number; lng: number },
-    groupPins: Pin[],
-    highlighted: boolean,
-  ) {
-    // Store pin IDs to look up fresh data at click time
-    const pinIds = groupPins.map((p) => p.id);
-
-    const el = document.createElement("div");
-    el.className = "cluster-bubble";
-    if (highlighted) el.classList.add("showing");
-    // size + color tier based on count
-    let tier = 0;
-    if (count >= 50) tier = 3;
-    else if (count >= 25) tier = 2;
-    else if (count >= 10) tier = 1;
-    el.dataset.tier = String(tier);
-    el.textContent = count > 999 ? "999+" : String(count);
-    el.addEventListener("click", (e) => {
-      e.stopPropagation();
-      // Look up current pins at click time
-      const currentPins = pinIds
-        .map((id) => pinsRef.current.find((p) => p.id === id))
-        .filter((p): p is Pin => p !== undefined);
-
-      if (currentPins.length === 0) return;
-
-      if (pinsShareLocation(currentPins) || map.getZoom() >= 17.5) {
-        openClusterList(pinIds);
-        return;
-      }
-      const bounds = new maplibregl.LngLatBounds();
-      currentPins.forEach((p) => bounds.extend([p.lng, p.lat]));
-      map.fitBounds(bounds, { padding: 100, maxZoom: 18, duration: 600 });
-    });
-    return el;
+  function getMemorySpriteId(input: MemorySpriteInput) {
+    return `memory-marker-${hashMemorySpriteKey(
+      `${input.markerImageUrl || input.emoji}|${input.color}`,
+    )}`;
   }
 
-  function renderMarkers() {
+  function hashMemorySpriteKey(value: string) {
+    let hash = 5381;
+    for (let index = 0; index < value.length; index += 1) {
+      hash = (hash * 33) ^ value.charCodeAt(index);
+    }
+    return (hash >>> 0).toString(36);
+  }
+
+  function registerMemorySprites(
+    map: maplibregl.Map,
+    featureCollection: MemoryFeatureCollection,
+  ) {
+    for (const feature of featureCollection.features) {
+      const props = feature.properties;
+      if (props.type !== "memory-pin") continue;
+      if (!map.hasImage(props.iconImageId)) {
+        map.addImage(props.iconImageId, renderMemorySprite(props), {
+          pixelRatio: MEMORY_PIN_SPRITE_PIXEL_RATIO,
+        });
+      }
+      if (props.markerImageUrl) loadMemorySpriteImage(map, props);
+    }
+  }
+
+  function loadMemorySpriteImage(
+    map: maplibregl.Map,
+    input: MemoryFeatureProperties,
+  ) {
+    if (memorySpriteLoadIdsRef.current.has(input.iconImageId)) return;
+    memorySpriteLoadIdsRef.current.add(input.iconImageId);
+
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.decoding = "async";
+    image.onload = () => {
+      if (mapRef.current !== map || !map.isStyleLoaded()) return;
+      const sprite = renderMemorySprite({ ...input, image });
+      if (map.hasImage(input.iconImageId)) {
+        map.updateImage(input.iconImageId, sprite);
+      } else {
+        map.addImage(input.iconImageId, sprite, {
+          pixelRatio: MEMORY_PIN_SPRITE_PIXEL_RATIO,
+        });
+      }
+      map.triggerRepaint();
+    };
+    image.src = input.markerImageUrl;
+  }
+
+  function renderMemorySprite(input: MemorySpriteRenderInput) {
+    const canvas = document.createElement("canvas");
+    const canvasSize = MEMORY_PIN_SPRITE_SIZE * MEMORY_PIN_SPRITE_PIXEL_RATIO;
+    canvas.width = canvasSize;
+    canvas.height = canvasSize;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return new ImageData(canvasSize, canvasSize);
+    }
+
+    ctx.scale(MEMORY_PIN_SPRITE_PIXEL_RATIO, MEMORY_PIN_SPRITE_PIXEL_RATIO);
+
+    const center = MEMORY_PIN_SPRITE_SIZE / 2;
+    const ringRadius = MEMORY_PIN_BADGE_RADIUS;
+    const gradient = ctx.createLinearGradient(
+      0,
+      center - ringRadius,
+      0,
+      center + ringRadius,
+    );
+    gradient.addColorStop(0, "rgba(255,255,255,0.96)");
+    gradient.addColorStop(1, "rgba(248,250,255,0.86)");
+
+    ctx.save();
+    ctx.shadowColor = "rgba(44,52,72,0.22)";
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 5;
+    ctx.beginPath();
+    ctx.arc(center, center, ringRadius, 0, Math.PI * 2);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+    ctx.restore();
+
+    if (input.image) {
+      drawCoverImage(
+        ctx,
+        input.image,
+        center,
+        center,
+        MEMORY_PIN_IMAGE_RADIUS,
+      );
+    } else {
+      drawEmojiSprite(ctx, input.emoji, center, center);
+    }
+
+    ctx.beginPath();
+    ctx.arc(center, center, ringRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = input.color;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(center, center, ringRadius - 2.5, Math.PI * 1.1, Math.PI * 1.9);
+    ctx.strokeStyle = "rgba(255,255,255,0.42)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    return ctx.getImageData(0, 0, canvasSize, canvasSize);
+  }
+
+  function drawCoverImage(
+    ctx: CanvasRenderingContext2D,
+    image: HTMLImageElement,
+    centerX: number,
+    centerY: number,
+    radius: number,
+  ) {
+    const sourceWidth = image.naturalWidth || image.width;
+    const sourceHeight = image.naturalHeight || image.height;
+    if (!sourceWidth || !sourceHeight) return;
+
+    const size = radius * 2;
+    const sourceRatio = sourceWidth / sourceHeight;
+    const targetRatio = 1;
+    let sx = 0;
+    let sy = 0;
+    let sw = sourceWidth;
+    let sh = sourceHeight;
+
+    if (sourceRatio > targetRatio) {
+      sw = sourceHeight * targetRatio;
+      sx = (sourceWidth - sw) / 2;
+    } else {
+      sh = sourceWidth / targetRatio;
+      sy = (sourceHeight - sh) / 2;
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(
+      image,
+      sx,
+      sy,
+      sw,
+      sh,
+      centerX - radius,
+      centerY - radius,
+      size,
+      size,
+    );
+    ctx.restore();
+  }
+
+  function drawEmojiSprite(
+    ctx: CanvasRenderingContext2D,
+    emoji: string,
+    centerX: number,
+    centerY: number,
+  ) {
+    const glyphCount = [...emoji].length;
+    const fontSize = glyphCount > 2 ? 15 : glyphCount > 1 ? 19 : 23;
+    ctx.font = `${fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(emoji, centerX, centerY + 1);
+  }
+
+  function syncMemoryLayers() {
+    const map = mapRef.current;
+    if (!map || !styleLoadedRef.current || !map.isStyleLoaded()) return;
+    ensureMemoryLayers(map);
+    syncMemorySource(map);
+    raiseMemoryLayers(map);
+  }
+
+  function ensureMemoryLayers(map: maplibregl.Map) {
+    if (!map.getSource(MEMORY_SOURCE_ID)) {
+      map.addSource(MEMORY_SOURCE_ID, {
+        type: "geojson",
+        data: memoryFeaturesRef.current,
+        cluster: true,
+        clusterRadius: MEMORY_CLUSTER_RADIUS_PX,
+        clusterMaxZoom: MEMORY_CLUSTER_MAX_ZOOM,
+        clusterProperties: {
+          memoryCount: ["+", ["get", "memoryCount"]],
+        },
+      } as unknown as maplibregl.SourceSpecification);
+    }
+
+    if (!map.getLayer(MEMORY_CLUSTER_CIRCLE_LAYER)) {
+      map.addLayer({
+        id: MEMORY_CLUSTER_CIRCLE_LAYER,
+        type: "circle",
+        source: MEMORY_SOURCE_ID,
+        filter: ["has", "point_count"],
+        paint: {
+          "circle-radius": [
+            "step",
+            ["coalesce", ["get", "memoryCount"], ["get", "point_count"]],
+            24,
+            10,
+            28,
+            25,
+            34,
+            50,
+            40,
+          ],
+          "circle-color": [
+            "step",
+            ["coalesce", ["get", "memoryCount"], ["get", "point_count"]],
+            "#ff8a4c",
+            10,
+            "#ff5a5f",
+            25,
+            "#d84fc7",
+            50,
+            "#a93ce8",
+          ],
+          "circle-stroke-color": "rgba(255,255,255,0.92)",
+          "circle-stroke-width": 3,
+          "circle-blur": 0,
+        },
+      });
+    }
+
+    if (!map.getLayer(MEMORY_CLUSTER_COUNT_LAYER)) {
+      map.addLayer({
+        id: MEMORY_CLUSTER_COUNT_LAYER,
+        type: "symbol",
+        source: MEMORY_SOURCE_ID,
+        filter: ["has", "point_count"],
+        layout: {
+          "text-field": [
+            "to-string",
+            ["coalesce", ["get", "memoryCount"], ["get", "point_count"]],
+          ],
+          "text-size": 16,
+          "text-font": ["Noto Sans Bold"],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: {
+          "text-color": "#ffffff",
+          "text-halo-color": "rgba(0,0,0,0.08)",
+          "text-halo-width": 1,
+        },
+      });
+    }
+
+    if (!map.getLayer(MEMORY_SAME_PLACE_CIRCLE_LAYER)) {
+      map.addLayer({
+        id: MEMORY_SAME_PLACE_CIRCLE_LAYER,
+        type: "circle",
+        source: MEMORY_SOURCE_ID,
+        filter: ["==", ["get", "type"], "same-place"],
+        paint: {
+          "circle-radius": 24,
+          "circle-color": ["get", "color"],
+          "circle-stroke-color": "rgba(255,255,255,0.92)",
+          "circle-stroke-width": 3,
+        },
+      });
+    }
+
+    if (!map.getLayer(MEMORY_SAME_PLACE_COUNT_LAYER)) {
+      map.addLayer({
+        id: MEMORY_SAME_PLACE_COUNT_LAYER,
+        type: "symbol",
+        source: MEMORY_SOURCE_ID,
+        filter: ["==", ["get", "type"], "same-place"],
+        layout: {
+          "text-field": ["to-string", ["get", "memoryCount"]],
+          "text-size": 14,
+          "text-font": ["Noto Sans Bold"],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: {
+          "text-color": "#ffffff",
+          "text-halo-color": "rgba(0,0,0,0.12)",
+          "text-halo-width": 1,
+        },
+      });
+    }
+
+    if (!map.getLayer(MEMORY_PIN_HIGHLIGHT_LAYER)) {
+      map.addLayer({
+        id: MEMORY_PIN_HIGHLIGHT_LAYER,
+        type: "circle",
+        source: MEMORY_SOURCE_ID,
+        filter: [
+          "all",
+          ["==", ["get", "type"], "memory-pin"],
+          ["==", ["get", "highlighted"], true],
+        ],
+        paint: {
+          "circle-radius": 32,
+          "circle-color": "rgba(255,90,95,0.16)",
+          "circle-stroke-color": "rgba(255,90,95,0.52)",
+          "circle-stroke-width": 3,
+        },
+      });
+    }
+
+    if (!map.getLayer(MEMORY_PIN_CIRCLE_LAYER)) {
+      map.addLayer({
+        id: MEMORY_PIN_CIRCLE_LAYER,
+        type: "circle",
+        source: MEMORY_SOURCE_ID,
+        filter: ["==", ["get", "type"], "memory-pin"],
+        paint: {
+          "circle-radius": 24,
+          "circle-color": "rgba(255,255,255,0.01)",
+          "circle-stroke-color": "rgba(255,255,255,0)",
+          "circle-stroke-width": 0,
+        },
+      });
+    }
+
+    if (!map.getLayer(MEMORY_PIN_LABEL_LAYER)) {
+      map.addLayer({
+        id: MEMORY_PIN_LABEL_LAYER,
+        type: "symbol",
+        source: MEMORY_SOURCE_ID,
+        filter: ["==", ["get", "type"], "memory-pin"],
+        layout: {
+          "icon-image": ["get", "iconImageId"],
+          "icon-size": 1,
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+          "icon-anchor": "center",
+        },
+      });
+    }
+
+    memoryLayerReadyRef.current = true;
+  }
+
+  function syncMemorySource(map: maplibregl.Map) {
+    memoryFeaturesRef.current = buildMemoryFeatureCollection();
+    registerMemorySprites(map, memoryFeaturesRef.current);
+    const source = map.getSource(MEMORY_SOURCE_ID) as
+      | maplibregl.GeoJSONSource
+      | undefined;
+    source?.setData(memoryFeaturesRef.current);
+  }
+
+  function removeMemoryLayersAndSource(map: maplibregl.Map) {
+    for (const layerId of MEMORY_LAYER_IDS) {
+      if (map.getLayer(layerId)) map.removeLayer(layerId);
+    }
+    if (map.getSource(MEMORY_SOURCE_ID)) map.removeSource(MEMORY_SOURCE_ID);
+    memorySpriteLoadIdsRef.current.clear();
+    memoryLayerReadyRef.current = false;
+  }
+
+  function getExistingMemoryInteractionLayers(map: maplibregl.Map) {
+    return MEMORY_INTERACTION_LAYER_IDS.filter((layerId) => map.getLayer(layerId));
+  }
+
+  function raiseMemoryLayers(map: maplibregl.Map) {
+    for (const layerId of MEMORY_LAYER_IDS) {
+      if (map.getLayer(layerId)) map.moveLayer(layerId);
+    }
+  }
+
+  function getPinIdsFromFeature(feature: maplibregl.MapGeoJSONFeature) {
+    const raw = feature.properties?.pinIdsJson;
+    if (typeof raw !== "string") return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.filter((id): id is string => typeof id === "string")
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function getFirstMemoryFeatureAtPoint(
+    map: maplibregl.Map,
+    point: maplibregl.PointLike,
+  ) {
+    const layers = getExistingMemoryInteractionLayers(map);
+    if (layers.length === 0) return null;
+    const features = map.queryRenderedFeatures(point, { layers });
+    return features[0] ?? null;
+  }
+
+  async function handleMemoryFeatureClick(e: maplibregl.MapMouseEvent) {
     const map = mapRef.current;
     if (!map) return;
-    const groups = computeGroups(map);
-    const keep = new Set<string>();
-    for (const g of groups) {
-      keep.add(g.key);
-      if (markersRef.current.has(g.key)) continue;
-      let el: HTMLDivElement;
-      if (g.pins.length === 1) {
-        el = createPinEl(g.pins[0]);
-      } else {
-        el = createClusterEl(
-          g.pins.length,
-          g.pins,
-          map,
-          g.center,
-          g.pins,
-          g.highlighted,
-        );
-      }
-      const marker = new maplibregl.Marker({ element: el, anchor: "center" })
-        .setLngLat([g.center.lng, g.center.lat])
-        .addTo(map);
-      markersRef.current.set(g.key, marker);
+    const feature = getFirstMemoryFeatureAtPoint(map, e.point);
+    if (!feature) return;
+
+    e.preventDefault();
+    const properties = feature.properties ?? {};
+
+    if (properties.cluster === true) {
+      const clusterId = Number(properties.cluster_id);
+      const source = map.getSource(MEMORY_SOURCE_ID) as
+        | maplibregl.GeoJSONSource
+        | undefined;
+      if (!source || !Number.isFinite(clusterId)) return;
+      const expansionZoom = await source.getClusterExpansionZoom(clusterId);
+      const [lng, lat] = (feature.geometry as GeoJSON.Point).coordinates;
+      map.easeTo({
+        center: [lng, lat],
+        zoom: Math.min(expansionZoom, FLY_TO_ZOOM),
+        duration: 600,
+        easing: easeOutCubic,
+      });
+      return;
     }
-    for (const [key, m] of markersRef.current) {
-      if (!keep.has(key)) {
-        m.remove();
-        markersRef.current.delete(key);
-      }
+
+    const pinIds = getPinIdsFromFeature(feature);
+    if (pinIds.length === 0) return;
+
+    const currentPins = pinIds
+      .map((id) => pinsRef.current.find((pin) => pin.id === id))
+      .filter((pin): pin is Pin => pin !== undefined);
+
+    if (
+      properties.type === "same-place" ||
+      pinIds.length > 1 ||
+      pinsShareLocation(currentPins)
+    ) {
+      openClusterList(pinIds);
+      return;
     }
+
+    const pin = currentPins[0];
+    if (!pin) return;
+    onPinClickRef.current(pin);
+  }
+
+  function handleMemoryPointerMove(e: maplibregl.MapMouseEvent) {
+    const map = mapRef.current;
+    if (!map) return;
+    map.getCanvas().style.cursor = getFirstMemoryFeatureAtPoint(map, e.point)
+      ? "pointer"
+      : "";
   }
 
   function fitToPinsOnce(map: maplibregl.Map) {
@@ -438,12 +816,6 @@ export function MapView({
     return false;
   }
 
-  function rebuildMarkers() {
-    markersRef.current.forEach((m) => m.remove());
-    markersRef.current.clear();
-    if (styleLoadedRef.current) renderMarkers();
-  }
-
   function renderBucketMarkers() {
     const map = mapRef.current;
     if (!map) return;
@@ -477,7 +849,7 @@ export function MapView({
   ) {
     if (isFlyToCloseEnough(map, target)) {
       emitMapCenter(map);
-      rebuildMarkers();
+      syncMemoryLayers();
       renderBucketMarkers();
       return;
     }
@@ -491,7 +863,7 @@ export function MapView({
     });
     map.once("moveend", () => {
       emitMapCenter(map);
-      rebuildMarkers();
+      syncMemoryLayers();
       renderBucketMarkers();
     });
   }
@@ -539,7 +911,7 @@ export function MapView({
     highlightedBucketIdRef.current = target.bucketId ?? null;
     map.stop();
     map.resize();
-    rebuildMarkers();
+    syncMemoryLayers();
     renderBucketMarkers();
     map.flyTo({
       center: getFlyToCenter(target),
@@ -555,7 +927,7 @@ export function MapView({
     window.setTimeout(() => {
       if (highlightedPinIdRef.current !== target.pinId) return;
       highlightedPinIdRef.current = null;
-      rebuildMarkers();
+      syncMemoryLayers();
     }, 5000);
     window.setTimeout(() => {
       if (highlightedBucketIdRef.current !== target.bucketId) return;
@@ -607,6 +979,10 @@ export function MapView({
         return;
       }
       if ("button" in native && (native as MouseEvent).button !== 0) return;
+      if (getFirstMemoryFeatureAtPoint(map, e.point)) {
+        cancelLongPress();
+        return;
+      }
       const lngLat =
         "lngLat" in e
           ? e.lngLat
@@ -638,7 +1014,7 @@ export function MapView({
       styleLoadedRef.current = true;
       fitToPinsOnce(map);
       emitMapCenter(map);
-      renderMarkers();
+      syncMemoryLayers();
       requestAnimationFrame(() => {
         map.resize();
         if (pendingFlyToRef.current) applyFlyTo(pendingFlyToRef.current);
@@ -646,22 +1022,21 @@ export function MapView({
     });
     map.on("moveend", () => {
       emitMapCenter(map);
-      if (renderMarkersTimer.current) clearTimeout(renderMarkersTimer.current);
-      renderMarkersTimer.current = window.setTimeout(() => {
-        renderMarkers();
-      }, 60);
     });
+    map.on("click", handleMemoryFeatureClick);
+    map.on("mousemove", handleMemoryPointerMove);
     map.on("error", (e) => console.error("[MapLibre]", e?.error ?? e));
 
     const ro = new ResizeObserver(() => map.resize());
     if (containerRef.current) ro.observe(containerRef.current);
 
     mapRef.current = map;
-    const markerStore = markersRef.current;
     return () => {
       ro.disconnect();
-      markerStore.forEach((m) => m.remove());
-      markerStore.clear();
+      map.off("click", handleMemoryFeatureClick);
+      map.off("mousemove", handleMemoryPointerMove);
+      bucketMarkersRef.current.forEach((marker) => marker.remove());
+      bucketMarkersRef.current = [];
       map.remove();
       mapRef.current = null;
       styleLoadedRef.current = false;
@@ -681,20 +1056,22 @@ export function MapView({
     }
     initialStyleRef.current = "";
     styleLoadedRef.current = false;
+    removeMemoryLayersAndSource(map);
     map.setStyle(mapStyleUrl);
     map.once("styledata", () => {
       styleLoadedRef.current = true;
-      renderMarkers();
+      syncMemoryLayers();
+      renderBucketMarkers();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapStyleUrl]);
 
-  // Re-render markers when pins / users / newestPinId change
+  // Re-render memory layers when pins / users / newestPinId change
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !styleLoadedRef.current) return;
     fitToPinsOnce(map);
-    renderMarkers();
+    syncMemoryLayers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pins, currentUserId, partnerUserId, newestPinId, customCategories]);
 
@@ -732,50 +1109,55 @@ export function MapView({
       if (src) src.setData(geojson);
       else map.addSource("pins-heat", { type: "geojson", data: geojson });
       if (!map.getLayer("heatmap-layer")) {
-        map.addLayer({
-          id: "heatmap-layer",
-          type: "heatmap",
-          source: "pins-heat",
-          paint: {
-            "heatmap-weight": 1,
-            "heatmap-intensity": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0,
-              1,
-              15,
-              3,
-            ],
-            "heatmap-radius": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0,
-              12,
-              15,
-              40,
-            ],
-            "heatmap-opacity": showHeatmap ? 0.75 : 0,
-            "heatmap-color": [
-              "interpolate",
-              ["linear"],
-              ["heatmap-density"],
-              0,
-              "rgba(0,0,0,0)",
-              0.2,
-              "#67e8f9",
-              0.4,
-              "#a3e635",
-              0.6,
-              "#facc15",
-              0.8,
-              "#fb923c",
-              1,
-              "#e11d48",
-            ],
+        map.addLayer(
+          {
+            id: "heatmap-layer",
+            type: "heatmap",
+            source: "pins-heat",
+            paint: {
+              "heatmap-weight": 1,
+              "heatmap-intensity": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                0,
+                1,
+                15,
+                3,
+              ],
+              "heatmap-radius": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                0,
+                12,
+                15,
+                40,
+              ],
+              "heatmap-opacity": showHeatmap ? 0.75 : 0,
+              "heatmap-color": [
+                "interpolate",
+                ["linear"],
+                ["heatmap-density"],
+                0,
+                "rgba(0,0,0,0)",
+                0.2,
+                "#67e8f9",
+                0.4,
+                "#a3e635",
+                0.6,
+                "#facc15",
+                0.8,
+                "#fb923c",
+                1,
+                "#e11d48",
+              ],
+            },
           },
-        });
+          map.getLayer(MEMORY_CLUSTER_CIRCLE_LAYER)
+            ? MEMORY_CLUSTER_CIRCLE_LAYER
+            : undefined,
+        );
       } else {
         map.setPaintProperty(
           "heatmap-layer",
@@ -783,6 +1165,7 @@ export function MapView({
           showHeatmap ? 0.75 : 0,
         );
       }
+      if (memoryLayerReadyRef.current) raiseMemoryLayers(map);
     }
 
     if (styleLoadedRef.current) syncHeatmap();
@@ -809,7 +1192,7 @@ export function MapView({
           getCategory={getCategory}
           onPinClick={(pin) => {
             highlightedPinIdRef.current = pin.id;
-            rebuildMarkers();
+            syncMemoryLayers();
             onPinClick(pin);
           }}
           onClose={closeClusterList}
