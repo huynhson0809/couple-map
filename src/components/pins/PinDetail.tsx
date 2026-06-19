@@ -930,12 +930,10 @@ export function PinDetail({
             placeholder={t("pin.commentPlaceholder")}
             maxLength={500}
             onFocus={(e) => {
+              const input = e.currentTarget;
               setTimeout(() => {
-                e.target.scrollIntoView({
-                  behavior: "smooth",
-                  block: "center",
-                });
-              }, 300);
+                input.scrollIntoView({ block: "nearest", inline: "nearest" });
+              }, 250);
             }}
           />
           <button

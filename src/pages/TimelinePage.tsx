@@ -29,7 +29,9 @@ import {
   isVideoUrl,
 } from "../lib/cloudinary";
 import { BottomSheet } from "../components/ui/BottomSheet";
+import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { PinDetail } from "../components/pins/PinDetail";
+import { TimelineCircleView } from "../components/timeline/TimelineCircleView";
 import type { Pin } from "../types";
 import type { UploadingPinInfo } from "../hooks/PinsContext";
 
@@ -63,6 +65,8 @@ type TimelineRow =
   | { type: "month"; id: string; label: string }
   | { type: "pin"; id: string; pin: Pin }
   | { type: "footer"; id: string };
+
+type TimelineViewMode = "list" | "circle";
 
 const TIMELINE_MONTH_ROW_HEIGHT = 48;
 const TIMELINE_PIN_ROW_HEIGHT = 168;
@@ -195,7 +199,11 @@ function TimelineRowItem({
               <span className="timeline-upload-bar">
                 <span
                   className="timeline-upload-bar-fill"
-                  style={{ width: `${uploadInfo.progress}%` }}
+                  style={
+                    {
+                      "--timeline-upload-progress": uploadInfo.progress / 100,
+                    } as CSSProperties
+                  }
                 />
               </span>
             )}
@@ -239,6 +247,7 @@ export function TimelinePage() {
   const [draftCreatorFilter, setDraftCreatorFilter] = useState<string>("all");
   const [draftAddressFilter, setDraftAddressFilter] = useState("");
   const [selectedPin, setSelectedPin] = useState<Pin | null>(null);
+  const [viewMode, setViewMode] = useState<TimelineViewMode>("list");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [creatorMenuOpen, setCreatorMenuOpen] = useState(false);
   const filterPopoverRef = useRef<HTMLDivElement | null>(null);
@@ -273,6 +282,15 @@ export function TimelinePage() {
     loadMore,
     refresh,
   } = useTimelinePins(couple?.id, timelineFilters, pinsVersion);
+
+  const circleResetKey = useMemo(
+    () =>
+      JSON.stringify({
+        filters: timelineFilters,
+        firstPinId: timelinePins[0]?.id ?? null,
+      }),
+    [timelineFilters, timelinePins],
+  );
 
   const favoriteCount = livePins.filter((p) => p.is_favorite).length;
 
@@ -466,7 +484,9 @@ export function TimelinePage() {
   }
 
   return (
-    <div className="page page-timeline">
+    <div
+      className={`page page-timeline ${viewMode === "circle" ? "timeline-circle-mode" : ""}`}
+    >
       <header className="page-header">
         <h1>{t("timeline.title")}</h1>
         <p className="muted">
@@ -663,6 +683,18 @@ export function TimelinePage() {
         )}
       </div>
 
+      <div className="timeline-view-switch">
+        <SegmentedControl<TimelineViewMode>
+          label={t("timeline.viewMode")}
+          value={viewMode}
+          onChange={setViewMode}
+          options={[
+            { value: "list", label: t("timeline.viewList") },
+            { value: "circle", label: t("timeline.viewCircle") },
+          ]}
+        />
+      </div>
+
       {error && (
         <div className="timeline-empty-filter">
           <p>{error}</p>
@@ -681,7 +713,29 @@ export function TimelinePage() {
         </div>
       )}
 
-      {!loading && rows.length > 0 && (
+      {!loading && timelinePins.length > 0 && viewMode === "circle" && (
+        <TimelineCircleView
+          pins={timelinePins}
+          hasMore={hasMore}
+          loading={loading}
+          loadingMore={loadingMore}
+          loadMore={loadMore}
+          lang={lang}
+          labels={{
+            ariaLabel: t("timeline.circleAriaLabel"),
+            newest: t("timeline.circleNewest"),
+            dragHint: t("timeline.circleDragHint"),
+            zoomHint: t("timeline.circleZoomHint"),
+            loadMore: t("timeline.circleLoadMore"),
+            loadingMore: t("timeline.loadingMore"),
+          }}
+          resetKey={circleResetKey}
+          getCategory={getCategory}
+          openPinDetail={openPinDetail}
+        />
+      )}
+
+      {!loading && rows.length > 0 && viewMode === "list" && (
         <List<TimelineRowProps>
           className="timeline-virtual-list"
           rowComponent={TimelineRowItem}
@@ -695,8 +749,7 @@ export function TimelinePage() {
             partnerName: partner?.display_name ?? t("common.partner"),
             favoritesLabel: t("timeline.favorites"),
             loadingMore,
-            loadingMoreLabel:
-              lang === "vi" ? "Đang tải thêm..." : "Loading more...",
+            loadingMoreLabel: t("timeline.loadingMore"),
             uploadingPins,
             getCategory,
             openPinDetail,

@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "check:auth-session": "node scripts/auth-session-contract.mjs",
     "check:contracts": "node scripts/performance-contracts.mjs",
+    "check:mobile-media-ui": "node scripts/mobile-media-ui-contract.mjs",
+    "check:timeline-circle-layout": "node --experimental-strip-types scripts/timeline-circle-layout-contract.mjs",
     "check:share-card-gesture": "node scripts/share-card-gesture-contract.mjs",
     "generate:map-previews": "node scripts/generate-map-style-previews.mjs",
     "lint": "eslint .",

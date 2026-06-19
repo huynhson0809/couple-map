@@ -49,6 +49,12 @@ interface Props {
   onCancel: () => void;
 }
 
+interface SelectedMediaFile {
+  id: string;
+  file: File;
+  previewUrl: string;
+}
+
 const CUSTOM_EMOJIS = [
   "❤️",
   "🌸",
@@ -66,6 +72,27 @@ const CUSTOM_EMOJIS = [
   "🎂",
   "🍷",
 ];
+
+function createSelectedMediaFile(file: File): SelectedMediaFile {
+  const randomId =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return {
+    id: `${file.name}-${file.lastModified}-${file.size}-${randomId}`,
+    file,
+    previewUrl: URL.createObjectURL(file),
+  };
+}
+
+function startAfterNextPaint(task: () => void) {
+  const run = () => window.setTimeout(task, 0);
+  if (typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(run);
+    return;
+  }
+  run();
+}
 
 export function CreatePinForm({
   coupleId,
@@ -97,7 +124,7 @@ export function CreatePinForm({
   const [markerEmoji, setMarkerEmoji] = useState<string | null>(null);
   const [markerImageUrl, setMarkerImageUrl] = useState<string | null>(null);
   const [markerUploading, setMarkerUploading] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
+  const [selectedMedia, setSelectedMedia] = useState<SelectedMediaFile[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [customEmojiInput, setCustomEmojiInput] = useState("");
@@ -120,10 +147,25 @@ export function CreatePinForm({
   const markerInput = useRef<HTMLInputElement | null>(null);
   const addressDebounce = useRef<number | null>(null);
   const skipReverseGeocode = useRef(false);
+  const selectedMediaRef = useRef<SelectedMediaFile[]>([]);
   const [categoriesExpanded, setCategoriesExpanded] = useState(false);
   const VISIBLE_ROWS = 2;
   const ITEMS_PER_ROW = 3;
   const maxVisibleItems = VISIBLE_ROWS * ITEMS_PER_ROW;
+  const files = selectedMedia.map(({ file }) => file);
+
+  useEffect(() => {
+    selectedMediaRef.current = selectedMedia;
+  }, [selectedMedia]);
+
+  useEffect(
+    () => () => {
+      selectedMediaRef.current.forEach(({ previewUrl }) =>
+        URL.revokeObjectURL(previewUrl),
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -180,7 +222,7 @@ export function CreatePinForm({
     });
     if (incoming.length === 0) return;
     // Gate: already at limit
-    if (files.length >= limits.photosPerPin) {
+    if (selectedMedia.length >= limits.photosPerPin) {
       setError(
         lang === "vi"
           ? `Giới hạn ${limits.photosPerPin} ảnh/video. Nâng cấp để thêm.`
@@ -196,11 +238,16 @@ export function CreatePinForm({
       }
     }
     setError(null);
-    setFiles((prev) => [...prev, ...incoming].slice(0, limits.photosPerPin));
+    const remaining = limits.photosPerPin - selectedMedia.length;
+    if (remaining <= 0) return;
+    const nextMedia = incoming.slice(0, remaining).map(createSelectedMediaFile);
+    setSelectedMedia((prev) => [...prev, ...nextMedia]);
   }
 
   function removeFile(i: number) {
-    setFiles((prev) => prev.filter((_, idx) => idx !== i));
+    const removed = selectedMedia[i];
+    if (removed) URL.revokeObjectURL(removed.previewUrl);
+    setSelectedMedia((prev) => prev.filter((_, idx) => idx !== i));
     setError(null);
   }
 
@@ -340,7 +387,7 @@ export function CreatePinForm({
     setSaving(true);
     setError(null);
     try {
-      const mediaFiles = [...files];
+      const mediaFiles = selectedMedia.map(({ file }) => file);
       const pin = await createPin({
         title: title.trim(),
         note: note.trim() || undefined,
@@ -362,36 +409,38 @@ export function CreatePinForm({
         return;
       }
 
-      // Persist files to IndexedDB so uploads survive app exit
-      await savePendingUploads(pin.id, coupleId, mediaFiles);
-
       setUploadProgress(pin.id, 0);
       showToast({ type: "success", title: t("toast.memoryCreated") });
       setSaving(false);
       onCreated();
 
-      // Upload in background
-      void uploadPinMediaFiles(mediaFiles, `pinly/${coupleId}`, (pct) =>
-        setUploadProgress(pin.id, pct),
-      )
-        .then(async (uploaded) => {
-          if (uploaded.length > 0) {
-            const { error: imgErr } = await supabase
-              .from("pin_images")
-              .insert(toPinImageRows(pin.id, uploaded));
-            if (imgErr) throw imgErr;
-            await fetchPinImages(pin.id);
-            bumpPinsVersion();
-          }
-          await clearPendingUploadsForPin(pin.id);
-        })
-        .catch((err) => {
-          console.warn("Background upload error:", err);
-          showToast({ type: "error", title: t("toast.photoUploadFailed") });
-        })
-        .finally(() => {
-          clearUploadProgress(pin.id);
-        });
+      // Upload in background after the created-memory UI has had a frame to paint.
+      startAfterNextPaint(() => {
+        void savePendingUploads(pin.id, coupleId, mediaFiles)
+          .then(() =>
+            uploadPinMediaFiles(mediaFiles, `pinly/${coupleId}`, (pct) =>
+              setUploadProgress(pin.id, pct),
+            ),
+          )
+          .then(async (uploaded) => {
+            if (uploaded.length > 0) {
+              const { error: imgErr } = await supabase
+                .from("pin_images")
+                .insert(toPinImageRows(pin.id, uploaded));
+              if (imgErr) throw imgErr;
+              await fetchPinImages(pin.id);
+              bumpPinsVersion();
+            }
+            await clearPendingUploadsForPin(pin.id);
+          })
+          .catch((err) => {
+            console.warn("Background upload error:", err);
+            showToast({ type: "error", title: t("toast.photoUploadFailed") });
+          })
+          .finally(() => {
+            clearUploadProgress(pin.id);
+          });
+      });
     } catch (e) {
       setSaving(false);
       setError(e instanceof Error ? e.message : String(e));
@@ -742,12 +791,17 @@ export function CreatePinForm({
         />
         {files.length > 0 && (
           <div className="photo-previews">
-            {files.map((f, i) => (
-              <div key={`${f.name}-${i}`} className="photo-preview">
-                {f.type.startsWith("video/") ? (
-                  <video src={URL.createObjectURL(f)} muted />
+            {selectedMedia.map(({ id, file, previewUrl }, i) => (
+              <div key={id} className="photo-preview">
+                {file.type.startsWith("video/") ? (
+                  <video
+                    src={previewUrl}
+                    muted
+                    playsInline
+                    preload="metadata"
+                  />
                 ) : (
-                  <img src={URL.createObjectURL(f)} alt="" />
+                  <img src={previewUrl} alt="" decoding="async" />
                 )}
                 <button
                   type="button"

@@ -22,9 +22,17 @@ export interface CloudinaryUploadResult {
   duration?: number;
 }
 
+interface CloudinaryUploadResponse {
+  secure_url: string;
+  public_id: string;
+  width: number;
+  height: number;
+  duration?: number;
+}
+
 export async function uploadToCloudinary(
   file: File,
-  options: { folder?: string } = {},
+  options: { folder?: string; onProgress?: (percent: number) => void } = {},
 ): Promise<CloudinaryUploadResult> {
   const isVideo = file.type.startsWith("video/");
   const resourceType = isVideo ? "video" : "image";
@@ -46,17 +54,12 @@ export async function uploadToCloudinary(
   formData.append("folder", signature.folder);
   formData.append("allowed_formats", signature.allowedFormats);
 
-  const res = await fetch(
+  const data = await postCloudinaryFormData(
     `https://api.cloudinary.com/v1_1/${signature.cloudName ?? CLOUD_NAME}/${resourceType}/upload`,
-    { method: "POST", body: formData },
+    formData,
+    options.onProgress,
   );
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Cloudinary upload failed: ${text}`);
-  }
-
-  const data = await res.json();
   return {
     url: data.secure_url,
     publicId: data.public_id,
@@ -65,6 +68,57 @@ export async function uploadToCloudinary(
     mediaType: isVideo ? "video" : "image",
     duration: isVideo ? data.duration : undefined,
   };
+}
+
+function postCloudinaryFormData(
+  url: string,
+  formData: FormData,
+  onProgress?: (percent: number) => void,
+): Promise<CloudinaryUploadResponse> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable || event.total <= 0) return;
+      onProgress?.(Math.round((event.loaded / event.total) * 100));
+    };
+    xhr.onload = () => {
+      const responseText =
+        typeof xhr.response === "string" ? xhr.response : xhr.responseText;
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new Error(`Cloudinary upload failed: ${responseText}`));
+        return;
+      }
+      try {
+        const parsed = JSON.parse(responseText) as unknown;
+        if (!isCloudinaryUploadResponse(parsed)) {
+          reject(new Error("Cloudinary upload failed: invalid response"));
+          return;
+        }
+        resolve(parsed);
+      } catch {
+        reject(new Error("Cloudinary upload failed: invalid response"));
+      }
+    };
+    xhr.onerror = () => {
+      reject(new Error("Cloudinary upload failed: network error"));
+    };
+    xhr.send(formData);
+  });
+}
+
+function isCloudinaryUploadResponse(
+  value: unknown,
+): value is CloudinaryUploadResponse {
+  if (!value || typeof value !== "object") return false;
+  const data = value as Record<string, unknown>;
+  return (
+    typeof data.secure_url === "string" &&
+    typeof data.public_id === "string" &&
+    typeof data.width === "number" &&
+    typeof data.height === "number" &&
+    (data.duration === undefined || typeof data.duration === "number")
+  );
 }
 
 async function createUploadSignature(
