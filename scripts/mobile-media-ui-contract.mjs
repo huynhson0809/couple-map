@@ -92,21 +92,26 @@ assert.doesNotMatch(
 );
 assert.match(
   styles,
-  /\.pin-comment-form input[\s\S]{0,360}-webkit-appearance:\s*none/,
-  "comment input should reset mobile native appearance",
+  /\.pin-comment-form textarea[\s\S]{0,420}-webkit-appearance:\s*none/,
+  "comment textarea should reset mobile native appearance",
 );
 assert.match(
   styles,
-  /\.pin-comment-form input[\s\S]{0,360}padding:\s*0\s+12px/,
-  "comment input should let the native single-line control center empty caret vertically",
+  /\.pin-comment-form textarea[\s\S]{0,420}padding:\s*10px\s+12px/,
+  "comment textarea should center the empty iOS caret with balanced vertical padding",
 );
 assert.match(
   styles,
-  /\.pin-comment-form input[\s\S]{0,360}line-height:\s*normal/,
-  "comment input should avoid fixed line-height for empty iOS caret alignment",
+  /\.pin-comment-form textarea[\s\S]{0,420}line-height:\s*20px/,
+  "comment textarea should use an explicit line box for empty iOS caret alignment",
 );
 assert.match(
   styles,
-  /\.pin-comment-form input[\s\S]{0,420}-webkit-backdrop-filter:\s*none/,
-  "comment input should avoid filtered native input surface on mobile",
+  /\.pin-comment-form textarea[\s\S]{0,520}-webkit-backdrop-filter:\s*none/,
+  "comment textarea should avoid filtered native input surface on mobile",
+);
+assert.match(
+  pinDetail,
+  /<textarea[\s\S]*rows=\{1\}[\s\S]*value=\{commentText\}/,
+  "comment composer should use a one-row textarea instead of the old empty-caret-sensitive input",
 );

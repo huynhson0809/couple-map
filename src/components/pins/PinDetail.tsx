@@ -923,12 +923,23 @@ export function PinDetail({
           </div>
         )}
         <form className="pin-comment-form" onSubmit={handleAddComment}>
-          <input
-            type="text"
+          <textarea
+            rows={1}
+            wrap="off"
             value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
+            onChange={(e) =>
+              setCommentText(e.target.value.replace(/[\r\n]+/g, " "))
+            }
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) {
+                return;
+              }
+              e.preventDefault();
+              e.currentTarget.form?.requestSubmit();
+            }}
             placeholder={t("pin.commentPlaceholder")}
             maxLength={500}
+            enterKeyHint="send"
             onFocus={(e) => {
               const input = e.currentTarget;
               setTimeout(() => {

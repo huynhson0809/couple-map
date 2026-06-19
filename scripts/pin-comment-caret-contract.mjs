@@ -18,7 +18,7 @@ function cssBlock(selector) {
 }
 
 const pinDetail = readProjectFile("src/components/pins/PinDetail.tsx");
-const commentInput = cssBlock(".pin-comment-form input");
+const commentComposer = cssBlock(".pin-comment-form textarea");
 
 assert.match(
   pinDetail,
@@ -32,39 +32,59 @@ assert.doesNotMatch(
 );
 
 assert.match(
-  commentInput,
+  pinDetail,
+  /<textarea[\s\S]*rows=\{1\}[\s\S]*value=\{commentText\}/,
+  "comment composer should use a one-row textarea so iOS does not mispaint the empty caret baseline",
+);
+assert.doesNotMatch(
+  pinDetail,
+  /<form className="pin-comment-form"[\s\S]*<input\b/,
+  "comment composer should not use the old native single-line input that misaligns the empty iOS caret",
+);
+assert.match(
+  commentComposer,
   /height:\s*42px/,
   "comment input should keep the existing 42px visual height",
 );
 assert.match(
-  commentInput,
+  commentComposer,
   /min-height:\s*42px/,
   "comment input should keep the existing minimum tap target",
 );
 assert.match(
-  commentInput,
-  /padding:\s*0\s+12px/,
-  "comment input should let the native single-line control center empty caret vertically",
+  commentComposer,
+  /padding:\s*10px\s+12px/,
+  "comment textarea should use balanced vertical padding so the empty iOS caret starts centered",
 );
 assert.match(
-  commentInput,
-  /line-height:\s*normal/,
-  "comment input should avoid fixed px line-height that misaligns empty iOS carets",
+  commentComposer,
+  /line-height:\s*20px/,
+  "comment textarea should use an explicit text line box that centers inside the 42px control",
 );
 assert.doesNotMatch(
-  commentInput,
-  /line-height:\s*\d+px/,
-  "comment input should not use fixed pixel line-height on iOS",
+  commentComposer,
+  /line-height:\s*normal/,
+  "comment textarea should not rely on iOS normal line-height for the empty caret baseline",
 );
 assert.match(
-  commentInput,
+  commentComposer,
   /-webkit-appearance:\s*none/,
   "comment input should reset mobile native appearance",
 );
 assert.match(
-  commentInput,
+  commentComposer,
   /-webkit-backdrop-filter:\s*none/,
   "comment input should avoid filtered native input surface on mobile",
+);
+assert.match(
+  commentComposer,
+  /resize:\s*none/,
+  "comment textarea should not expose manual resize handles",
+);
+assert.match(
+  commentComposer,
+  /overflow:\s*hidden/,
+  "comment textarea should stay visually one-line while typing",
 );
 
 console.log("Pin comment caret contract passed.");

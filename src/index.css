@@ -2300,16 +2300,22 @@ body { -webkit-tap-highlight-color: transparent; }
   grid-template-columns: 1fr 42px;
   gap: 8px;
 }
-.pin-comment-form input {
+.pin-comment-form textarea {
+  display: block;
   height: 42px;
   min-height: 42px;
-  padding: 0 12px;
+  max-height: 42px;
+  padding: 10px 12px;
   -webkit-appearance: none;
   appearance: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  resize: none;
+  overflow: hidden;
   font-size: 16px;
-  line-height: normal;
+  line-height: 20px;
+  white-space: nowrap;
+  caret-color: var(--coral);
 }
 .pin-comment-form button {
   display: grid;
@@ -7176,7 +7182,7 @@ button.stat-card {
   touch-action: manipulation;
 }
 
-.pin-comment-form input,
+.pin-comment-form textarea,
 .pin-comment-edit-form input,
 .timeline-filter-field input,
 .timeline-filter-field select,
