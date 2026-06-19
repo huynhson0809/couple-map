@@ -134,6 +134,46 @@ assert.match(
   'emoji fallback should have dedicated styling',
 );
 assert.match(
+  timelineStyles,
+  /\.page-timeline\.timeline-circle-mode\s*\{[\s\S]*overflow:\s*hidden/,
+  'timeline circle mode should keep the full-bleed stage inside the app viewport instead of page-scrolling under the bottom nav',
+);
+assert.match(
+  timelineStyles,
+  /\.page-timeline\.timeline-circle-mode\s*\{[\s\S]*padding-bottom:\s*calc\(\s*var\(--bottom-nav-page-padding[^)]*\)\s*\+\s*var\(--timeline-circle-nav-gap/,
+  'timeline circle mode should reserve the real bottom navigation height plus a small visual gap',
+);
+assert.match(
+  timelineStyles,
+  /\.timeline-circle-shell\s*\{[\s\S]*flex:\s*1\s+1\s+auto[\s\S]*width:\s*100%[\s\S]*min-height:\s*0/,
+  'timeline circle shell should stretch full-width through the remaining viewport instead of being a constrained card',
+);
+assert.doesNotMatch(
+  timelineStyles,
+  /\.timeline-circle-shell\s*\{[\s\S]*width:\s*min\(\s*100%\s*-\s*\(var\(--space-page-x\)/,
+  'timeline circle shell should not be capped to the old narrow card width',
+);
+assert.match(
+  timelineStyles,
+  /\.timeline-circle-stage\s*\{[\s\S]*height:\s*100%/,
+  'timeline circle stage should fill the shell height instead of using fixed viewport estimates',
+);
+assert.doesNotMatch(
+  timelineStyles,
+  /\.timeline-circle-stage\s*\{[\s\S]*height:\s*clamp\(/,
+  'timeline circle stage should not be clamped to a card-like rectangle in circle mode',
+);
+assert.match(
+  timelineStyles,
+  /\.timeline-circle-stage\s*\{[\s\S]*border-radius:\s*0[\s\S]*box-shadow:\s*none/,
+  'timeline circle stage should drop the visible card frame for the full-screen circle experience',
+);
+assert.match(
+  timelineStyles,
+  /\.timeline-circle-hints\s*\{[\s\S]*bottom:\s*var\(--timeline-circle-hint-bottom/,
+  'timeline circle hints should sit within the nav-safe stage instead of using the device safe-area directly',
+);
+assert.match(
   timelineCircleView,
   /data-timeline-pin-id=\{pin\.id\}/,
   'timeline bubbles must expose their pin id for pointer-captured tap handling',

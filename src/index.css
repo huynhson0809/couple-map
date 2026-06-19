@@ -1535,7 +1535,7 @@ body { -webkit-tap-highlight-color: transparent; }
 .map-streak-float {
   position: absolute;
   right: 12px;
-  top: calc(58px + env(safe-area-inset-top));
+  top: calc(30px + env(safe-area-inset-top));
   z-index: 45;
   min-width: 62px;
   height: 44px;
@@ -3359,8 +3359,18 @@ button.stat-card {
   padding-inline: var(--space-page-x);
 }
 .page-timeline.timeline-circle-mode {
-  overflow-y: auto;
-  padding-bottom: var(--bottom-nav-page-padding);
+  --timeline-circle-nav-gap: 14px;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: calc(var(--bottom-nav-page-padding) + var(--timeline-circle-nav-gap));
+}
+.page-timeline.timeline-circle-mode > .page-header,
+.page-timeline.timeline-circle-mode .timeline-filter-popover,
+.page-timeline.timeline-circle-mode .timeline-view-switch,
+.page-timeline.timeline-circle-mode .timeline-empty-filter {
+  position: relative;
+  z-index: 4;
+  flex: 0 0 auto;
 }
 .timeline-month { margin-bottom: 24px; }
 .streak-card {
@@ -5083,24 +5093,24 @@ button.stat-card {
   white-space: nowrap;
 }
 .timeline-circle-shell {
-  width: min(100% - (var(--space-page-x) * 2), 390px);
-  margin: 0 auto;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding-top:10px;
 }
 .timeline-circle-stage {
   --timeline-circle-control-top: max(12px, env(safe-area-inset-top, 0px));
+  --timeline-circle-hint-bottom: 14px;
   position: relative;
-  height: clamp(
-    340px,
-    calc(100dvh - 338px - var(--bottom-nav-safe-area, 0px)),
-    660px
-  );
+  height: 100%;
   min-height: 0;
   overflow: hidden;
-  border-radius: var(--radius-section);
+  border-radius: 0;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.60), rgba(255, 246, 249, 0.34) 42%, rgba(236, 245, 255, 0.46)),
     linear-gradient(180deg, rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0.18));
-  box-shadow: var(--glass-shadow-deep);
+  box-shadow: none;
   touch-action: none;
   overscroll-behavior: contain;
   user-select: none;
@@ -5310,7 +5320,7 @@ button.stat-card {
   position: absolute;
   left: 12px;
   right: 12px;
-  bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  bottom: var(--timeline-circle-hint-bottom);
   z-index: 3;
   display: flex;
   flex-wrap: wrap;
@@ -5398,6 +5408,10 @@ button.stat-card {
   background: rgba(26, 28, 38, 0.68);
 }
 @media (max-width: 370px) {
+  .page-timeline.timeline-circle-mode {
+    --timeline-circle-nav-gap: 12px;
+  }
+
   .timeline-view-switch {
     justify-content: stretch;
   }
@@ -5411,18 +5425,6 @@ button.stat-card {
     flex: 1 1 0;
     min-width: 0;
     padding-inline: 8px;
-  }
-
-  .timeline-circle-shell {
-    width: calc(100% - 24px);
-  }
-
-  .timeline-circle-stage {
-    height: clamp(
-      300px,
-      calc(100dvh - 318px - var(--bottom-nav-safe-area, 0px)),
-      560px
-    );
   }
 
   .timeline-circle-loading,

@@ -19,8 +19,8 @@ assert.ok(
   "Map streak drag clamp should have a dedicated safe top gap constant.",
 );
 assert.ok(
-  Number(safeTopGapMatch[1]) >= 48,
-  "Map streak drag safe top gap should be large enough to avoid OS notification gestures.",
+  Number(safeTopGapMatch[1]) >= 24 && Number(safeTopGapMatch[1]) <= 36,
+  "Map streak drag safe top gap should be comfortable but not overly restrictive.",
 );
 assert.match(
   mapPage,
@@ -31,6 +31,11 @@ assert.match(
   mapPage,
   /const\s+minY\s*=\s*STREAK_DRAG_SAFE_TOP_GAP\s*\+\s*getSafeAreaInsetTop\(\)/,
   "Map streak drag minY should combine the safe top gap and top safe-area inset.",
+);
+assert.doesNotMatch(
+  mapPage,
+  /const\s+STREAK_DRAG_SAFE_TOP_GAP\s*=\s*(?:4[8-9]|[5-9]\d|\d{3,})/,
+  "Map streak drag safe top gap should not keep the old overly large top clamp.",
 );
 assert.match(
   mapPage,
