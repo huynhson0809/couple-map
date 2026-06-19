@@ -463,14 +463,32 @@ export function TimelinePage() {
     if (!filtersOpen) return;
 
     function handlePointerDown(event: PointerEvent) {
-      const target = event.target as Node | null;
-      if (target && filterPopoverRef.current?.contains(target)) return;
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest(
+          ".timeline-filter-toggle, .timeline-filter-reset, .timeline-filter-panel",
+        )
+      ) {
+        return;
+      }
       setFiltersOpen(false);
       setCreatorMenuOpen(false);
     }
 
-    window.addEventListener("pointerdown", handlePointerDown);
-    return () => window.removeEventListener("pointerdown", handlePointerDown);
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setFiltersOpen(false);
+        setCreatorMenuOpen(false);
+      }
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown, true);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown, true);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, [filtersOpen]);
 
   if (!loading && total === 0 && !hasAdvancedFilters) {

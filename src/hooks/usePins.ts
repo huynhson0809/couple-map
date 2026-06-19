@@ -169,9 +169,19 @@ export function usePins(coupleId: string | null | undefined, userId: string | un
         .single()
       if (error) throw error
       setPins((prev) => prev.map((p) => (p.id === id ? (data as Pin) : p)))
+      if (patch.is_favorite === true && userId) {
+        supabase.functions.invoke('send-push', {
+          body: {
+            event_type: 'favorite',
+            record: { id, user_id: userId },
+          },
+        }).then(({ error }) => {
+          if (error) console.warn('send-push favorite failed:', error.message)
+        })
+      }
       return data as Pin
     },
-    [],
+    [userId],
   )
 
   return { pins, loading, error, fetchPins, fetchPinImages, createPin, updatePin, deletePin, setPins }

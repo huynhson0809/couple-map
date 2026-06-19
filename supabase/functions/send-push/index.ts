@@ -19,6 +19,7 @@ const corsHeaders = {
 type EventType =
   | "memory_added"
   | "reaction"
+  | "favorite"
   | "comment"
   | "comment_reply"
   | "comment_reaction";
@@ -54,6 +55,7 @@ function eventTypeFromBody(value: unknown): EventType {
   const eventType = String(value || "memory_added");
   if (
     eventType === "reaction" ||
+    eventType === "favorite" ||
     eventType === "comment" ||
     eventType === "comment_reply" ||
     eventType === "comment_reaction"
@@ -64,7 +66,7 @@ function eventTypeFromBody(value: unknown): EventType {
 }
 
 function notificationKindForEvent(eventType: EventType): NotificationKind {
-  if (eventType === "reaction") return "reactions";
+  if (eventType === "reaction" || eventType === "favorite") return "reactions";
   if (
     eventType === "comment" ||
     eventType === "comment_reply" ||
@@ -172,7 +174,7 @@ async function loadEventContext(
     const [{ data: reactionRow }, { data: pin }] = await Promise.all([
       supabase
         .from("pin_reactions")
-        .select("pin_id,user_id,reaction,created_at")
+        .select("pin_id,user_id,reaction,created_at,updated_at")
         .eq("pin_id", pinId)
         .eq("user_id", actorId)
         .single(),
@@ -188,13 +190,51 @@ async function loadEventContext(
     return {
       eventType,
       notificationKind,
-      eventKey: `reaction:${pinId}:${actorId}:${reactionRow.reaction}:${reactionRow.created_at}`,
+      eventKey: `reaction:${pinId}:${actorId}:${reactionRow.reaction}:${reactionRow.updated_at ?? reactionRow.created_at}`,
       actorId,
       recipientId: pin.created_by,
       pinId,
       pinTitle: pin.title || "một kỷ niệm",
       interactionBody: null,
       reaction: reactionRow.reaction || "love",
+    };
+  }
+
+  if (eventType === "favorite") {
+    const pinId = requireUuid(record.id, "pin id");
+    const actorId = requireUuid(record.user_id, "user id");
+    await assertActorAllowed(actorId, authenticatedUserId, trustedWebhook);
+
+    const { data: pin } = await supabase
+      .from("pins")
+      .select("id,title,created_by,is_favorite,updated_at")
+      .eq("id", pinId)
+      .single();
+    if (!pin) throw Object.assign(new Error("Pin not found"), { status: 404 });
+    if (!pin.is_favorite) {
+      return {
+        eventType,
+        notificationKind,
+        eventKey: `favorite:${pinId}:${actorId}:off`,
+        actorId,
+        recipientId: null,
+        pinId,
+        pinTitle: pin.title || "một kỷ niệm",
+        interactionBody: null,
+        reaction: "favorite",
+      };
+    }
+
+    return {
+      eventType,
+      notificationKind,
+      eventKey: `favorite:${pinId}:${actorId}:${pin.updated_at ?? "now"}`,
+      actorId,
+      recipientId: pin.created_by,
+      pinId,
+      pinTitle: pin.title || "một kỷ niệm",
+      interactionBody: null,
+      reaction: "favorite",
     };
   }
 
@@ -256,7 +296,7 @@ async function loadEventContext(
   const [{ data: reactionRow }, { data: comment }] = await Promise.all([
     supabase
       .from("pin_comment_reactions")
-      .select("comment_id,user_id,reaction,created_at")
+      .select("comment_id,user_id,reaction,created_at,updated_at")
       .eq("comment_id", commentId)
       .eq("user_id", actorId)
       .single(),
@@ -281,7 +321,7 @@ async function loadEventContext(
   return {
     eventType,
     notificationKind,
-    eventKey: `comment_reaction:${commentId}:${actorId}:${reactionRow.reaction}:${reactionRow.created_at}`,
+    eventKey: `comment_reaction:${commentId}:${actorId}:${reactionRow.reaction}:${reactionRow.updated_at ?? reactionRow.created_at}`,
     actorId,
     recipientId: comment.user_id,
     pinId: comment.pin_id,
@@ -411,6 +451,8 @@ serve(async (req) => {
     const title =
       context.eventType === "reaction"
         ? `💞 ${creatorName} đã bày tỏ cảm xúc`
+        : context.eventType === "favorite"
+          ? `⭐ ${creatorName} đã đánh dấu yêu thích`
         : context.eventType === "comment"
           ? `💬 ${creatorName} đã bình luận`
           : context.eventType === "comment_reply"
@@ -422,6 +464,8 @@ serve(async (req) => {
     const notificationBody =
       context.eventType === "reaction"
         ? `${context.reaction} · ${context.pinTitle}`
+        : context.eventType === "favorite"
+          ? context.pinTitle
         : context.eventType === "comment" ||
             context.eventType === "comment_reply"
           ? bodyPreview

@@ -127,6 +127,7 @@ export function usePinInteractions(
     const optimisticRow: PinReaction = {
       ...row,
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }
     setReactions((prev) => [
       ...prev.filter((r) => r.user_id !== userId),

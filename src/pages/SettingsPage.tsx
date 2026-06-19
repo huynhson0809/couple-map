@@ -467,68 +467,64 @@ export function SettingsPage() {
           )}
         </div>
         <div className="notif-pref-list">
-          {push.subscribed && (
-            <>
-              <div className="notif-pref-row">
-                <span>
-                  <strong>{t("notif.memoryAdded")}</strong>
-                  <small>{t("notif.memoryAddedHint")}</small>
-                </span>
-                <Switch
-                  aria-label={t("notif.memoryAdded")}
-                  checked={notifPrefs.prefs.memory_added}
-                  disabled={notifPrefs.loading}
-                  onChange={(e) =>
-                    notifPrefs.updatePrefs({ memory_added: e.target.checked })
-                  }
-                />
-              </div>
-              <div className="notif-pref-row">
-                <span>
-                  <strong>{t("notif.reactions")}</strong>
-                  <small>{t("notif.reactionsHint")}</small>
-                </span>
-                <Switch
-                  aria-label={t("notif.reactions")}
-                  checked={notifPrefs.prefs.reactions}
-                  disabled={notifPrefs.loading}
-                  onChange={(e) =>
-                    notifPrefs.updatePrefs({ reactions: e.target.checked })
-                  }
-                />
-              </div>
-              <div className="notif-pref-row">
-                <span>
-                  <strong>{t("notif.comments")}</strong>
-                  <small>{t("notif.commentsHint")}</small>
-                </span>
-                <Switch
-                  aria-label={t("notif.comments")}
-                  checked={notifPrefs.prefs.comments}
-                  disabled={notifPrefs.loading}
-                  onChange={(e) =>
-                    notifPrefs.updatePrefs({ comments: e.target.checked })
-                  }
-                />
-              </div>
-              <div className="notif-pref-row">
-                <span>
-                  <strong>{t("notif.streakReminders")}</strong>
-                  <small>{t("notif.streakRemindersHint")}</small>
-                </span>
-                <Switch
-                  aria-label={t("notif.streakReminders")}
-                  checked={notifPrefs.prefs.streak_reminders}
-                  disabled={notifPrefs.loading}
-                  onChange={(e) =>
-                    notifPrefs.updatePrefs({
-                      streak_reminders: e.target.checked,
-                    })
-                  }
-                />
-              </div>
-            </>
-          )}
+          <div className="notif-pref-row">
+            <span>
+              <strong>{t("notif.memoryAdded")}</strong>
+              <small>{t("notif.memoryAddedHint")}</small>
+            </span>
+            <Switch
+              aria-label={t("notif.memoryAdded")}
+              checked={notifPrefs.prefs.memory_added}
+              disabled={notifPrefs.loading}
+              onChange={(e) =>
+                notifPrefs.updatePrefs({ memory_added: e.target.checked })
+              }
+            />
+          </div>
+          <div className="notif-pref-row">
+            <span>
+              <strong>{t("notif.reactions")}</strong>
+              <small>{t("notif.reactionsHint")}</small>
+            </span>
+            <Switch
+              aria-label={t("notif.reactions")}
+              checked={notifPrefs.prefs.reactions}
+              disabled={notifPrefs.loading}
+              onChange={(e) =>
+                notifPrefs.updatePrefs({ reactions: e.target.checked })
+              }
+            />
+          </div>
+          <div className="notif-pref-row">
+            <span>
+              <strong>{t("notif.comments")}</strong>
+              <small>{t("notif.commentsHint")}</small>
+            </span>
+            <Switch
+              aria-label={t("notif.comments")}
+              checked={notifPrefs.prefs.comments}
+              disabled={notifPrefs.loading}
+              onChange={(e) =>
+                notifPrefs.updatePrefs({ comments: e.target.checked })
+              }
+            />
+          </div>
+          <div className="notif-pref-row">
+            <span>
+              <strong>{t("notif.streakReminders")}</strong>
+              <small>{t("notif.streakRemindersHint")}</small>
+            </span>
+            <Switch
+              aria-label={t("notif.streakReminders")}
+              checked={notifPrefs.prefs.streak_reminders}
+              disabled={notifPrefs.loading}
+              onChange={(e) =>
+                notifPrefs.updatePrefs({
+                  streak_reminders: e.target.checked,
+                })
+              }
+            />
+          </div>
           <div className="notif-pref-row">
             <span>
               <strong>{t("notif.streakEmailReminders")}</strong>

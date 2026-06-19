@@ -99,6 +99,37 @@ create policy "Service can insert notifications"
   on public.notifications for insert
   with check (true);
 
+create or replace function public.notification_preference_enabled(
+  p_user_id uuid,
+  p_kind text
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (
+      select case p_kind
+        when 'memory_added' then np.memory_added
+        when 'reactions' then np.reactions
+        when 'comments' then np.comments
+        when 'streak_reminders' then np.streak_reminders
+        else true
+      end
+      from public.notification_preferences np
+      where np.user_id = p_user_id
+    ),
+    true
+  );
+$$;
+
+revoke all on function public.notification_preference_enabled(uuid, text)
+  from public, anon;
+grant execute on function public.notification_preference_enabled(uuid, text)
+  to authenticated, service_role;
+
 -- Auto-create notification when a pin is created (notify partner)
 create or replace function public.notify_partner_new_pin()
 returns trigger as $$
@@ -119,6 +150,9 @@ begin
   end if;
 
   if v_partner_id is null then return NEW; end if;
+  if not public.notification_preference_enabled(v_partner_id, 'memory_added') then
+    return NEW;
+  end if;
 
   -- Get creator name
   select coalesce(display_name, 'Bạn ấy') into v_creator_name
@@ -154,6 +188,9 @@ begin
   if v_pin is null then return NEW; end if;
   -- Don't notify yourself
   if v_pin.created_by = NEW.user_id then return NEW; end if;
+  if not public.notification_preference_enabled(v_pin.created_by, 'reactions') then
+    return NEW;
+  end if;
 
   select coalesce(display_name, 'Bạn ấy') into v_reactor_name
     from public.users where id = NEW.user_id;
@@ -177,6 +214,57 @@ create trigger trg_notify_pin_reaction
   after insert on public.pin_reactions
   for each row execute function public.notify_pin_reaction();
 
+drop trigger if exists trg_notify_pin_reaction_update on public.pin_reactions;
+create trigger trg_notify_pin_reaction_update
+  after update of reaction on public.pin_reactions
+  for each row
+  when (OLD.reaction is distinct from NEW.reaction)
+  execute function public.notify_pin_reaction();
+
+alter table public.pins
+  add column if not exists is_favorite boolean not null default false;
+
+-- Auto-create notification when a partner favorites your memory
+create or replace function public.notify_pin_favorite()
+returns trigger as $$
+declare
+  v_actor_id uuid;
+  v_actor_name text;
+begin
+  if NEW.is_favorite is distinct from true or OLD.is_favorite is distinct from false then
+    return NEW;
+  end if;
+
+  v_actor_id := auth.uid();
+  if v_actor_id is null or v_actor_id = NEW.created_by then
+    return NEW;
+  end if;
+  if not public.notification_preference_enabled(NEW.created_by, 'reactions') then
+    return NEW;
+  end if;
+
+  select coalesce(display_name, 'Bạn ấy') into v_actor_name
+    from public.users where id = v_actor_id;
+
+  insert into public.notifications (user_id, couple_id, type, title, body, data)
+  values (
+    NEW.created_by,
+    NEW.couple_id,
+    'reaction',
+    v_actor_name || ' đã đánh dấu yêu thích kỷ niệm của bạn',
+    NEW.title,
+    jsonb_build_object('pin_id', NEW.id, 'action', 'favorite')
+  );
+
+  return NEW;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists trg_notify_pin_favorite on public.pins;
+create trigger trg_notify_pin_favorite
+  after update of is_favorite on public.pins
+  for each row execute function public.notify_pin_favorite();
+
 -- Auto-create notification when a comment is added
 create or replace function public.notify_pin_comment()
 returns trigger as $$
@@ -198,33 +286,40 @@ begin
     if v_parent_comment is not null and v_parent_comment.user_id != NEW.user_id then
       v_recipient_id := v_parent_comment.user_id;
 
-      insert into public.notifications (user_id, couple_id, type, title, body, data)
-      values (
-        v_recipient_id,
-        v_pin.couple_id,
-        'comment',
-        v_commenter_name || ' đã trả lời bình luận của bạn',
-        left(NEW.body, 100),
-        jsonb_build_object('pin_id', NEW.pin_id, 'comment_id', NEW.id, 'parent_comment_id', NEW.parent_comment_id)
-      );
+      if public.notification_preference_enabled(v_recipient_id, 'comments') then
+        insert into public.notifications (user_id, couple_id, type, title, body, data)
+        values (
+          v_recipient_id,
+          v_pin.couple_id,
+          'comment',
+          v_commenter_name || ' đã trả lời bình luận của bạn',
+          left(NEW.body, 100),
+          jsonb_build_object('pin_id', NEW.pin_id, 'comment_id', NEW.id, 'parent_comment_id', NEW.parent_comment_id)
+        );
+      end if;
     end if;
 
     -- Also notify pin creator if they are different from parent comment author and from commenter
     if v_pin.created_by != NEW.user_id
        and (v_parent_comment is null or v_pin.created_by != v_parent_comment.user_id) then
-      insert into public.notifications (user_id, couple_id, type, title, body, data)
-      values (
-        v_pin.created_by,
-        v_pin.couple_id,
-        'comment',
-        v_commenter_name || ' đã bình luận',
-        left(NEW.body, 100),
-        jsonb_build_object('pin_id', NEW.pin_id, 'comment_id', NEW.id)
-      );
+      if public.notification_preference_enabled(v_pin.created_by, 'comments') then
+        insert into public.notifications (user_id, couple_id, type, title, body, data)
+        values (
+          v_pin.created_by,
+          v_pin.couple_id,
+          'comment',
+          v_commenter_name || ' đã bình luận',
+          left(NEW.body, 100),
+          jsonb_build_object('pin_id', NEW.pin_id, 'comment_id', NEW.id)
+        );
+      end if;
     end if;
   else
     -- Top-level comment: notify pin creator
     if v_pin.created_by = NEW.user_id then return NEW; end if;
+    if not public.notification_preference_enabled(v_pin.created_by, 'comments') then
+      return NEW;
+    end if;
 
     insert into public.notifications (user_id, couple_id, type, title, body, data)
     values (
@@ -258,6 +353,9 @@ begin
   if v_comment is null then return NEW; end if;
   -- Don't notify yourself
   if v_comment.user_id = NEW.user_id then return NEW; end if;
+  if not public.notification_preference_enabled(v_comment.user_id, 'reactions') then
+    return NEW;
+  end if;
 
   select * into v_pin from public.pins where id = v_comment.pin_id;
   if v_pin is null then return NEW; end if;
@@ -283,6 +381,13 @@ drop trigger if exists trg_notify_comment_reaction on public.pin_comment_reactio
 create trigger trg_notify_comment_reaction
   after insert on public.pin_comment_reactions
   for each row execute function public.notify_comment_reaction();
+
+drop trigger if exists trg_notify_comment_reaction_update on public.pin_comment_reactions;
+create trigger trg_notify_comment_reaction_update
+  after update of reaction on public.pin_comment_reactions
+  for each row
+  when (OLD.reaction is distinct from NEW.reaction)
+  execute function public.notify_comment_reaction();
 
 -- Enable realtime for notifications
 do $$

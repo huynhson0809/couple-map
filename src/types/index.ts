@@ -46,6 +46,7 @@ export interface PinReaction {
   user_id: string;
   reaction: ReactionType;
   created_at: string;
+  updated_at: string;
 }
 
 export type ReactionType =
@@ -73,6 +74,7 @@ export interface PinCommentReaction {
   user_id: string;
   reaction: ReactionType;
   created_at: string;
+  updated_at: string;
 }
 
 export interface CoupleStreak {

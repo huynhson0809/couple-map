@@ -6,11 +6,22 @@ create table if not exists public.pin_reactions (
   user_id uuid references public.users(id) on delete cascade not null,
   reaction text not null default 'love',
   created_at timestamptz default now(),
+  updated_at timestamptz default now(),
   primary key (pin_id, user_id)
 );
 
 alter table public.pin_reactions
   alter column reaction set default 'love';
+
+alter table public.pin_reactions
+  add column if not exists updated_at timestamptz default now();
+alter table public.pin_reactions
+  alter column updated_at set default now();
+update public.pin_reactions
+  set updated_at = coalesce(updated_at, created_at, now())
+  where updated_at is null;
+alter table public.pin_reactions
+  alter column updated_at set not null;
 
 update public.pin_reactions
   set reaction = 'love'
@@ -105,6 +116,11 @@ create policy "Users can delete their pin comments"
 drop trigger if exists pin_comments_updated_at on public.pin_comments;
 create trigger pin_comments_updated_at
   before update on public.pin_comments
+  for each row execute function update_updated_at();
+
+drop trigger if exists pin_reactions_updated_at on public.pin_reactions;
+create trigger pin_reactions_updated_at
+  before update on public.pin_reactions
   for each row execute function update_updated_at();
 
 do $$
