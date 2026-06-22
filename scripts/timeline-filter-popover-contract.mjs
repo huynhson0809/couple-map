@@ -10,6 +10,7 @@ function readProjectFile(path) {
 }
 
 const timelinePage = readProjectFile("src/pages/TimelinePage.tsx");
+const styles = readProjectFile("src/index.css");
 
 assert.match(
   timelinePage,
@@ -40,4 +41,44 @@ assert.match(
   timelinePage,
   /event\.key\s*===\s*["']Escape["'][\s\S]{0,160}setFiltersOpen\(false\)/,
   "timeline filter popover should close from Escape as a keyboard fallback",
+);
+assert.match(
+  timelinePage,
+  /TIMELINE_VIEW_MODE_STORAGE_KEY\s*=\s*["']pinly\.timeline\.viewMode["']/,
+  "timeline view mode should have a stable localStorage key",
+);
+assert.match(
+  timelinePage,
+  /function\s+readTimelineViewMode\(\)[\s\S]*localStorage\.getItem\(TIMELINE_VIEW_MODE_STORAGE_KEY\)/,
+  "timeline view mode should hydrate from localStorage on next access",
+);
+assert.match(
+  timelinePage,
+  /function\s+writeTimelineViewMode\(mode:\s*TimelineViewMode\)[\s\S]*localStorage\.setItem\(TIMELINE_VIEW_MODE_STORAGE_KEY,\s*mode\)/,
+  "timeline view mode should persist changes to localStorage",
+);
+assert.match(
+  timelinePage,
+  /useState<TimelineViewMode>\(\(\)\s*=>\s*readTimelineViewMode\(\)\s*,?\s*\)/,
+  "timeline view mode state should initialize from saved preference",
+);
+assert.match(
+  timelinePage,
+  /function\s+handleViewModeChange\(mode:\s*TimelineViewMode\)[\s\S]*setViewMode\(mode\)[\s\S]*writeTimelineViewMode\(mode\)/,
+  "timeline view mode segmented control should save the selected mode",
+);
+assert.match(
+  timelinePage,
+  /timeline-filters-open/,
+  "timeline page should expose a class while filters are open so adjacent controls can avoid overlapping the popover",
+);
+assert.match(
+  styles,
+  /\.page-timeline\.timeline-filters-open\s+\.timeline-view-switch[\s\S]{0,260}visibility:\s*hidden/,
+  "timeline view switch should be hidden while the filter popover is open",
+);
+assert.match(
+  styles,
+  /\.page-timeline\.timeline-filters-open\s+\.timeline-view-switch[\s\S]{0,260}pointer-events:\s*none/,
+  "hidden timeline view switch should not steal taps from the filter popover",
 );

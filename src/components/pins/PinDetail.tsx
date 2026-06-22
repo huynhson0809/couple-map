@@ -40,6 +40,7 @@ interface Props {
 }
 
 const EDIT_WINDOW_MS = 60 * 60 * 1000;
+const COMMENT_COMPOSER_ACTIVE_CLASS = "pin-comment-composer-active";
 const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
   { type: "like", emoji: "👍", label: "Like" },
   { type: "love", emoji: "❤️", label: "Love" },
@@ -80,6 +81,11 @@ function formatCommentTime(value: string, lang: string) {
     year:
       date.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
   });
+}
+
+function setCommentComposerLayerMode(active: boolean) {
+  if (typeof document === "undefined") return;
+  document.documentElement.classList.toggle(COMMENT_COMPOSER_ACTIVE_CLASS, active);
 }
 
 export function PinDetail({
@@ -209,6 +215,22 @@ export function PinDetail({
     return () =>
       window.removeEventListener("pointerdown", handleOutsidePointer);
   }, [pinActionMenuOpen]);
+
+  useEffect(() => {
+    return () => setCommentComposerLayerMode(false);
+  }, []);
+
+  function handleCommentComposerPointerDown() {
+    setCommentComposerLayerMode(true);
+  }
+
+  function handleCommentComposerFocus() {
+    setCommentComposerLayerMode(true);
+  }
+
+  function handleCommentComposerBlur() {
+    setCommentComposerLayerMode(false);
+  }
 
   async function handleDelete() {
     if (!confirm(t("pin.deleteConfirm"))) return;
@@ -940,6 +962,9 @@ export function PinDetail({
             placeholder={t("pin.commentPlaceholder")}
             maxLength={500}
             enterKeyHint="send"
+            onPointerDown={handleCommentComposerPointerDown}
+            onFocus={handleCommentComposerFocus}
+            onBlur={handleCommentComposerBlur}
           />
           <button
             type="submit"

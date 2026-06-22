@@ -68,9 +68,31 @@ type TimelineRow =
 
 type TimelineViewMode = "list" | "circle";
 
+const TIMELINE_VIEW_MODE_STORAGE_KEY = "pinly.timeline.viewMode";
 const TIMELINE_MONTH_ROW_HEIGHT = 48;
 const TIMELINE_PIN_ROW_HEIGHT = 168;
 const TIMELINE_FOOTER_ROW_HEIGHT = 118;
+
+function isTimelineViewMode(value: string | null): value is TimelineViewMode {
+  return value === "list" || value === "circle";
+}
+
+function readTimelineViewMode(): TimelineViewMode {
+  try {
+    const savedMode = localStorage.getItem(TIMELINE_VIEW_MODE_STORAGE_KEY);
+    return isTimelineViewMode(savedMode) ? savedMode : "list";
+  } catch {
+    return "list";
+  }
+}
+
+function writeTimelineViewMode(mode: TimelineViewMode) {
+  try {
+    localStorage.setItem(TIMELINE_VIEW_MODE_STORAGE_KEY, mode);
+  } catch {
+    // Storage can be unavailable in private or constrained browser contexts.
+  }
+}
 
 interface TimelineRowProps {
   rows: TimelineRow[];
@@ -247,7 +269,9 @@ export function TimelinePage() {
   const [draftCreatorFilter, setDraftCreatorFilter] = useState<string>("all");
   const [draftAddressFilter, setDraftAddressFilter] = useState("");
   const [selectedPin, setSelectedPin] = useState<Pin | null>(null);
-  const [viewMode, setViewMode] = useState<TimelineViewMode>("list");
+  const [viewMode, setViewMode] = useState<TimelineViewMode>(() =>
+    readTimelineViewMode(),
+  );
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [creatorMenuOpen, setCreatorMenuOpen] = useState(false);
   const filterPopoverRef = useRef<HTMLDivElement | null>(null);
@@ -344,6 +368,11 @@ export function TimelinePage() {
 
   function openPinDetail(p: Pin) {
     setSelectedPin(p);
+  }
+
+  function handleViewModeChange(mode: TimelineViewMode) {
+    setViewMode(mode);
+    writeTimelineViewMode(mode);
   }
 
   // Open pin from notification navigation
@@ -503,7 +532,14 @@ export function TimelinePage() {
 
   return (
     <div
-      className={`page page-timeline ${viewMode === "circle" ? "timeline-circle-mode" : ""}`}
+      className={[
+        "page",
+        "page-timeline",
+        viewMode === "circle" ? "timeline-circle-mode" : "",
+        filtersOpen ? "timeline-filters-open" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       <header className="page-header">
         <h1>{t("timeline.title")}</h1>
@@ -705,7 +741,7 @@ export function TimelinePage() {
         <SegmentedControl<TimelineViewMode>
           label={t("timeline.viewMode")}
           value={viewMode}
-          onChange={setViewMode}
+          onChange={handleViewModeChange}
           options={[
             { value: "list", label: t("timeline.viewList") },
             { value: "circle", label: t("timeline.viewCircle") },

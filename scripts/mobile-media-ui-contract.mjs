@@ -96,6 +96,16 @@ assert.doesNotMatch(
   "comment focus should not trigger delayed JS scrolling because it can desync the iOS native caret overlay",
 );
 assert.match(
+  pinDetail,
+  /onPointerDown=\{handleCommentComposerPointerDown\}/,
+  "comment composer should enable iOS keyboard-safe layer mode before focus",
+);
+assert.match(
+  pinDetail,
+  /onBlur=\{handleCommentComposerBlur\}/,
+  "comment composer should disable iOS keyboard-safe layer mode after blur",
+);
+assert.match(
   styles,
   /\.pin-comment-form textarea[\s\S]{0,420}-webkit-appearance:\s*none/,
   "comment textarea should reset mobile native appearance",
@@ -124,4 +134,9 @@ assert.match(
   styles,
   /\.pin-comment-form textarea[\s\S]{0,520}scroll-margin-bottom:\s*18px/,
   "comment textarea should use scroll margin instead of JS scrolling around the mobile keyboard",
+);
+assert.match(
+  styles,
+  /@supports\s*\(-webkit-touch-callout:\s*none\)[\s\S]*html\.pin-comment-composer-active\s+\.sheet:has\(\.pin-detail\)[\s\S]*-webkit-backdrop-filter:\s*none\s*!important/,
+  "mobile comment keyboard-safe mode should remove sheet backdrop filtering while typing",
 );

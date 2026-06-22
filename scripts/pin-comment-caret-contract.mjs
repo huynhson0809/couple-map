@@ -9,8 +9,9 @@ function readProjectFile(path) {
   return readFileSync(resolve(__dirname, "..", path), "utf8");
 }
 
+const styles = readProjectFile("src/index.css");
+
 function cssBlock(selector) {
-  const styles = readProjectFile("src/index.css");
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = styles.match(new RegExp(`${escaped}\\s*\\{([\\s\\S]*?)\\n\\}`));
   assert.ok(match, `${selector} block is missing`);
@@ -20,6 +21,36 @@ function cssBlock(selector) {
 const pinDetail = readProjectFile("src/components/pins/PinDetail.tsx");
 const commentComposer = cssBlock(".pin-comment-form textarea");
 
+assert.match(
+  pinDetail,
+  /COMMENT_COMPOSER_ACTIVE_CLASS\s*=\s*["']pin-comment-composer-active["']/,
+  "comment composer should own a keyboard-safe class used to disable iOS-hostile glass layers",
+);
+assert.match(
+  pinDetail,
+  /document\.documentElement\.classList\.toggle\(\s*COMMENT_COMPOSER_ACTIVE_CLASS,\s*active\s*\)/,
+  "comment composer focus mode should toggle the keyboard-safe class on the root element",
+);
+assert.match(
+  pinDetail,
+  /onPointerDown=\{handleCommentComposerPointerDown\}/,
+  "comment composer should enable keyboard-safe mode on pointerdown before iOS places the caret",
+);
+assert.match(
+  pinDetail,
+  /onFocus=\{handleCommentComposerFocus\}/,
+  "comment composer should also enable keyboard-safe mode for programmatic focus",
+);
+assert.match(
+  pinDetail,
+  /onBlur=\{handleCommentComposerBlur\}/,
+  "comment composer should disable keyboard-safe mode after focus leaves",
+);
+assert.match(
+  pinDetail,
+  /return\s+\(\)\s*=>\s*setCommentComposerLayerMode\(false\)/,
+  "comment composer should clean up keyboard-safe mode when the detail sheet unmounts",
+);
 assert.match(
   pinDetail,
   /<textarea[\s\S]*rows=\{1\}[\s\S]*value=\{commentText\}/,
@@ -95,6 +126,21 @@ assert.match(
   commentComposer,
   /scroll-margin-bottom:\s*18px/,
   "comment textarea should leave a small keyboard margin without JS scrolling",
+);
+assert.match(
+  styles,
+  /@supports\s*\(-webkit-touch-callout:\s*none\)[\s\S]*html\.pin-comment-composer-active\s+\.sheet-backdrop\.lg-overlay-backdrop[\s\S]*-webkit-backdrop-filter:\s*none\s*!important/,
+  "iOS keyboard-safe mode should remove backdrop filtering from the overlay while the comment composer is active",
+);
+assert.match(
+  styles,
+  /html\.pin-comment-composer-active\s+\.sheet:has\(\.pin-detail\)[\s\S]*-webkit-backdrop-filter:\s*none\s*!important/,
+  "iOS keyboard-safe mode should remove backdrop filtering from the sheet while the comment composer is active",
+);
+assert.match(
+  styles,
+  /html\.pin-comment-composer-active\s+\.pin-comment-main[\s\S]*-webkit-backdrop-filter:\s*none\s*!important/,
+  "iOS keyboard-safe mode should remove backdrop filtering from comment bubbles around the active composer",
 );
 
 console.log("Pin comment caret contract passed.");
