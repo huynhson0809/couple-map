@@ -1744,6 +1744,20 @@ body { -webkit-tap-highlight-color: transparent; }
 .pin-detail {
   display: flex; flex-direction: column; gap: 20px;
 }
+.pin-detail-deeplink-state {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  gap: 14px;
+  padding: 20px;
+  color: var(--muted);
+  text-align: center;
+}
+.pin-detail-deeplink-state p {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
 .pin-detail-body {
   display: flex; flex-direction: column; gap: 10px;
   padding: 0;

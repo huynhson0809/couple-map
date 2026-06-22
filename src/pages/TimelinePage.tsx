@@ -28,6 +28,11 @@ import {
   getVideoThumbnailUrl,
   isVideoUrl,
 } from "../lib/cloudinary";
+import {
+  readTimelineViewMode,
+  writeTimelineViewMode,
+  type TimelineViewMode,
+} from "../lib/timelineViewMode";
 import { BottomSheet } from "../components/ui/BottomSheet";
 import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { PinDetail } from "../components/pins/PinDetail";
@@ -66,33 +71,9 @@ type TimelineRow =
   | { type: "pin"; id: string; pin: Pin }
   | { type: "footer"; id: string };
 
-type TimelineViewMode = "list" | "circle";
-
-const TIMELINE_VIEW_MODE_STORAGE_KEY = "pinly.timeline.viewMode";
 const TIMELINE_MONTH_ROW_HEIGHT = 48;
 const TIMELINE_PIN_ROW_HEIGHT = 168;
 const TIMELINE_FOOTER_ROW_HEIGHT = 118;
-
-function isTimelineViewMode(value: string | null): value is TimelineViewMode {
-  return value === "list" || value === "circle";
-}
-
-function readTimelineViewMode(): TimelineViewMode {
-  try {
-    const savedMode = localStorage.getItem(TIMELINE_VIEW_MODE_STORAGE_KEY);
-    return isTimelineViewMode(savedMode) ? savedMode : "list";
-  } catch {
-    return "list";
-  }
-}
-
-function writeTimelineViewMode(mode: TimelineViewMode) {
-  try {
-    localStorage.setItem(TIMELINE_VIEW_MODE_STORAGE_KEY, mode);
-  } catch {
-    // Storage can be unavailable in private or constrained browser contexts.
-  }
-}
 
 interface TimelineRowProps {
   rows: TimelineRow[];
@@ -241,12 +222,21 @@ function TimelineRowItem({
   );
 }
 
+interface TimelinePageContentProps {
+  deepLinkPinId?: string;
+}
+
 export function TimelinePage() {
+  return <TimelinePageContent />;
+}
+
+export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps) {
   const {
     pins: livePins,
     deletePin,
     uploadingPins,
     pinsVersion,
+    loadPinById,
   } = usePinsCtx();
   const { couple, profile, partner } = useCoupleCtx();
   const { t, lang } = useI18n();
@@ -269,12 +259,19 @@ export function TimelinePage() {
   const [draftCreatorFilter, setDraftCreatorFilter] = useState<string>("all");
   const [draftAddressFilter, setDraftAddressFilter] = useState("");
   const [selectedPin, setSelectedPin] = useState<Pin | null>(null);
+  const [deepLinkLoading, setDeepLinkLoading] = useState(false);
+  const [deepLinkError, setDeepLinkError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<TimelineViewMode>(() =>
     readTimelineViewMode(),
   );
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [creatorMenuOpen, setCreatorMenuOpen] = useState(false);
   const filterPopoverRef = useRef<HTMLDivElement | null>(null);
+  const deepLinkRequestRef = useRef<{
+    pinId: string;
+    status: "loading" | "settled";
+  } | null>(null);
+  const langRef = useRef(lang);
   const debouncedAddressFilter = useDebouncedValue(addressFilter);
 
   const timelineFilters = useMemo(
@@ -354,6 +351,7 @@ export function TimelinePage() {
 
   function flyToPin(p: Pin) {
     setSelectedPin(null);
+    setDeepLinkError(null);
     navigate("/", {
       state: {
         flyTo: {
@@ -368,6 +366,110 @@ export function TimelinePage() {
 
   function openPinDetail(p: Pin) {
     setSelectedPin(p);
+  }
+
+  useEffect(() => {
+    langRef.current = lang;
+  }, [lang]);
+
+  useEffect(() => {
+    if (!deepLinkPinId) {
+      deepLinkRequestRef.current = null;
+      return;
+    }
+
+    const existing =
+      livePins.find((p) => p.id === deepLinkPinId) ??
+      timelinePins.find((p) => p.id === deepLinkPinId);
+    if (!existing) return;
+
+    deepLinkRequestRef.current = { pinId: deepLinkPinId, status: "settled" };
+    const frame = window.requestAnimationFrame(() => {
+      setSelectedPin(existing);
+      setDeepLinkLoading(false);
+      setDeepLinkError(null);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [deepLinkPinId, livePins, timelinePins]);
+
+  useEffect(() => {
+    if (!deepLinkPinId) {
+      deepLinkRequestRef.current = null;
+      return;
+    }
+
+    if (deepLinkRequestRef.current?.pinId === deepLinkPinId) return;
+
+    let cancelled = false;
+    const frames = new Set<number>();
+    const scheduleState = (apply: () => void) => {
+      const frame = window.requestAnimationFrame(() => {
+        frames.delete(frame);
+        if (!cancelled) apply();
+      });
+      frames.add(frame);
+    };
+
+    deepLinkRequestRef.current = { pinId: deepLinkPinId, status: "loading" };
+
+    scheduleState(() => {
+      setSelectedPin(null);
+      setDeepLinkLoading(true);
+      setDeepLinkError(null);
+    });
+
+    loadPinById(deepLinkPinId)
+      .then((pin) => {
+        if (cancelled) return;
+        deepLinkRequestRef.current = {
+          pinId: deepLinkPinId,
+          status: "settled",
+        };
+        scheduleState(() => {
+          if (pin) {
+            setSelectedPin(pin);
+            setDeepLinkError(null);
+          } else {
+            setDeepLinkError(
+              langRef.current === "vi"
+                ? "Không tìm thấy kỷ niệm này."
+                : "This memory could not be found.",
+            );
+          }
+        });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        deepLinkRequestRef.current = {
+          pinId: deepLinkPinId,
+          status: "settled",
+        };
+        scheduleState(() => {
+          setDeepLinkError(
+            error instanceof Error ? error.message : String(error),
+          );
+        });
+      })
+      .finally(() => {
+        if (!cancelled) {
+          scheduleState(() => setDeepLinkLoading(false));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      frames.forEach((frame) => window.cancelAnimationFrame(frame));
+      frames.clear();
+    };
+  }, [deepLinkPinId, loadPinById]);
+
+  function closePinDetail() {
+    setSelectedPin(null);
+    setDeepLinkError(null);
+    if (deepLinkPinId) {
+      navigate("/timeline", { replace: true });
+    }
   }
 
   function handleViewModeChange(mode: TimelineViewMode) {
@@ -520,7 +622,7 @@ export function TimelinePage() {
     };
   }, [filtersOpen]);
 
-  if (!loading && total === 0 && !hasAdvancedFilters) {
+  if (!deepLinkPinId && !loading && total === 0 && !hasAdvancedFilters) {
     return (
       <div className="page page-timeline timeline-page-empty empty-state">
         <div className="empty-emoji">📍</div>
@@ -815,11 +917,11 @@ export function TimelinePage() {
         />
       )}
       <BottomSheet
-        open={!!selectedPin}
-        onClose={() => setSelectedPin(null)}
+        open={!!selectedPin || deepLinkLoading || !!deepLinkError}
+        onClose={closePinDetail}
         title={t("pin.memory")}
       >
-        {selectedPin && (
+        {selectedPin ? (
           <PinDetail
             pin={
               timelinePins.find((p) => p.id === selectedPin.id) ??
@@ -831,18 +933,34 @@ export function TimelinePage() {
             onShowOnMap={flyToPin}
             onDelete={async (id) => {
               await deletePin(id);
-              setSelectedPin(null);
+              closePinDetail();
               refresh();
             }}
             onUpdated={() => {
               refresh();
-              setSelectedPin(null);
+              closePinDetail();
             }}
             onFavoriteUpdated={(updated) => {
               setSelectedPin(updated);
               refresh();
             }}
           />
+        ) : (
+          <div className="pin-detail-deeplink-state" role="status">
+            <p>
+              {deepLinkError ??
+                (lang === "vi" ? "Đang mở kỷ niệm..." : "Opening memory...")}
+            </p>
+            {deepLinkError && (
+              <button
+                type="button"
+                className="timeline-filter-search-btn"
+                onClick={() => navigate("/timeline", { replace: true })}
+              >
+                {lang === "vi" ? "Về Timeline" : "Back to Timeline"}
+              </button>
+            )}
+          </div>
         )}
       </BottomSheet>
     </div>

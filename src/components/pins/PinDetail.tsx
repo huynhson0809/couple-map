@@ -41,6 +41,7 @@ interface Props {
 
 const EDIT_WINDOW_MS = 60 * 60 * 1000;
 const COMMENT_COMPOSER_ACTIVE_CLASS = "pin-comment-composer-active";
+const COMMENT_COMPOSER_LAYER_RELEASE_MS = 360;
 const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
   { type: "like", emoji: "👍", label: "Like" },
   { type: "love", emoji: "❤️", label: "Love" },
@@ -128,6 +129,7 @@ export function PinDetail({
   const [pinActionMenuOpen, setPinActionMenuOpen] = useState(false);
   const longPressTimer = useRef<number | null>(null);
   const commentLongPressTimer = useRef<number | null>(null);
+  const commentComposerReleaseTimer = useRef<number | null>(null);
   const reactionWrapRef = useRef<HTMLDivElement | null>(null);
   const {
     reactions,
@@ -216,20 +218,42 @@ export function PinDetail({
       window.removeEventListener("pointerdown", handleOutsidePointer);
   }, [pinActionMenuOpen]);
 
+  function clearCommentComposerLayerRelease() {
+    if (commentComposerReleaseTimer.current === null) return;
+    window.clearTimeout(commentComposerReleaseTimer.current);
+    commentComposerReleaseTimer.current = null;
+  }
+
+  function enableCommentComposerLayerMode() {
+    clearCommentComposerLayerRelease();
+    setCommentComposerLayerMode(true);
+  }
+
+  function scheduleCommentComposerLayerRelease() {
+    clearCommentComposerLayerRelease();
+    commentComposerReleaseTimer.current = window.setTimeout(() => {
+      commentComposerReleaseTimer.current = null;
+      setCommentComposerLayerMode(false);
+    }, COMMENT_COMPOSER_LAYER_RELEASE_MS);
+  }
+
   useEffect(() => {
-    return () => setCommentComposerLayerMode(false);
+    return () => {
+      clearCommentComposerLayerRelease();
+      setCommentComposerLayerMode(false);
+    };
   }, []);
 
   function handleCommentComposerPointerDown() {
-    setCommentComposerLayerMode(true);
+    enableCommentComposerLayerMode();
   }
 
   function handleCommentComposerFocus() {
-    setCommentComposerLayerMode(true);
+    enableCommentComposerLayerMode();
   }
 
   function handleCommentComposerBlur() {
-    setCommentComposerLayerMode(false);
+    scheduleCommentComposerLayerRelease();
   }
 
   async function handleDelete() {

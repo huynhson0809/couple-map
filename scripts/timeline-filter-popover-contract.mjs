@@ -11,6 +11,7 @@ function readProjectFile(path) {
 
 const timelinePage = readProjectFile("src/pages/TimelinePage.tsx");
 const styles = readProjectFile("src/index.css");
+const timelineViewMode = readProjectFile("src/lib/timelineViewMode.ts");
 
 assert.match(
   timelinePage,
@@ -43,17 +44,17 @@ assert.match(
   "timeline filter popover should close from Escape as a keyboard fallback",
 );
 assert.match(
-  timelinePage,
+  timelineViewMode,
   /TIMELINE_VIEW_MODE_STORAGE_KEY\s*=\s*["']pinly\.timeline\.viewMode["']/,
   "timeline view mode should have a stable localStorage key",
 );
 assert.match(
-  timelinePage,
+  timelineViewMode,
   /function\s+readTimelineViewMode\(\)[\s\S]*localStorage\.getItem\(TIMELINE_VIEW_MODE_STORAGE_KEY\)/,
   "timeline view mode should hydrate from localStorage on next access",
 );
 assert.match(
-  timelinePage,
+  timelineViewMode,
   /function\s+writeTimelineViewMode\(mode:\s*TimelineViewMode\)[\s\S]*localStorage\.setItem\(TIMELINE_VIEW_MODE_STORAGE_KEY,\s*mode\)/,
   "timeline view mode should persist changes to localStorage",
 );

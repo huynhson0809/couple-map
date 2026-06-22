@@ -478,7 +478,7 @@ serve(async (req) => {
       body: notificationBody,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
-      data: { url: context.pinId ? `/?pin=${context.pinId}` : "/" },
+      data: { url: context.pinId ? `/memory/${context.pinId}` : "/" },
     });
 
     const results = await Promise.allSettled(

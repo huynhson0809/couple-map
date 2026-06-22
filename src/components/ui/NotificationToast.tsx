@@ -29,9 +29,9 @@ export function NotificationToast() {
     notify(`${who} ${t('notif.newMemory')}`, {
       body: pin.title,
       tag: `pin-${pin.id}`,
-      data: { url: `/?pin=${pin.id}` },
+      data: { url: `/memory/${pin.id}` },
       onClick: () => {
-        navigate('/', { state: { flyTo: { lat: pin.lat, lng: pin.lng, pinId: pin.id } } })
+        navigate(`/memory/${pin.id}`)
         clearLatestPartnerPin()
       },
     })

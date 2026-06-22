@@ -79,6 +79,11 @@ const TimelinePage = lazy(() =>
     default: module.TimelinePage,
   })),
 );
+const MemoryDeepLinkPage = lazy(() =>
+  import("./pages/MemoryDeepLinkPage").then((module) => ({
+    default: module.MemoryDeepLinkPage,
+  })),
+);
 const WishlistPage = lazy(() =>
   import("./pages/WishlistPage").then((module) => ({
     default: module.WishlistPage,
@@ -176,6 +181,7 @@ function PairedShell() {
         <Routes>
           <Route path="/" element={<MapPage />} />
           <Route path="/timeline" element={<TimelinePage />} />
+          <Route path="/memory/:pinId" element={<MemoryDeepLinkPage />} />
           <Route path="/wishlist" element={<WishlistPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />

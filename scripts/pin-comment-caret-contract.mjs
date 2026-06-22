@@ -28,8 +28,33 @@ assert.match(
 );
 assert.match(
   pinDetail,
+  /COMMENT_COMPOSER_LAYER_RELEASE_MS\s*=\s*3[0-9]{2}/,
+  "comment composer should keep the keyboard-safe layer active briefly after blur while iOS closes the keyboard",
+);
+assert.match(
+  pinDetail,
+  /commentComposerReleaseTimer\s*=\s*useRef<number\s*\|\s*null>\(null\)/,
+  "comment composer should track delayed release timer so focus/blur cannot fight each other",
+);
+assert.match(
+  pinDetail,
   /document\.documentElement\.classList\.toggle\(\s*COMMENT_COMPOSER_ACTIVE_CLASS,\s*active\s*\)/,
   "comment composer focus mode should toggle the keyboard-safe class on the root element",
+);
+assert.match(
+  pinDetail,
+  /function\s+clearCommentComposerLayerRelease\(\)[\s\S]*window\.clearTimeout\(commentComposerReleaseTimer\.current\)/,
+  "comment composer should cancel pending keyboard-safe layer release when focus returns or the sheet unmounts",
+);
+assert.match(
+  pinDetail,
+  /function\s+enableCommentComposerLayerMode\(\)[\s\S]*clearCommentComposerLayerRelease\(\)[\s\S]*setCommentComposerLayerMode\(true\)/,
+  "comment composer should enable keyboard-safe mode only after cancelling any pending release",
+);
+assert.match(
+  pinDetail,
+  /function\s+scheduleCommentComposerLayerRelease\(\)[\s\S]*window\.setTimeout\([\s\S]*setCommentComposerLayerMode\(false\)[\s\S]*COMMENT_COMPOSER_LAYER_RELEASE_MS/,
+  "comment composer blur should delay removing keyboard-safe mode until after the iOS keyboard close animation",
 );
 assert.match(
   pinDetail,
@@ -44,12 +69,12 @@ assert.match(
 assert.match(
   pinDetail,
   /onBlur=\{handleCommentComposerBlur\}/,
-  "comment composer should disable keyboard-safe mode after focus leaves",
+  "comment composer should schedule keyboard-safe mode release after focus leaves",
 );
 assert.match(
   pinDetail,
-  /return\s+\(\)\s*=>\s*setCommentComposerLayerMode\(false\)/,
-  "comment composer should clean up keyboard-safe mode when the detail sheet unmounts",
+  /return\s+\(\)\s*=>\s*\{[\s\S]*clearCommentComposerLayerRelease\(\)[\s\S]*setCommentComposerLayerMode\(false\)[\s\S]*\}/,
+  "comment composer should cancel delayed release and clean up keyboard-safe mode when the detail sheet unmounts",
 );
 assert.match(
   pinDetail,
