@@ -72,7 +72,7 @@ export function LandingPage() {
               <div className="lp-phone-notch" />
               <div className="lp-phone-screen lp-phone-map">
                 <img
-                  src="/icons/map-preview.jpg"
+                  src="/icons/map-preview.png"
                   alt="Pinly map"
                   className="lp-phone-map-img"
                 />

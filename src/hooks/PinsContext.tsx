@@ -20,6 +20,9 @@ type PinsHook = ReturnType<typeof usePins>;
 type CreatePinArgs = Parameters<PinsHook["createPin"]>;
 type UpdatePinArgs = Parameters<PinsHook["updatePin"]>;
 
+const PIN_SELECT_WITH_IMAGES_AND_CATEGORIES =
+  "*, images:pin_images(*), categories:pin_categories(pin_id,couple_id,category_id,position,created_at)";
+
 export type UploadingPinInfo = { progress: number };
 
 interface Ctx extends PinsHook {
@@ -156,24 +159,38 @@ export function PinsProvider({
     coupleId,
     onInsert: async (pin) => {
       invalidateStatsCache();
-      addPin(pin);
+      let pinWithRelations = pin;
+      try {
+        const { data } = await supabase
+          .from("pins")
+          .select(PIN_SELECT_WITH_IMAGES_AND_CATEGORIES)
+          .eq("id", pin.id)
+          .order("position", { referencedTable: "categories", ascending: true })
+          .order("sort_order", { referencedTable: "images", ascending: true })
+          .maybeSingle();
+        if (data) pinWithRelations = data as Pin;
+      } catch {
+        pinWithRelations = pin;
+      }
+      addPin(pinWithRelations);
       if (pin.created_by && pin.created_by !== userIdRef.current) {
-        try {
-          const { data } = await supabase
-            .from("pins")
-            .select("*, images:pin_images(*)")
-            .eq("id", pin.id)
-            .maybeSingle();
-          if (data) setLatestPartnerPin(data as Pin);
-          else setLatestPartnerPin(pin);
-        } catch {
-          setLatestPartnerPin(pin);
-        }
+        setLatestPartnerPin(pinWithRelations);
       }
     },
     onUpdate: async (pin) => {
       invalidateStatsCache();
-      updatePinLocal(pin.id, pin);
+      try {
+        const { data } = await supabase
+          .from("pins")
+          .select(PIN_SELECT_WITH_IMAGES_AND_CATEGORIES)
+          .eq("id", pin.id)
+          .order("position", { referencedTable: "categories", ascending: true })
+          .order("sort_order", { referencedTable: "images", ascending: true })
+          .maybeSingle();
+        if (data) updatePinLocal(pin.id, data as Pin);
+      } catch (err) {
+        console.warn("Failed to refresh realtime pin update:", err);
+      }
     },
     onDelete: (id) => {
       invalidateStatsCache();

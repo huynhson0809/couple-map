@@ -33,6 +33,7 @@ import {
   writeTimelineViewMode,
   type TimelineViewMode,
 } from "../lib/timelineViewMode";
+import { getPinCategoryIds } from "../lib/pinCategories";
 import { BottomSheet } from "../components/ui/BottomSheet";
 import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { PinDetail } from "../components/pins/PinDetail";
@@ -245,7 +246,7 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
   const location = useLocation();
 
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
-  const [favoriteOnly, setFavoriteOnly] = useState(false);
+  const [includeFavorites, setIncludeFavorites] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [creatorFilter, setCreatorFilter] = useState<string>("all");
@@ -253,7 +254,7 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
   const [draftCategoryFilters, setDraftCategoryFilters] = useState<string[]>(
     [],
   );
-  const [draftFavoriteOnly, setDraftFavoriteOnly] = useState(false);
+  const [draftIncludeFavorites, setDraftIncludeFavorites] = useState(false);
   const [draftDateFrom, setDraftDateFrom] = useState("");
   const [draftDateTo, setDraftDateTo] = useState("");
   const [draftCreatorFilter, setDraftCreatorFilter] = useState<string>("all");
@@ -277,7 +278,7 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
   const timelineFilters = useMemo(
     () => ({
       categoryIds: categoryFilters,
-      favoriteOnly,
+      includeFavorites,
       dateFrom,
       dateTo,
       creatorId: creatorFilter,
@@ -289,7 +290,7 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
       dateFrom,
       dateTo,
       debouncedAddressFilter,
-      favoriteOnly,
+      includeFavorites,
     ],
   );
 
@@ -317,7 +318,9 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
 
   const usedCategories = useMemo(() => {
     const ids = new Set<string>();
-    livePins.forEach((p) => p.category && ids.add(p.category));
+    livePins.forEach((pin) => {
+      getPinCategoryIds(pin).forEach((categoryId) => ids.add(categoryId));
+    });
     return allCategories.filter((c) => ids.has(c.id));
   }, [allCategories, livePins]);
 
@@ -497,13 +500,13 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
 
   function clearAdvancedFilters() {
     setCategoryFilters([]);
-    setFavoriteOnly(false);
+    setIncludeFavorites(false);
     setDateFrom("");
     setDateTo("");
     setCreatorFilter("all");
     setAddressFilter("");
     setDraftCategoryFilters([]);
-    setDraftFavoriteOnly(false);
+    setDraftIncludeFavorites(false);
     setDraftDateFrom("");
     setDraftDateTo("");
     setDraftCreatorFilter("all");
@@ -520,7 +523,7 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
 
   function syncDraftFilters() {
     setDraftCategoryFilters(categoryFilters);
-    setDraftFavoriteOnly(favoriteOnly);
+    setDraftIncludeFavorites(includeFavorites);
     setDraftDateFrom(dateFrom);
     setDraftDateTo(dateTo);
     setDraftCreatorFilter(creatorFilter);
@@ -529,7 +532,7 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
 
   function applyDraftFilters() {
     setCategoryFilters(draftCategoryFilters);
-    setFavoriteOnly(draftFavoriteOnly);
+    setIncludeFavorites(draftIncludeFavorites);
     setDateFrom(draftDateFrom);
     setDateTo(draftDateTo);
     setCreatorFilter(draftCreatorFilter);
@@ -566,14 +569,14 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
 
   const hasAdvancedFilters =
     categoryFilters.length > 0 ||
-    favoriteOnly ||
+    includeFavorites ||
     !!dateFrom ||
     !!dateTo ||
     creatorFilter !== "all" ||
     !!addressFilter.trim();
   const activeFilterCount =
     categoryFilters.length +
-    (favoriteOnly ? 1 : 0) +
+    (includeFavorites ? 1 : 0) +
     (dateFrom ? 1 : 0) +
     (dateTo ? 1 : 0) +
     (creatorFilter !== "all" ? 1 : 0) +
@@ -688,10 +691,10 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
               <div className="filter-row">
                 <button
                   type="button"
-                  className={`filter-chip ${draftCategoryFilters.length === 0 && !draftFavoriteOnly ? "active" : ""}`}
+                  className={`filter-chip ${draftCategoryFilters.length === 0 && !draftIncludeFavorites ? "active" : ""}`}
                   onClick={() => {
                     setDraftCategoryFilters([]);
-                    setDraftFavoriteOnly(false);
+                    setDraftIncludeFavorites(false);
                   }}
                 >
                   {lang === "vi" ? "Tất cả" : "All"} ({livePins.length})
@@ -699,8 +702,8 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
                 {favoriteCount > 0 && (
                   <button
                     type="button"
-                    className={`filter-chip favorite-filter ${draftFavoriteOnly ? "active" : ""}`}
-                    onClick={() => setDraftFavoriteOnly((value) => !value)}
+                    className={`filter-chip favorite-filter ${draftIncludeFavorites ? "active" : ""}`}
+                    onClick={() => setDraftIncludeFavorites((value) => !value)}
                   >
                     <Star size={14} fill="currentColor" />
                     <span>{t("timeline.favorites")}</span>
@@ -708,8 +711,10 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
                   </button>
                 )}
                 {usedCategories.map((c) => {
-                  const count = livePins.filter(
-                    (p) => p.category === c.id,
+                  const count = livePins.filter((pin) =>
+                    getPinCategoryIds(pin).some(
+                      (categoryId) => categoryId === c.id,
+                    ),
                   ).length;
                   const active = draftCategoryFilters.includes(c.id);
                   return (

@@ -3,10 +3,12 @@ import { supabase } from "../lib/supabase";
 import type { Pin } from "../types";
 
 const PAGE_SIZE = 24;
+const PIN_SELECT_WITH_IMAGES_AND_CATEGORIES =
+  "*, images:pin_images(*), categories:pin_categories(pin_id,couple_id,category_id,position,created_at)";
 
 export interface TimelinePinFilters {
   categoryIds: string[];
-  favoriteOnly: boolean;
+  includeFavorites: boolean;
   dateFrom: string;
   dateTo: string;
   creatorId: string;
@@ -17,49 +19,55 @@ function cleanSearch(value: string) {
   return value.trim().replace(/[,%]/g, " ").replace(/\s+/g, " ");
 }
 
-function applyFilters(
-  query: ReturnType<typeof supabase.from>,
+function localDateBoundaryIso(value: string, boundary: "start" | "end") {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const date =
+    boundary === "start"
+      ? new Date(year, month - 1, day, 0, 0, 0, 0)
+      : new Date(year, month - 1, day, 23, 59, 59, 999);
+  return date.toISOString();
+}
+
+interface TimelinePinPageId {
+  pin_id: string;
+  total_count: number;
+}
+
+async function fetchTimelinePinPageIds(
   coupleId: string,
   filters: TimelinePinFilters,
-  count: "exact" | undefined,
-) {
-  let next = query
-    .select("*, images:pin_images(*)", { count })
-    .eq("couple_id", coupleId)
-    .order("created_at", { ascending: false })
-    .order("sort_order", { referencedTable: "pin_images", ascending: true });
+  offset: number,
+): Promise<TimelinePinPageId[]> {
+  const { data, error } = await supabase
+    .rpc("get_timeline_pin_page_ids", {
+      in_couple_id: coupleId,
+      in_category_ids: filters.categoryIds,
+      in_include_favorites: filters.includeFavorites,
+      in_date_from: filters.dateFrom ? localDateBoundaryIso(filters.dateFrom, "start") : null,
+      in_date_to: filters.dateTo ? localDateBoundaryIso(filters.dateTo, "end") : null,
+      in_creator_id: filters.creatorId !== "all" ? filters.creatorId : null,
+      in_address: cleanSearch(filters.address) || null,
+      in_limit: PAGE_SIZE,
+      in_offset: offset,
+    });
+  if (error) throw error;
+  return (data as TimelinePinPageId[]) ?? [];
+}
 
-  if (filters.favoriteOnly && filters.categoryIds.length > 0) {
-    const categoryList = filters.categoryIds
-      .map((id) => `"${id.replace(/"/g, '\\"')}"`)
-      .join(",");
-    next = next.or(`is_favorite.eq.true,category.in.(${categoryList})`);
-  } else if (filters.favoriteOnly) {
-    next = next.eq("is_favorite", true);
-  } else if (filters.categoryIds.length > 0) {
-    next = next.in("category", filters.categoryIds);
-  }
-
-  if (filters.dateFrom) {
-    next = next.gte("created_at", `${filters.dateFrom}T00:00:00`);
-  }
-
-  if (filters.dateTo) {
-    next = next.lte("created_at", `${filters.dateTo}T23:59:59.999`);
-  }
-
-  if (filters.creatorId !== "all") {
-    next = next.eq("created_by", filters.creatorId);
-  }
-
-  const address = cleanSearch(filters.address);
-  if (address) {
-    next = next.or(
-      `address.ilike.%${address}%,city.ilike.%${address}%,country.ilike.%${address}%`,
-    );
-  }
-
-  return next;
+async function fetchTimelinePinsByIds(ids: string[]): Promise<Pin[]> {
+  if (ids.length === 0) return [];
+  const order = new Map(ids.map((id, index) => [id, index]));
+  const { data, error } = await supabase
+    .from("pins")
+    .select(PIN_SELECT_WITH_IMAGES_AND_CATEGORIES)
+    .in("id", ids)
+    .order("position", { referencedTable: "categories", ascending: true })
+    .order("sort_order", { referencedTable: "images", ascending: true });
+  if (error) throw error;
+  return ((data as Pin[]) ?? []).sort(
+    (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0),
+  );
 }
 
 export function useTimelinePins(
@@ -90,25 +98,23 @@ export function useTimelinePins(
       }
       setError(null);
 
-      const { data, error, count } = await applyFilters(
-        supabase.from("pins"),
-        coupleId,
-        filters,
-        append ? undefined : "exact",
-      ).range(offset, offset + PAGE_SIZE - 1);
+      try {
+        const pageIds = await fetchTimelinePinPageIds(coupleId, filters, offset);
+        if (requestId !== requestIdRef.current) return;
 
-      if (requestId !== requestIdRef.current) return;
+        const ids = pageIds.map((row) => row.pin_id);
+        const pagePins = await fetchTimelinePinsByIds(ids);
+        if (requestId !== requestIdRef.current) return;
 
-      if (error) {
-        setError(error.message);
-        if (!append) setPins([]);
-      } else {
-        setPins((prev) =>
-          append
-            ? [...prev, ...((data as Pin[]) ?? [])]
-            : ((data as Pin[]) ?? []),
-        );
-        if (typeof count === "number") setTotal(count);
+        setPins((prev) => (append ? [...prev, ...pagePins] : pagePins));
+        if (!append) setTotal(Number(pageIds[0]?.total_count ?? 0));
+      } catch (err) {
+        if (requestId !== requestIdRef.current) return;
+        setError(err instanceof Error ? err.message : "Failed to load pins");
+        if (!append) {
+          setPins([]);
+          setTotal(0);
+        }
       }
 
       setLoading(false);

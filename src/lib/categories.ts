@@ -84,6 +84,14 @@ export async function removeCustomCategory(
   coupleId: string,
   id: string,
 ): Promise<void> {
+  const { error: pinCategoryError } = await supabase
+    .from("pin_categories")
+    .delete()
+    .eq("couple_id", coupleId)
+    .eq("category_id", id);
+
+  if (pinCategoryError) throw pinCategoryError;
+
   const { error } = await supabase
     .from("custom_categories")
     .delete()

@@ -18,6 +18,7 @@ import {
   buildTimelineCircleLayout,
   getTimelineCircleBounds,
 } from "../../lib/timelineCircleLayout";
+import { getPrimaryCategoryId } from "../../lib/pinCategories";
 import type { Pin } from "../../types";
 
 interface TimelineCircleViewProps {
@@ -155,7 +156,7 @@ export function TimelineCircleView({
         const node = nodeById.get(pin.id);
         if (!node) return [];
 
-        const category = getCategory(pin.category);
+        const category = getCategory(getPrimaryCategoryId(pin));
         const mediaUrl = getPinMediaUrl(pin);
 
         return [

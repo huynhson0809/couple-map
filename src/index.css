@@ -4345,6 +4345,12 @@ button.stat-card {
 }
 
 /* Category badge (read-only) */
+.category-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .category-badge {
   display: inline-flex;
   align-items: center;

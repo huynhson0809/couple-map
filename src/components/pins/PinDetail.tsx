@@ -28,6 +28,7 @@ import { usePinInteractions } from "../../hooks/usePinInteractions";
 import { usePinsCtx } from "../../hooks/PinsContext";
 import type { ReactionType } from "../../types";
 import { useToast } from "../../hooks/ToastContext";
+import { resolvePinCategories } from "../../lib/pinCategories";
 
 interface Props {
   pin: Pin;
@@ -100,7 +101,7 @@ export function PinDetail({
 }: Props) {
   const { t, lang } = useI18n();
   const { showToast } = useToast();
-  const { getCategory } = useCategoriesCtx();
+  const { allCategories } = useCategoriesCtx();
   const { updatePin, fetchPinImages } = usePinsCtx();
   const [deleting, setDeleting] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -170,6 +171,10 @@ export function PinDetail({
     favoriteOverride?.pinId === pin.id
       ? favoriteOverride.value
       : pin.is_favorite;
+  const resolvedCategories = useMemo(
+    () => resolvePinCategories(pin, allCategories),
+    [allCategories, pin],
+  );
 
   useEffect(() => {
     if (!reactionPickerOpen) return;
@@ -783,18 +788,19 @@ export function PinDetail({
         />
       )}
       <div className="pin-detail-body">
-        {(() => {
-          const cat = getCategory(pin.category);
-          if (!cat) return null;
-          return (
-            <span
-              className="category-badge"
-              style={{ background: `${cat.color}1a`, color: cat.color }}
-            >
-              <span>{cat.emoji}</span> {cat.label}
-            </span>
-          );
-        })()}
+        {resolvedCategories.length > 0 && (
+          <div className="category-badge-row">
+            {resolvedCategories.map((cat) => (
+              <span
+                key={cat.id}
+                className="category-badge"
+                style={{ background: `${cat.color}1a`, color: cat.color }}
+              >
+                <span>{cat.emoji}</span> {cat.label}
+              </span>
+            ))}
+          </div>
+        )}
         <div className="pin-heading-row">
           <h2 className="pin-title">{pin.title}</h2>
           <div className="pin-more-actions" data-pin-actions>

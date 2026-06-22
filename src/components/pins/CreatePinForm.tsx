@@ -30,6 +30,7 @@ import {
   savePendingUploads,
   clearPendingUploadsForPin,
 } from "../../lib/pendingUploads";
+import { MAX_PIN_CATEGORIES } from "../../lib/pinCategories";
 import { reverseGeocode } from "../../lib/geocoding";
 import { searchPlaces, type PlaceSearchResult } from "../../lib/placeSearch";
 import {
@@ -120,7 +121,7 @@ export function CreatePinForm({
   } = usePinsCtx();
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
-  const [category, setCategory] = useState<string | null>(null);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [markerEmoji, setMarkerEmoji] = useState<string | null>(null);
   const [markerImageUrl, setMarkerImageUrl] = useState<string | null>(null);
   const [markerUploading, setMarkerUploading] = useState(false);
@@ -291,6 +292,32 @@ export function CreatePinForm({
     setShowCustomTag(true);
   }
 
+  function toggleCategory(categoryId: string) {
+    setSelectedCategoryIds((current) => {
+      if (current.includes(categoryId)) {
+        return current.filter((id) => id !== categoryId);
+      }
+      if (current.length >= MAX_PIN_CATEGORIES) {
+        setError(
+          lang === "vi"
+            ? `Chọn tối đa ${MAX_PIN_CATEGORIES} danh mục.`
+            : `Choose up to ${MAX_PIN_CATEGORIES} categories.`,
+        );
+        return current;
+      }
+      setError(null);
+      return [...current, categoryId];
+    });
+  }
+
+  function selectCategoryIfPossible(categoryId: string) {
+    setSelectedCategoryIds((current) => {
+      if (current.includes(categoryId)) return current;
+      if (current.length >= MAX_PIN_CATEGORIES) return current;
+      return [...current, categoryId];
+    });
+  }
+
   async function handleSaveCustomTag() {
     if (!customTagName.trim()) return;
     // Gate: check custom category limit (only for new categories, not edits)
@@ -313,7 +340,7 @@ export function CreatePinForm({
     };
     try {
       await saveCustomCategory(newCat);
-      setCategory(id);
+      selectCategoryIfPossible(id);
       setShowCustomTag(false);
       setEditingTagId(null);
       setCustomTagName("");
@@ -326,7 +353,9 @@ export function CreatePinForm({
   async function handleDeleteCustomTag(id: string) {
     try {
       await deleteCustomCategory(id);
-      if (category === id) setCategory(null);
+      setSelectedCategoryIds((current) =>
+        current.filter((categoryId) => categoryId !== id),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -373,7 +402,7 @@ export function CreatePinForm({
     }
     if (markerEmoji)
       return <span className="marker-preview-emoji">{markerEmoji}</span>;
-    const cat = getCategory(category);
+    const cat = getCategory(selectedCategoryIds[0] ?? null);
     if (cat) return <span className="marker-preview-emoji">{cat.emoji}</span>;
     return <span className="marker-preview-emoji">📍</span>;
   }
@@ -391,7 +420,8 @@ export function CreatePinForm({
       const pin = await createPin({
         title: title.trim(),
         note: note.trim() || undefined,
-        category: category ?? undefined,
+        category: selectedCategoryIds[0] ?? undefined,
+        categoryIds: selectedCategoryIds,
         marker_emoji: markerEmoji,
         marker_image_url: markerImageUrl,
         lat: pinCoords.lat,
@@ -469,7 +499,7 @@ export function CreatePinForm({
             ? allCategories
             : allCategories.slice(0, maxVisibleItems)
           ).map((c) => {
-            const active = category === c.id;
+            const active = selectedCategoryIds.includes(c.id);
             const custom = !isBuiltInCategory(c.id);
             return (
               <div key={c.id} className="category-chip-wrap">
@@ -485,7 +515,7 @@ export function CreatePinForm({
                         }
                       : undefined
                   }
-                  onClick={() => setCategory(active ? null : c.id)}
+                  onClick={() => toggleCategory(c.id)}
                 >
                   <span className="emoji">{c.emoji}</span>
                   <span>{c.label}</span>

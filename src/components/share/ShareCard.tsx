@@ -8,6 +8,10 @@ import { useCategoriesCtx } from "../../hooks/CategoriesContext";
 import { useSubscription } from "../../hooks/useSubscription";
 import { Button } from "../ui/Button";
 import { Logo } from "../ui/Logo";
+import {
+  getPrimaryCategory,
+  resolvePinCategories,
+} from "../../lib/pinCategories";
 
 interface Props {
   pin: Pin;
@@ -580,7 +584,7 @@ async function drawCardNoPhoto(
 export function ShareCard({ pin, onClose }: Props) {
   const { lang, t } = useI18n();
   const { profile, partner } = useCoupleCtx();
-  const { getCategory } = useCategoriesCtx();
+  const { allCategories } = useCategoriesCtx();
   const { hasWatermark } = useSubscription();
   const [assetState, setAssetState] = useState<ShareCardAssetState>({
     key: "",
@@ -591,7 +595,12 @@ export function ShareCard({ pin, onClose }: Props) {
   const images = pin.images ?? [];
   const coverImage = images[0];
   const coverUrl = coverImage?.cloudinary_url ?? null;
-  const category = getCategory(pin.category);
+  const resolvedCategories = useMemo(
+    () => resolvePinCategories(pin, allCategories),
+    [allCategories, pin],
+  );
+  const primaryCategory = getPrimaryCategory(pin, allCategories);
+  const category = resolvedCategories[0] ?? primaryCategory;
   const tag: ShareTag | null = useMemo(
     () =>
       category

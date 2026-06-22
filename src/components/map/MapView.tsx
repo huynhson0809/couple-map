@@ -5,6 +5,7 @@ import type { Pin } from "../../types";
 import { getImageUrl } from "../../lib/cloudinary";
 import { supabase } from "../../lib/supabase";
 import { useCategoriesCtx } from "../../hooks/CategoriesContext";
+import { getPrimaryCategory } from "../../lib/pinCategories";
 
 interface Props {
   pins: Pin[];
@@ -127,7 +128,7 @@ export function MapView({
   newestPinId,
   mapStyleUrl = "https://tiles.openfreemap.org/styles/bright",
 }: Props) {
-  const { customCategories, getCategory } = useCategoriesCtx();
+  const { customCategories } = useCategoriesCtx();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const memoryFeaturesRef = useRef<MemoryFeatureCollection>({
@@ -155,7 +156,6 @@ export function MapView({
     lng: number;
     expiresAt: number;
   } | null>(null);
-  const getCategoryRef = useRef(getCategory);
   const [clusterPinIds, setClusterPinIds] = useState<string[] | null>(null);
 
   useEffect(() => {
@@ -166,7 +166,6 @@ export function MapView({
     onMapCenterChangeRef.current = onMapCenterChange;
     onBoundsChangeRef.current = onBoundsChange;
     newestPinIdRef.current = newestPinId;
-    getCategoryRef.current = getCategory;
   }, [
     pins,
     onLongPress,
@@ -175,7 +174,6 @@ export function MapView({
     onMapCenterChange,
     onBoundsChange,
     newestPinId,
-    getCategory,
   ]);
 
   function pinColor(p: Pin) {
@@ -223,7 +221,7 @@ export function MapView({
   }
 
   function pinToMemoryFeature(pin: Pin): MemoryFeature {
-    const cat = getCategoryRef.current(pin.category);
+    const cat = getPrimaryCategory(pin, customCategories);
     const emoji = pin.marker_emoji ?? cat?.emoji ?? "📍";
     const color = pinColor(pin);
     const markerImageUrl = pin.marker_image_url
@@ -257,7 +255,7 @@ export function MapView({
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
     const representative = sortedPins[0];
-    const cat = getCategoryRef.current(representative.category);
+    const cat = getPrimaryCategory(representative, customCategories);
     const emoji = representative.marker_emoji ?? cat?.emoji ?? "📍";
     const color = pinColor(representative);
     const markerImageUrl = representative.marker_image_url
@@ -1189,7 +1187,7 @@ export function MapView({
       {clusterPins && clusterPins.length > 0 && (
         <ClusterListOverlay
           pins={clusterPins}
-          getCategory={getCategory}
+          customCategories={customCategories}
           onPinClick={(pin) => {
             highlightedPinIdRef.current = pin.id;
             syncMemoryLayers();
@@ -1204,14 +1202,12 @@ export function MapView({
 
 function ClusterListOverlay({
   pins,
-  getCategory,
+  customCategories,
   onPinClick,
   onClose,
 }: {
   pins: Pin[];
-  getCategory: (
-    id: string | null | undefined,
-  ) => { emoji: string; label: string } | undefined;
+  customCategories: Parameters<typeof getPrimaryCategory>[1];
   onPinClick: (pin: Pin) => void;
   onClose: () => void;
 }) {
@@ -1276,12 +1272,8 @@ function ClusterListOverlay({
             </div>
           )}
           {loadedPins.map((pin) => {
-            const cat = getCategory(pin.category);
-            const categoryLabel =
-              cat?.label ??
-              (pin.category?.startsWith("custom_")
-                ? "Memory"
-                : (pin.category ?? "Memory"));
+            const cat = getPrimaryCategory(pin, customCategories);
+            const categoryLabel = cat?.label ?? "Memory";
             return (
               <button
                 key={pin.id}

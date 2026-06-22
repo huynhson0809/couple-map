@@ -19,6 +19,10 @@ import {
   savePendingUploads,
   clearPendingUploadsForPin,
 } from "../../lib/pendingUploads";
+import {
+  MAX_PIN_CATEGORIES,
+  getPinCategoryIds,
+} from "../../lib/pinCategories";
 import { supabase } from "../../lib/supabase";
 import {
   deletePinMedia,
@@ -70,7 +74,9 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   const { showToast } = useToast();
   const [title, setTitle] = useState(pin.title);
   const [note, setNote] = useState(pin.note ?? "");
-  const [category, setCategory] = useState<string | null>(pin.category);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
+    () => getPinCategoryIds(pin),
+  );
   const [markerEmoji, setMarkerEmoji] = useState<string | null>(
     pin.marker_emoji,
   );
@@ -143,6 +149,32 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     setShowCustomTag(true);
   }
 
+  function toggleCategory(categoryId: string) {
+    setSelectedCategoryIds((current) => {
+      if (current.includes(categoryId)) {
+        return current.filter((id) => id !== categoryId);
+      }
+      if (current.length >= MAX_PIN_CATEGORIES) {
+        setError(
+          lang === "vi"
+            ? `Chọn tối đa ${MAX_PIN_CATEGORIES} danh mục.`
+            : `Choose up to ${MAX_PIN_CATEGORIES} categories.`,
+        );
+        return current;
+      }
+      setError(null);
+      return [...current, categoryId];
+    });
+  }
+
+  function selectCategoryIfPossible(categoryId: string) {
+    setSelectedCategoryIds((current) => {
+      if (current.includes(categoryId)) return current;
+      if (current.length >= MAX_PIN_CATEGORIES) return current;
+      return [...current, categoryId];
+    });
+  }
+
   async function handleSaveCustomTag() {
     if (!customTagName.trim()) return;
     const id =
@@ -156,7 +188,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     };
     try {
       await saveCustomCategory(newCat);
-      setCategory(id);
+      selectCategoryIfPossible(id);
       setShowCustomTag(false);
       setEditingTagId(null);
       setCustomTagName("");
@@ -169,7 +201,9 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   async function handleDeleteCustomTag(id: string) {
     try {
       await deleteCustomCategory(id);
-      if (category === id) setCategory(null);
+      setSelectedCategoryIds((current) =>
+        current.filter((categoryId) => categoryId !== id),
+      );
       if (editingTagId === id) {
         setShowCustomTag(false);
         setEditingTagId(null);
@@ -231,7 +265,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     }
     if (markerEmoji)
       return <span className="marker-preview-emoji">{markerEmoji}</span>;
-    const cat = getCategory(category);
+    const cat = getCategory(selectedCategoryIds[0] ?? null);
     if (cat) return <span className="marker-preview-emoji">{cat.emoji}</span>;
     return <span className="marker-preview-emoji">📍</span>;
   }
@@ -250,7 +284,8 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     const patch = {
       title: title.trim(),
       note: note.trim() || null,
-      category: category,
+      category: selectedCategoryIds[0] ?? null,
+      categoryIds: selectedCategoryIds,
       marker_emoji: markerEmoji,
       marker_image_url: markerImageUrl,
     };
@@ -326,7 +361,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         <div className="field-label">{t("pin.category")}</div>
         <div className="category-grid">
           {allCategories.map((c) => {
-            const active = category === c.id;
+            const active = selectedCategoryIds.includes(c.id);
             const custom = !isBuiltInCategory(c.id);
             return (
               <div key={c.id} className="category-chip-wrap">
@@ -342,7 +377,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
                         }
                       : undefined
                   }
-                  onClick={() => setCategory(active ? null : c.id)}
+                  onClick={() => toggleCategory(c.id)}
                 >
                   <span className="emoji">{c.emoji}</span>
                   <span>{c.label}</span>

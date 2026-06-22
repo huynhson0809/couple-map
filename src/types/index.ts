@@ -20,6 +20,14 @@ export interface Couple {
   created_at: string;
 }
 
+export interface PinCategory {
+  pin_id: string;
+  couple_id: string;
+  category_id: string;
+  position: number;
+  created_at?: string;
+}
+
 export interface Pin {
   id: string;
   couple_id: string;
@@ -38,6 +46,7 @@ export interface Pin {
   created_at: string;
   updated_at: string;
   images?: PinImage[];
+  categories?: PinCategory[];
   creator?: User;
 }
 

@@ -12,6 +12,8 @@ export interface Viewport {
 const DEBOUNCE_MS = 300;
 const BUFFER = 0.3; // 30% padding beyond viewport
 const PAGE_SIZE = 100; // Load pins in pages when viewport expands
+const PIN_SELECT_WITH_CATEGORIES =
+  "id, couple_id, created_by, title, note, lat, lng, address, city, country, category, marker_emoji, marker_image_url, is_favorite, created_at, updated_at, categories:pin_categories(pin_id,couple_id,category_id,position,created_at)";
 
 function expandBounds(vp: Viewport): Viewport {
   const latSpan = vp.north - vp.south;
@@ -64,14 +66,13 @@ export function useViewportPins(coupleId: string | null | undefined) {
       while (hasMore) {
         const { data, error } = await supabase
           .from("pins")
-          .select(
-            "id, couple_id, created_by, title, note, lat, lng, address, city, country, category, marker_emoji, marker_image_url, is_favorite, created_at, updated_at",
-          )
+          .select(PIN_SELECT_WITH_CATEGORIES)
           .eq("couple_id", coupleId)
           .gte("lat", expanded.south)
           .lte("lat", expanded.north)
           .gte("lng", expanded.west)
           .lte("lng", expanded.east)
+          .order("position", { referencedTable: "categories", ascending: true })
           .order("created_at", { ascending: false })
           .range(offset, offset + PAGE_SIZE - 1);
 
@@ -126,10 +127,9 @@ export function useViewportPins(coupleId: string | null | undefined) {
     setLoading(true);
     const { data, error } = await supabase
       .from("pins")
-      .select(
-        "id, couple_id, created_by, title, note, lat, lng, address, city, country, category, marker_emoji, marker_image_url, is_favorite, created_at, updated_at",
-      )
+      .select(PIN_SELECT_WITH_CATEGORIES)
       .eq("couple_id", coupleId)
+      .order("position", { referencedTable: "categories", ascending: true })
       .order("created_at", { ascending: false });
     if (!error && data) {
       const allPins = data as Pin[];
@@ -145,11 +145,10 @@ export function useViewportPins(coupleId: string | null | undefined) {
       if (!coupleId) return null;
       const { data, error } = await supabase
         .from("pins")
-        .select(
-          "id, couple_id, created_by, title, note, lat, lng, address, city, country, category, marker_emoji, marker_image_url, is_favorite, created_at, updated_at",
-        )
+        .select(PIN_SELECT_WITH_CATEGORIES)
         .eq("couple_id", coupleId)
         .eq("id", id)
+        .order("position", { referencedTable: "categories", ascending: true })
         .maybeSingle();
 
       if (error || !data) return null;
@@ -168,7 +167,7 @@ export function useViewportPins(coupleId: string | null | undefined) {
   /** Add a newly created pin to local state */
   const addPin = useCallback((pin: Pin) => {
     loadedIdsRef.current.add(pin.id);
-    setPins((prev) => [pin, ...prev]);
+    setPins((prev) => [pin, ...prev.filter((p) => p.id !== pin.id)]);
   }, []);
 
   /** Remove pin from local state */

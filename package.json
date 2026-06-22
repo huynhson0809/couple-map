@@ -13,6 +13,7 @@
     "check:map-cluster-marker": "node scripts/map-cluster-marker-contract.mjs",
     "check:map-streak-safe-top": "node scripts/map-streak-safe-top-contract.mjs",
     "check:mobile-media-ui": "node scripts/mobile-media-ui-contract.mjs",
+    "check:multi-category-timeline": "node scripts/multi-category-timeline-contract.mjs",
     "check:nudge-notifications": "node scripts/nudge-notifications-contract.mjs",
     "check:pin-comment-caret": "node scripts/pin-comment-caret-contract.mjs",
     "check:push-memory-deeplink": "node scripts/push-memory-deeplink-contract.mjs",
