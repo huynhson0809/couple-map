@@ -136,5 +136,37 @@ export function useCouple(userId: string | undefined) {
     [couple],
   )
 
-  return { profile, couple, partner, loading, error, refresh, createCouple, joinCouple, updateCouple }
+  const breakupCouple = useCallback(async (confirmText: string) => {
+    if (!userId) throw new Error('Not signed in')
+    const normalized = confirmText.trim().toUpperCase()
+    if (normalized !== 'KET THUC') {
+      throw new Error('Invalid confirmation')
+    }
+
+    const { data: sessionData } = await supabase.auth.getSession()
+    const token = sessionData.session?.access_token
+    if (!token) throw new Error('Not signed in')
+
+    const { error: breakupError } = await supabase.functions.invoke('breakup-couple', {
+      body: { confirmText: normalized },
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    if (breakupError) {
+      const context = (breakupError as { context?: unknown }).context
+      if (context instanceof Response) {
+        const details = await context.json().catch(() => null)
+        if (details?.error) {
+          throw new Error(
+            details.details ? `${details.error}: ${details.details}` : details.error,
+          )
+        }
+      }
+      throw new Error(breakupError.message)
+    }
+
+    await refresh({ silent: true })
+  }, [refresh, userId])
+
+  return { profile, couple, partner, loading, error, refresh, createCouple, joinCouple, updateCouple, breakupCouple }
 }

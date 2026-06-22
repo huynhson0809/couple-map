@@ -16,6 +16,7 @@ import {
   Crown,
   FileText,
   ShieldCheck,
+  HeartCrack,
 } from "lucide-react";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -42,6 +43,9 @@ import { Switch } from "../components/ui/Switch";
 import { cx } from "../components/ui/uiClasses";
 import { compressImage } from "../lib/imageCompress";
 import { uploadToCloudinary, getImageUrl } from "../lib/cloudinary";
+import { invalidateApiCacheByPrefix } from "../lib/apiCache";
+
+const BREAKUP_CONFIRM_TEXT = "KET THUC";
 
 interface SettingSectionProps {
   title: ReactNode;
@@ -74,7 +78,8 @@ function SettingSection({
 export function SettingsPage() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { profile, partner, couple, updateCouple } = useCoupleCtx();
+  const { profile, partner, couple, updateCouple, refresh, breakupCouple } =
+    useCoupleCtx();
   const { theme, setTheme } = useTheme();
   const { lang, setLang, t } = useI18n();
   const notif = useNotifications();
@@ -102,7 +107,13 @@ export function SettingsPage() {
   const bgInput = useRef<HTMLInputElement | null>(null);
   const showDarkToggle = isDarkModeEnabled();
   const [previewStyle, setPreviewStyle] = useState<MapStyleOption | null>(null);
+  const [showBreakupConfirm, setShowBreakupConfirm] = useState(false);
+  const [breakupConfirmText, setBreakupConfirmText] = useState("");
+  const [breakupBusy, setBreakupBusy] = useState(false);
+  const [breakupError, setBreakupError] = useState<string | null>(null);
   const mapStylePreviewCenter = { lat: 10.8231, lng: 106.6297 };
+  const breakupConfirmValid =
+    breakupConfirmText.trim().toUpperCase() === BREAKUP_CONFIRM_TEXT;
 
   async function copyCode() {
     if (!couple) return;
@@ -144,6 +155,31 @@ export function SettingsPage() {
       await updateCouple({ background_image_url: null });
     } finally {
       setBgUploading(false);
+    }
+  }
+
+  function closeBreakupConfirm() {
+    if (breakupBusy) return;
+    setShowBreakupConfirm(false);
+    setBreakupConfirmText("");
+    setBreakupError(null);
+  }
+
+  async function handleBreakupCouple() {
+    if (!breakupConfirmValid || breakupBusy) return;
+    setBreakupBusy(true);
+    setBreakupError(null);
+    try {
+      await breakupCouple(breakupConfirmText);
+      invalidateApiCacheByPrefix("couple-stats:");
+      setShowBreakupConfirm(false);
+      setBreakupConfirmText("");
+      await refresh({ silent: true });
+      navigate("/", { replace: true });
+    } catch (e) {
+      setBreakupError(e instanceof Error ? e.message : t("settings.breakupError"));
+    } finally {
+      setBreakupBusy(false);
     }
   }
 
@@ -669,6 +705,32 @@ export function SettingsPage() {
         )}
       </SettingSection>
 
+      {couple && (
+        <SettingSection
+          title={t("settings.breakupTitle")}
+          icon={<HeartCrack size={14} />}
+          className="setting-section-breakup"
+        >
+          <div className="setting-row col">
+            <p className="muted small settings-breakup-desc">
+              {t("settings.breakupDesc")}
+            </p>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={() => {
+                setBreakupError(null);
+                setBreakupConfirmText("");
+                setShowBreakupConfirm(true);
+              }}
+              className="settings-full-button"
+            >
+              <HeartCrack size={16} /> {t("settings.breakupButton")}
+            </Button>
+          </div>
+        </SettingSection>
+      )}
+
       <div className="settings-action-stack">
         <Button
           variant="ghost"
@@ -712,6 +774,72 @@ export function SettingsPage() {
       {showPricing && (
         <div className="pricing-overlay">
           <PricingPage onClose={() => setShowPricing(false)} />
+        </div>
+      )}
+
+      {showBreakupConfirm && (
+        <div
+          className="breakup-confirm-overlay lg-overlay-backdrop"
+        >
+          <div
+            className="breakup-confirm-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="breakup-confirm-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="breakup-confirm-close"
+              onClick={closeBreakupConfirm}
+              disabled={breakupBusy}
+              aria-label={t("common.cancel")}
+            >
+              <X size={18} />
+            </button>
+            <div className="breakup-confirm-icon">
+              <HeartCrack size={24} />
+            </div>
+            <h3 id="breakup-confirm-title">
+              {t("settings.breakupModalTitle")}
+            </h3>
+            <p>{t("settings.breakupModalBody")}</p>
+            <label className="breakup-confirm-field">
+              <span>{t("settings.breakupConfirmLabel")}</span>
+              <input
+                value={breakupConfirmText}
+                onChange={(e) => {
+                  setBreakupConfirmText(e.target.value);
+                  if (breakupError) setBreakupError(null);
+                }}
+                placeholder={t("settings.breakupConfirmPlaceholder")}
+                autoCapitalize="characters"
+                autoComplete="off"
+                disabled={breakupBusy}
+              />
+            </label>
+            {breakupError && <p className="error">{breakupError}</p>}
+            <div className="breakup-confirm-actions">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={closeBreakupConfirm}
+                disabled={breakupBusy}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={() => void handleBreakupCouple()}
+                disabled={!breakupConfirmValid || breakupBusy}
+              >
+                {breakupBusy
+                  ? t("settings.breakupDeleting")
+                  : t("settings.breakupConfirmButton")}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -18,9 +18,12 @@ export function useCoupleRealtime({
   const onInsertRef = useRef(onInsert);
   const onUpdateRef = useRef(onUpdate);
   const onDeleteRef = useRef(onDelete);
-  onInsertRef.current = onInsert;
-  onUpdateRef.current = onUpdate;
-  onDeleteRef.current = onDelete;
+
+  useEffect(() => {
+    onInsertRef.current = onInsert;
+    onUpdateRef.current = onUpdate;
+    onDeleteRef.current = onDelete;
+  }, [onDelete, onInsert, onUpdate]);
 
   useEffect(() => {
     if (!coupleId) return;

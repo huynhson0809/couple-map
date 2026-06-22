@@ -93,6 +93,9 @@ const dict = {
     "pair.copyInviteCode": "Copy invite code",
     "pair.copied": "✓ Copied!",
     "pair.tapCopy": "Tap to copy. Waiting for your partner…",
+    "pair.coupleEndedNotice":
+      "This couple has ended. All shared memories have been deleted, and you can create or join a new couple.",
+    "pair.noticeDismiss": "Got it",
 
     "map.heatmap": "Heatmap",
     "map.heatmapHint": "Shows which areas have the most memories",
@@ -310,6 +313,19 @@ const dict = {
     "settings.mapStyleLoadError": "This style preview could not be loaded.",
     "settings.clearCache": "Clear cache & reload",
     "settings.signOut": "Sign out",
+    "settings.breakupTitle": "End couple",
+    "settings.breakupDesc":
+      "Permanently delete this couple's memories, photos, videos, comments, wishlist, streak, and current plan. Both accounts can pair again afterward.",
+    "settings.breakupButton": "End this couple",
+    "settings.breakupModalTitle": "End this couple?",
+    "settings.breakupModalBody":
+      "This permanently deletes all memories, photos, videos, comments, reactions, wishlist items, streak data, and the current couple plan. Both accounts will return to the setup screen.",
+    "settings.breakupConfirmLabel": "Type KET THUC to confirm.",
+    "settings.breakupConfirmPlaceholder": "KET THUC",
+    "settings.breakupConfirmButton": "Delete everything and end",
+    "settings.breakupDeleting": "Deleting…",
+    "settings.breakupError":
+      "Could not end this couple yet. Please try again.",
     "settings.legal": "Legal",
     "settings.legalDesc":
       "Review Pinly's Terms and Privacy Policy, including how photos and videos are handled.",
@@ -457,6 +473,9 @@ const dict = {
     "pair.copyInviteCode": "Sao chép mã mời",
     "pair.copied": "✓ Đã copy!",
     "pair.tapCopy": "Bấm để copy. Đang chờ bạn ấy…",
+    "pair.coupleEndedNotice":
+      "Couple này đã được kết thúc. Tất cả kỷ niệm của hai bạn đã được xoá và bạn có thể tạo hoặc nhập mã couple mới.",
+    "pair.noticeDismiss": "Đã hiểu",
 
     "map.heatmap": "Heatmap",
     "map.heatmapHint": "Hiện khu vực có nhiều kỷ niệm nhất",
@@ -672,6 +691,19 @@ const dict = {
     "settings.mapStyleLoadError": "Không tải được bản đồ xem trước.",
     "settings.clearCache": "Xóa cache & tải lại",
     "settings.signOut": "Đăng xuất",
+    "settings.breakupTitle": "Kết thúc couple",
+    "settings.breakupDesc":
+      "Xoá vĩnh viễn kỷ niệm, ảnh/video, bình luận, wishlist, streak và gói hiện tại của couple này. Cả hai tài khoản có thể ghép đôi lại sau đó.",
+    "settings.breakupButton": "Kết thúc couple",
+    "settings.breakupModalTitle": "Kết thúc couple này?",
+    "settings.breakupModalBody":
+      "Hành động này sẽ xoá vĩnh viễn toàn bộ kỷ niệm, ảnh/video, bình luận, reaction, wishlist, streak và gói hiện tại của couple. Cả hai tài khoản sẽ quay về màn hình tạo hoặc nhập mã couple mới.",
+    "settings.breakupConfirmLabel": "Nhập KET THUC để xác nhận.",
+    "settings.breakupConfirmPlaceholder": "KET THUC",
+    "settings.breakupConfirmButton": "Xoá tất cả và kết thúc",
+    "settings.breakupDeleting": "Đang xoá…",
+    "settings.breakupError":
+      "Chưa thể kết thúc couple này. Vui lòng thử lại.",
     "settings.legal": "Pháp lý",
     "settings.legalDesc":
       "Xem lại Điều khoản và Chính sách quyền riêng tư của Pinly, bao gồm cách xử lý ảnh và video.",

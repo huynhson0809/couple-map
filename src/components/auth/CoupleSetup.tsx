@@ -6,9 +6,14 @@ import { useCoupleCtx } from '../../hooks/CoupleContext'
 import { useI18n } from '../../hooks/I18nContext'
 import { Logo } from '../ui/Logo'
 import { LangSwitch } from '../ui/LangSwitch'
+import {
+  type CoupleLifecycleNotice,
+  fetchUnreadCoupleLifecycleNotice,
+  markCoupleLifecycleNoticeRead,
+} from '../../lib/coupleLifecycleNotices'
 
 export function CoupleSetup() {
-  const { signOut } = useAuth()
+  const { user, signOut } = useAuth()
   const { couple, createCouple, joinCouple } = useCoupleCtx()
   const { t } = useI18n()
   const navigate = useNavigate()
@@ -18,12 +23,34 @@ export function CoupleSetup() {
   const [busy, setBusy] = useState<'create' | 'join' | null>(null)
   const [copied, setCopied] = useState(false)
   const [acceptedCoupleLock, setAcceptedCoupleLock] = useState(false)
+  const [lifecycleNotice, setLifecycleNotice] = useState<CoupleLifecycleNotice | null>(null)
 
   useEffect(() => {
     if (couple && couple.user_b) {
       navigate('/', { replace: true })
     }
   }, [couple, navigate])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!user?.id || couple) {
+      return
+    }
+
+    fetchUnreadCoupleLifecycleNotice(user.id)
+      .then((notice) => {
+        if (cancelled || !notice) return
+        setLifecycleNotice({
+          ...notice,
+          message: notice.message || t('pair.coupleEndedNotice'),
+        })
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [couple, t, user?.id])
 
   function pairErrorMessage(err: unknown) {
     if (err instanceof Error) return err.message
@@ -39,6 +66,17 @@ export function CoupleSetup() {
       return t('pair.lockedError')
     }
     return message
+  }
+
+  async function dismissLifecycleNotice() {
+    const notice = lifecycleNotice
+    if (!notice) return
+    setLifecycleNotice(null)
+    try {
+      await markCoupleLifecycleNoticeRead(notice.id)
+    } catch {
+      setLifecycleNotice(notice)
+    }
   }
 
   async function handleCreate() {
@@ -97,6 +135,15 @@ export function CoupleSetup() {
         <Logo size={56} />
         <h1>{t('pair.title')}</h1>
       </div>
+
+      {!couple && lifecycleNotice && (
+        <div className="pair-lifecycle-notice" role="status">
+          <span>{lifecycleNotice.message}</span>
+          <button type="button" onClick={() => void dismissLifecycleNotice()}>
+            {t('pair.noticeDismiss')}
+          </button>
+        </div>
+      )}
 
       {couple ? (
         <div className="stack">
