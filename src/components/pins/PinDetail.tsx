@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Trash2,
   MapPin,
@@ -41,7 +41,7 @@ interface Props {
 
 const EDIT_WINDOW_MS = 60 * 60 * 1000;
 const COMMENT_COMPOSER_ACTIVE_CLASS = "pin-comment-composer-active";
-const COMMENT_COMPOSER_LAYER_RELEASE_MS = 360;
+const COMMENT_COMPOSER_LAYER_RELEASE_MS = 720;
 const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
   { type: "like", emoji: "👍", label: "Like" },
   { type: "love", emoji: "❤️", label: "Love" },
@@ -129,6 +129,7 @@ export function PinDetail({
   const [pinActionMenuOpen, setPinActionMenuOpen] = useState(false);
   const longPressTimer = useRef<number | null>(null);
   const commentLongPressTimer = useRef<number | null>(null);
+  const commentComposerReleasePending = useRef<boolean>(false);
   const commentComposerReleaseTimer = useRef<number | null>(null);
   const reactionWrapRef = useRef<HTMLDivElement | null>(null);
   const {
@@ -218,23 +219,32 @@ export function PinDetail({
       window.removeEventListener("pointerdown", handleOutsidePointer);
   }, [pinActionMenuOpen]);
 
-  function clearCommentComposerLayerRelease() {
-    if (commentComposerReleaseTimer.current === null) return;
-    window.clearTimeout(commentComposerReleaseTimer.current);
+  const clearCommentComposerLayerRelease = useCallback(() => {
+    if (commentComposerReleaseTimer.current !== null) {
+      window.clearTimeout(commentComposerReleaseTimer.current);
+    }
     commentComposerReleaseTimer.current = null;
-  }
+    commentComposerReleasePending.current = false;
+  }, []);
+
+  const releaseCommentComposerLayerMode = useCallback(() => {
+    commentComposerReleaseTimer.current = null;
+    commentComposerReleasePending.current = false;
+    setCommentComposerLayerMode(false);
+  }, []);
+
+  const scheduleCommentComposerLayerRelease = useCallback(() => {
+    clearCommentComposerLayerRelease();
+    commentComposerReleasePending.current = true;
+    commentComposerReleaseTimer.current = window.setTimeout(
+      releaseCommentComposerLayerMode,
+      COMMENT_COMPOSER_LAYER_RELEASE_MS,
+    );
+  }, [clearCommentComposerLayerRelease, releaseCommentComposerLayerMode]);
 
   function enableCommentComposerLayerMode() {
     clearCommentComposerLayerRelease();
     setCommentComposerLayerMode(true);
-  }
-
-  function scheduleCommentComposerLayerRelease() {
-    clearCommentComposerLayerRelease();
-    commentComposerReleaseTimer.current = window.setTimeout(() => {
-      commentComposerReleaseTimer.current = null;
-      setCommentComposerLayerMode(false);
-    }, COMMENT_COMPOSER_LAYER_RELEASE_MS);
   }
 
   useEffect(() => {
@@ -242,7 +252,33 @@ export function PinDetail({
       clearCommentComposerLayerRelease();
       setCommentComposerLayerMode(false);
     };
-  }, []);
+  }, [clearCommentComposerLayerRelease]);
+
+  useEffect(() => {
+    function handleCommentComposerViewportChange() {
+      if (!commentComposerReleasePending.current) return;
+      scheduleCommentComposerLayerRelease();
+    }
+
+    window.visualViewport?.addEventListener(
+      "resize",
+      handleCommentComposerViewportChange,
+    );
+    window.visualViewport?.addEventListener(
+      "scroll",
+      handleCommentComposerViewportChange,
+    );
+    return () => {
+      window.visualViewport?.removeEventListener(
+        "resize",
+        handleCommentComposerViewportChange,
+      );
+      window.visualViewport?.removeEventListener(
+        "scroll",
+        handleCommentComposerViewportChange,
+      );
+    };
+  }, [scheduleCommentComposerLayerRelease]);
 
   function handleCommentComposerPointerDown() {
     enableCommentComposerLayerMode();

@@ -23,7 +23,7 @@ import { ToastProvider } from "./hooks/ToastContext";
 import { usePushSubscription } from "./hooks/usePushSubscription";
 import { NotificationFeedProvider } from "./hooks/NotificationFeedContext";
 import { SubscriptionProvider } from "./hooks/useSubscription";
-import { lazy, Suspense, useEffect, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, type ReactNode } from "react";
 
 const LoginPage = lazy(() =>
   import("./components/auth/LoginPage").then((module) => ({
@@ -131,6 +131,8 @@ function PairedShell() {
   const navigate = useNavigate();
   const isMap = location.pathname === "/";
   const bgUrl = couple?.background_image_url;
+  const backgroundImageUrl = bgUrl ? getImageUrl(bgUrl, 1200) : undefined;
+  const backgroundPreloadRef = useRef<HTMLImageElement | null>(null);
   const push = usePushSubscription(profile?.id);
 
   // Listen for SW notification click messages
@@ -160,13 +162,24 @@ function PairedShell() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id, push.subscribed]);
+
+  // Warm the shell background even while the map route suppresses the paint layer.
+  useEffect(() => {
+    if (!backgroundImageUrl) {
+      backgroundPreloadRef.current = null;
+      return;
+    }
+
+    const preloadImage = new Image();
+    preloadImage.decoding = "async";
+    preloadImage.src = backgroundImageUrl;
+    backgroundPreloadRef.current = preloadImage;
+  }, [backgroundImageUrl]);
+
   const shellStyle =
-    bgUrl && !isMap
+    backgroundImageUrl && !isMap
       ? ({
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.16), rgba(255,255,255,0.36)), url(${getImageUrl(
-            bgUrl,
-            1200,
-          )})`,
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.16), rgba(255,255,255,0.36)), url(${backgroundImageUrl})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundAttachment: "fixed",

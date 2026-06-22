@@ -23,21 +23,19 @@ export function BottomSheet({ open, onClose, title, children }: Props) {
     clearBackdropClickGuard()
 
     const guardedEvents = [
-      'mousedown',
       'mouseup',
       'click',
-      'touchstart',
       'touchend',
-      'pointerdown',
       'pointerup',
     ]
+    const guardListenerOptions = { capture: true, passive: false }
+    const fallbackTimer = window.setTimeout(clearBackdropClickGuard, 180)
     const stopBackdropClickThrough = (event: Event) => {
       event.preventDefault()
       event.stopPropagation()
       event.stopImmediatePropagation()
+      clearBackdropClickGuard()
     }
-    const guardListenerOptions = { capture: true, passive: false }
-    const fallbackTimer = window.setTimeout(clearBackdropClickGuard, 500)
 
     document.documentElement.classList.add('bottom-sheet-click-guard')
     document.addEventListener('click', stopBackdropClickThrough, true)

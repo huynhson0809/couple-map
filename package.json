@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "check:auth-session": "node scripts/auth-session-contract.mjs",
+    "check:app-shell-background": "node scripts/app-shell-background-contract.mjs",
     "check:contracts": "node scripts/performance-contracts.mjs",
     "check:interaction-notifications": "node scripts/interaction-notifications-contract.mjs",
     "check:map-cluster-marker": "node scripts/map-cluster-marker-contract.mjs",

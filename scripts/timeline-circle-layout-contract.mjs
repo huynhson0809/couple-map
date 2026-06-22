@@ -245,8 +245,13 @@ assert.match(
 );
 assert.match(
   bottomSheet,
-  /mousedown[\s\S]{0,80}mouseup[\s\S]{0,80}click[\s\S]{0,80}touchstart[\s\S]{0,80}touchend/,
-  'bottom sheet backdrop guard should block the full synthetic press sequence, not only click',
+  /mouseup[\s\S]{0,80}click[\s\S]{0,80}touchend[\s\S]{0,80}pointerup/,
+  'bottom sheet backdrop guard should block retargeted close-gesture end events, not only click',
+);
+assert.doesNotMatch(
+  bottomSheet,
+  /const guardedEvents = \[[\s\S]*['"](?:pointerdown|touchstart|mousedown)['"]/,
+  'bottom sheet backdrop guard must not block the start event of the next intentional tap',
 );
 assert.match(
   bottomSheet,
@@ -257,6 +262,16 @@ assert.match(
   bottomSheet,
   /stopImmediatePropagation\(\)/,
   'bottom sheet backdrop click guard should stop the retargeted compatibility click immediately',
+);
+assert.match(
+  bottomSheet,
+  /const fallbackTimer = window\.setTimeout\(clearBackdropClickGuard,\s*(?:1[0-9]{2}|2[0-4][0-9])\)/,
+  'bottom sheet backdrop guard fallback should be short enough not to swallow a later intentional tap',
+);
+assert.match(
+  bottomSheet,
+  /stopBackdropClickThrough[\s\S]{0,260}clearBackdropClickGuard\(\)/,
+  'bottom sheet backdrop guard should release itself immediately after blocking the first retargeted event',
 );
 assert.match(
   readProjectFile('src/index.css'),
