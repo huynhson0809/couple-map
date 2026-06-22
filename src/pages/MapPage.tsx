@@ -48,7 +48,6 @@ interface FlyToState {
 
 const RECENT_LOCATION_MS = 60_000;
 const GOOD_PIN_ACCURACY_METERS = 80;
-const GPS_QUICK_MS = 6000;
 const STREAK_FLOAT_STORAGE_KEY = "pinly.map.streakFloatPosition";
 const STREAK_DRAG_HOLD_MS = 220;
 const STREAK_DRAG_EDGE_PADDING = 12;
@@ -59,6 +58,12 @@ const STREAK_CLICK_SUPPRESS_MS = 180;
 interface StreakFloatPosition {
   x: number;
   y: number;
+}
+
+interface NewPinCoords {
+  lat: number;
+  lng: number;
+  accuracy?: number | null;
 }
 
 interface StreakDragState {
@@ -193,11 +198,7 @@ export function MapPage() {
     () => bucketItems.map((b) => ({ id: b.id, lat: b.lat, lng: b.lng })),
     [bucketItems],
   );
-  const [newPinCoords, setNewPinCoords] = useState<{
-    lat: number;
-    lng: number;
-    accuracy?: number | null;
-  } | null>(null);
+  const [newPinCoords, setNewPinCoords] = useState<NewPinCoords | null>(null);
   const [selectedPin, setSelectedPin] = useState<Pin | null>(null);
   const [flyTo, setFlyTo] = useState<{
     lat: number;
@@ -222,6 +223,8 @@ export function MapPage() {
   const streakDragRef = useRef<StreakDragState | null>(null);
   const suppressStreakClickRef = useRef(false);
   const suppressStreakClickTimerRef = useRef<number | null>(null);
+  const addPinSheetOpenRef = useRef(false);
+  const addPinGpsRequestRef = useRef(0);
 
   useEffect(() => {
     const s = routeLocation.state as FlyToState | null;
@@ -444,7 +447,8 @@ export function MapPage() {
         setShowUpgradePrompt(true);
         return;
       }
-      setNewPinCoords(c);
+      addPinGpsRequestRef.current += 1;
+      openNewPinSheet(c);
     },
     [canCreatePin, pins.length],
   );
@@ -453,55 +457,71 @@ export function MapPage() {
     setSelectedPin(p);
   }, []);
 
-  async function handleFabClick() {
-    if (!canCreatePin(pins.length)) {
-      setShowUpgradePrompt(true);
-      return;
-    }
+  function openNewPinSheet(coords: NewPinCoords) {
+    addPinSheetOpenRef.current = true;
+    setNewPinCoords(coords);
+  }
+
+  function closeNewPinSheet() {
+    addPinSheetOpenRef.current = false;
+    addPinGpsRequestRef.current += 1;
+    setNewPinCoords(null);
+  }
+
+  function getInitialNewPinCoords(): NewPinCoords {
     if (
       lastUserLocation &&
       Date.now() - lastUserLocation.receivedAt < RECENT_LOCATION_MS &&
       isAccurateEnough(lastUserLocation)
     ) {
-      setNewPinCoords({
+      return {
         lat: lastUserLocation.lat,
         lng: lastUserLocation.lng,
         accuracy: lastUserLocation.accuracy,
-      });
+      };
+    }
+
+    return { ...mapCenter, accuracy: null };
+  }
+
+  function getPinCoordAccuracy(coords: NewPinCoords) {
+    return coords.accuracy === null || coords.accuracy === undefined
+      ? Infinity
+      : coords.accuracy;
+  }
+
+  function shouldUseRefinedGpsCoords(
+    current: NewPinCoords,
+    next: NewPinCoords,
+  ) {
+    return getPinCoordAccuracy(next) < getPinCoordAccuracy(current);
+  }
+
+  function handleFabClick() {
+    if (!canCreatePin(pins.length)) {
+      setShowUpgradePrompt(true);
       return;
     }
 
-    // Prefer a fresh high-accuracy GPS fix before falling back to map center.
-    try {
-      const c = await Promise.race([
-        getCurrentPosition(),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("timeout")), GPS_QUICK_MS),
-        ),
-      ]);
-      setLastUserLocation({ ...c, receivedAt: Date.now() });
-      setNewPinCoords(c);
-    } catch {
-      // GPS too slow or failed — use map center, then replace only with better GPS.
-      setNewPinCoords({ ...mapCenter, accuracy: null });
-      getCurrentPosition()
-        .then((c) => {
-          setLastUserLocation({ ...c, receivedAt: Date.now() });
-          setNewPinCoords((current) => {
-            if (!current) return current;
-            const currentAccuracy =
-              current.accuracy === null || current.accuracy === undefined
-                ? Infinity
-                : current.accuracy;
-            const nextAccuracy =
-              c.accuracy === null || c.accuracy === undefined
-                ? Infinity
-                : c.accuracy;
-            return nextAccuracy < currentAccuracy ? c : current;
-          });
-        })
-        .catch(() => {});
+    if (addPinSheetOpenRef.current || newPinCoords) {
+      return;
     }
+
+    const initialCoords = getInitialNewPinCoords();
+    openNewPinSheet(initialCoords);
+
+    const requestId = addPinGpsRequestRef.current + 1;
+    addPinGpsRequestRef.current = requestId;
+    void getCurrentPosition()
+      .then((c) => {
+        setLastUserLocation({ ...c, receivedAt: Date.now() });
+        if (addPinGpsRequestRef.current !== requestId) return;
+        setNewPinCoords((current) => {
+          if (!current) return current;
+          return shouldUseRefinedGpsCoords(current, c) ? c : current;
+        });
+      })
+      .catch(() => {});
   }
 
   if (!couple || !user)
@@ -547,7 +567,12 @@ export function MapPage() {
         />
       </Suspense>
 
-      <button className="fab" onClick={handleFabClick} aria-label="Pin here">
+      <button
+        type="button"
+        className="fab"
+        onClick={handleFabClick}
+        aria-label="Pin here"
+      >
         <Plus size={24} />
       </button>
 
@@ -569,7 +594,7 @@ export function MapPage() {
 
       <BottomSheet
         open={!!newPinCoords}
-        onClose={() => setNewPinCoords(null)}
+        onClose={closeNewPinSheet}
         title={t("pin.newMemory")}
       >
         {newPinCoords && couple && user && (
@@ -578,10 +603,10 @@ export function MapPage() {
             userId={user.id}
             coords={newPinCoords}
             onCreated={() => {
-              setNewPinCoords(null);
+              closeNewPinSheet();
               fetchPins();
             }}
-            onCancel={() => setNewPinCoords(null)}
+            onCancel={closeNewPinSheet}
           />
         )}
       </BottomSheet>
