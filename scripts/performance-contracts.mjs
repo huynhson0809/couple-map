@@ -95,11 +95,17 @@ function hasGetInvoke(source) {
 
 const app = read("src/App.tsx");
 const packageJson = read("package.json");
+const viteConfig = read("vite.config.ts");
+const mainEntry = read("src/main.tsx");
 const mapPage = read("src/pages/MapPage.tsx");
 const pricingPage = read("src/pages/PricingPage.tsx");
 const mapView = read("src/components/map/MapView.tsx");
 const wishlistPage = read("src/pages/WishlistPage.tsx");
 const settingsPage = read("src/pages/SettingsPage.tsx");
+const pinDetail = read("src/components/pins/PinDetail.tsx");
+const createPinForm = read("src/components/pins/CreatePinForm.tsx");
+const editPinForm = read("src/components/pins/EditPinForm.tsx");
+const pinMediaUpload = read("src/lib/pinMediaUpload.ts");
 const mapStylePreviewSheet = readOptional(
   "src/components/settings/MapStylePreviewSheet.tsx",
 );
@@ -189,6 +195,93 @@ assert(
 );
 
 assert(
+  /MAPLIBRE_CSS_URL\s*=\s*["']\/vendor\/maplibre-gl\.css["']/.test(
+    mainEntry,
+  ) &&
+    /ensureMapLibreStylesheet/.test(mainEntry) &&
+    !/maplibre-gl\/dist\/maplibre-gl\.css/.test(mainEntry),
+  "main entry should load vendored MapLibre base CSS before the lazy map route initializes without importing MapLibre into the entry graph.",
+);
+
+assert(
+  !/maplibre-gl\/dist\/maplibre-gl\.css/.test(mapView),
+  "MapView should rely on the entry-level MapLibre CSS and keep only MapLibre JS lazy.",
+);
+
+assert(
+  /id\.includes\(["']node_modules\/maplibre-gl["']\)[\s\S]*return\s+["']maplibre["']/.test(
+    viteConfig,
+  ),
+  "Vite should split MapLibre into a stable manual chunk.",
+);
+
+assert(
+  /id\.includes\(["']node_modules\/react["']\)[\s\S]*return\s+["']react-vendor["']/.test(
+    viteConfig,
+  ),
+  "Vite should split React into a stable vendor chunk.",
+);
+
+assert(
+  !/globPatterns:\s*\[[^\]]*\*\*\/\*\.\{js,css,html,ico,png,svg,json,woff2\}/.test(
+    viteConfig,
+  ) && !/icons\/\*\.\{png,svg\}/.test(viteConfig),
+  "PWA precache should not eagerly include every generated JS/CSS chunk or broad icon folders.",
+);
+
+assert(
+  /cacheName:\s*["']static-assets["']/.test(serviceWorker) &&
+    /url\.pathname\.startsWith\(["']\/assets\/["']\)/.test(serviceWorker) &&
+    /request\.destination/.test(serviceWorker),
+  "Service worker should runtime-cache lazy static assets after first use instead of precaching every chunk.",
+);
+
+assert(
+  /lazy\(\(\)\s*=>\s*import\(["']\.\.\/share\/ShareCard["']\)/.test(
+    pinDetail,
+  ),
+  "ShareCard should load only when the user opens the card/share UI.",
+);
+
+assert(
+  !/import\s+\{\s*compressImage\s*\}\s+from\s+["']\.\.\/\.\.\/lib\/imageCompress["']/.test(
+    createPinForm,
+  ),
+  "CreatePinForm should not statically import image compression.",
+);
+
+assert(
+  !/import\s+\{\s*compressImage\s*\}\s+from\s+["']\.\.\/\.\.\/lib\/imageCompress["']/.test(
+    editPinForm,
+  ),
+  "EditPinForm should not statically import image compression.",
+);
+
+assert(
+  !/import\s+\{\s*compressImage\s*\}\s+from\s+["']\.\/imageCompress["']/.test(
+    pinMediaUpload,
+  ),
+  "Pin media upload helper should lazy-load image compression only during image upload.",
+);
+
+assert(
+  /import\(["']\.\/imageCompress["']\)/.test(pinMediaUpload),
+  "Pin media upload helper should dynamically import image compression.",
+);
+
+assert(
+  !/import\s+\{\s*compressImage\s*\}\s+from\s+["']\.\.\/lib\/imageCompress["']/.test(
+    settingsPage,
+  ),
+  "SettingsPage should not statically import image compression.",
+);
+
+assert(
+  /import\(["']\.\.\/lib\/imageCompress["']\)/.test(settingsPage),
+  "SettingsPage should dynamically import image compression for background uploads.",
+);
+
+assert(
   /req\.method\s*!==\s*["']POST["']/.test(checkout),
   "create-checkout must reject non-POST requests server-side.",
 );
@@ -256,12 +349,18 @@ assert(
 );
 
 assert(
-  /isAccurateEnough/.test(mapPage) &&
-    /GPS_QUICK_MS\s*=\s*6000/.test(mapPage) &&
+  /function\s+isAccurateEnough/.test(mapPage) &&
+    /function\s+getInitialNewPinCoords/.test(mapPage) &&
+    /Date\.now\(\)\s*-\s*lastUserLocation\.receivedAt\s*<\s*RECENT_LOCATION_MS/.test(
+      mapPage,
+    ) &&
+    /isAccurateEnough\(lastUserLocation\)/.test(mapPage) &&
+    /void\s+getCurrentPosition\(\)\s*\.then/.test(mapPage) &&
+    !/const\s+GPS_QUICK_MS/.test(mapPage) &&
     !/Date\.now\(\)\s*-\s*lastUserLocation\.receivedAt\s*<\s*60_000\)\s*\{/.test(
       mapPage,
     ),
-  "MapPage FAB should only reuse recent user location when its accuracy is good enough.",
+  "MapPage FAB should open immediately, refine GPS in the background, and only reuse recent user location when its accuracy is good enough.",
 );
 
 assert(
@@ -432,8 +531,12 @@ assert(
 );
 
 assert(
-  /append\s*\?\s*undefined\s*:\s*["']exact["']/.test(timelinePins),
-  "Timeline load-more must not request exact total counts on every page.",
+  /rpc\(["']get_timeline_pin_page_ids["']/.test(timelinePins) &&
+    /if\s*\(!append\)\s*setTotal\(Number\(pageIds\[0\]\?\.total_count\s*\?\?\s*0\)\)/.test(
+      timelinePins,
+    ) &&
+    !/count:\s*["']exact["']/.test(timelinePins),
+  "Timeline load-more must avoid exact count side queries and only refresh total from the first RPC page.",
 );
 
 assert(

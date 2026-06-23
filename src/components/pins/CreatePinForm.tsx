@@ -19,7 +19,6 @@ import { isBuiltInCategory, type Category } from "../../lib/categories";
 import { useCategoriesCtx } from "../../hooks/CategoriesContext";
 import { useI18n } from "../../hooks/I18nContext";
 import { useSubscription } from "../../hooks/useSubscription";
-import { compressImage } from "../../lib/imageCompress";
 import {
   uploadToCloudinary,
   getImageUrl,
@@ -93,6 +92,11 @@ function startAfterNextPaint(task: () => void) {
     return;
   }
   run();
+}
+
+async function compressImageForUpload(file: File) {
+  const { compressImage } = await import("../../lib/imageCompress");
+  return compressImage(file);
 }
 
 export function CreatePinForm({
@@ -272,7 +276,7 @@ export function CreatePinForm({
     if (!file) return;
     setMarkerUploading(true);
     try {
-      const compressed = await compressImage(file);
+      const compressed = await compressImageForUpload(file);
       const res = await uploadToCloudinary(compressed, {
         folder: `pinly/${coupleId}`,
       });

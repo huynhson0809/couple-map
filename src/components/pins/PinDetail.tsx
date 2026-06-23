@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   Trash2,
   MapPin,
@@ -21,7 +21,6 @@ import {
 import { Button } from "../ui/Button";
 import { ImageLightbox } from "../ui/ImageLightbox";
 import { EditPinForm } from "./EditPinForm";
-import { ShareCard } from "../share/ShareCard";
 import { useI18n } from "../../hooks/I18nContext";
 import { useCategoriesCtx } from "../../hooks/CategoriesContext";
 import { usePinInteractions } from "../../hooks/usePinInteractions";
@@ -41,6 +40,11 @@ interface Props {
 }
 
 const EDIT_WINDOW_MS = 60 * 60 * 1000;
+const ShareCard = lazy(() =>
+  import("../share/ShareCard").then((module) => ({
+    default: module.ShareCard,
+  })),
+);
 const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
   { type: "like", emoji: "👍", label: "Like" },
   { type: "love", emoji: "❤️", label: "Love" },
@@ -957,7 +961,9 @@ export function PinDetail({
         </form>
       </div>
       {showShareCard && (
-        <ShareCard pin={pin} onClose={() => setShowShareCard(false)} />
+        <Suspense fallback={null}>
+          <ShareCard pin={pin} onClose={() => setShowShareCard(false)} />
+        </Suspense>
       )}
       {isMine && !withinEditWindow && (
         <p

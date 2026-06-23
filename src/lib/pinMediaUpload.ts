@@ -1,5 +1,4 @@
 import { MAX_VIDEO_BYTES, uploadToCloudinary, type CloudinaryUploadResult } from "./cloudinary";
-import { compressImage } from "./imageCompress";
 
 function waitForNextFrame() {
   if (typeof window === "undefined" || !window.requestAnimationFrame) {
@@ -9,6 +8,14 @@ function waitForNextFrame() {
   return new Promise<void>((resolve) => {
     window.requestAnimationFrame(() => resolve());
   });
+}
+
+async function compressImageForUpload(
+  file: File,
+  onProgress?: (percent: number) => void,
+) {
+  const { compressImage } = await import("./imageCompress");
+  return compressImage(file, onProgress);
 }
 
 export async function uploadPinMediaFiles(
@@ -58,7 +65,7 @@ export async function uploadPinMediaFiles(
 
     await waitForNextFrame();
     const preparedFile = originalFile.type.startsWith("image/")
-      ? await compressImage(originalFile, (pct) =>
+      ? await compressImageForUpload(originalFile, (pct) =>
           reportFileProgress(pct * 0.3),
         )
       : originalFile;

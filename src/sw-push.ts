@@ -25,6 +25,25 @@ registerRoute(
   new NetworkFirst({ cacheName: "pages" }),
 );
 
+// Keep lazy JS/CSS chunks out of precache, but cache them after first use.
+registerRoute(
+  ({ request, url }) =>
+    url.origin === self.location.origin &&
+    url.pathname.startsWith("/assets/") &&
+    ["script", "style", "worker", "font", "image"].includes(
+      request.destination,
+    ),
+  new CacheFirst({
+    cacheName: "static-assets",
+    plugins: [
+      new ExpirationPlugin({
+        maxEntries: 120,
+        maxAgeSeconds: 60 * 60 * 24 * 30,
+      }),
+    ],
+  }),
+);
+
 // Tile caching
 registerRoute(
   ({ url }) => url.hostname === "tiles.openfreemap.org",

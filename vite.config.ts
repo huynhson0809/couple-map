@@ -46,7 +46,7 @@ export default defineConfig({
         ],
       },
       injectManifest: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,json,woff2}"],
+        globPatterns: ["index.html"],
       },
     }),
   ],
@@ -55,7 +55,14 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id: string) {
+          if (id.includes("node_modules/react")) return "react-vendor";
+          if (id.includes("node_modules/react-dom")) return "react-vendor";
+          if (id.includes("node_modules/react-router-dom")) return "react-vendor";
           if (id.includes("node_modules/@supabase")) return "supabase";
+          if (id.includes("node_modules/maplibre-gl")) return "maplibre";
+          if (id.includes("node_modules/browser-image-compression")) {
+            return "media-tools";
+          }
         },
       },
     },

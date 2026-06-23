@@ -6,7 +6,6 @@ import { isBuiltInCategory, type Category } from "../../lib/categories";
 import { useCategoriesCtx } from "../../hooks/CategoriesContext";
 import { useI18n } from "../../hooks/I18nContext";
 import { useSubscription } from "../../hooks/useSubscription";
-import { compressImage } from "../../lib/imageCompress";
 import {
   uploadToCloudinary,
   getImageUrl,
@@ -54,6 +53,11 @@ const CUSTOM_EMOJIS = [
   "🎂",
   "🍷",
 ];
+
+async function compressImageForUpload(file: File) {
+  const { compressImage } = await import("../../lib/imageCompress");
+  return compressImage(file);
+}
 
 export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   const {
@@ -113,7 +117,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     if (!file) return;
     setMarkerUploading(true);
     try {
-      const compressed = await compressImage(file);
+      const compressed = await compressImageForUpload(file);
       const res = await uploadToCloudinary(compressed, {
         folder: `pinly/${pin.couple_id}`,
       });

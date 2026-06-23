@@ -41,11 +41,15 @@ import { GlassSurface } from "../components/ui/GlassSurface";
 import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { Switch } from "../components/ui/Switch";
 import { cx } from "../components/ui/uiClasses";
-import { compressImage } from "../lib/imageCompress";
 import { uploadToCloudinary, getImageUrl } from "../lib/cloudinary";
 import { invalidateApiCacheByPrefix } from "../lib/apiCache";
 
 const BREAKUP_CONFIRM_TEXT = "KET THUC";
+
+async function compressBackgroundImage(file: File) {
+  const { compressImage } = await import("../lib/imageCompress");
+  return compressImage(file);
+}
 
 interface SettingSectionProps {
   title: ReactNode;
@@ -137,7 +141,7 @@ export function SettingsPage() {
     setBgUploading(true);
     setBgError(null);
     try {
-      const compressed = await compressImage(file);
+      const compressed = await compressBackgroundImage(file);
       const res = await uploadToCloudinary(compressed, {
         folder: `pinly/${couple?.id ?? "shared"}`,
       });
