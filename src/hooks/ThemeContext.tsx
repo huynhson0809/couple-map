@@ -16,31 +16,57 @@ interface Ctx {
 
 const ThemeCtx = createContext<Ctx | null>(null);
 const KEY = "pinly.theme";
+const LIGHT_THEME_COLOR = "#fff8fa";
+const DARK_THEME_COLOR = "#0f1015";
 
-// Dark mode temporarily disabled — force light until polished.
-const DARK_MODE_ENABLED = false;
+function readStoredTheme(): Theme {
+  try {
+    const stored = localStorage.getItem(KEY);
+    return stored === "dark" || stored === "light" ? stored : "light";
+  } catch {
+    return "light";
+  }
+}
+
+function updateThemeColor(theme: Theme) {
+  if (typeof document === "undefined" || !document.head) return;
+
+  let meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement("meta");
+    meta.setAttribute("name", "theme-color");
+    document.head.appendChild(meta);
+  }
+
+  meta.setAttribute("content", theme === "dark" ? DARK_THEME_COLOR : LIGHT_THEME_COLOR);
+}
+
+function applyTheme(theme: Theme) {
+  if (typeof document === "undefined" || !document.documentElement) return;
+
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.style.colorScheme = theme;
+  updateThemeColor(theme);
+}
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (!DARK_MODE_ENABLED) return "light";
-    const stored = localStorage.getItem(KEY);
-    if (stored === "dark" || stored === "light") return stored;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
-  });
+  const [theme, setThemeState] = useState<Theme>(readStoredTheme);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem(KEY, theme);
+    applyTheme(theme);
+
+    try {
+      localStorage.setItem(KEY, theme);
+    } catch {
+      // Ignore storage failures in private or constrained browser modes.
+    }
   }, [theme]);
 
   const setTheme = (t: Theme) => {
-    if (!DARK_MODE_ENABLED) return;
     setThemeState(t);
   };
+
   const toggle = () => {
-    if (!DARK_MODE_ENABLED) return;
     setThemeState((t) => (t === "dark" ? "light" : "dark"));
   };
 
@@ -50,9 +76,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     </ThemeCtx.Provider>
   );
 }
-
-// eslint-disable-next-line react-refresh/only-export-components
-export const isDarkModeEnabled = () => DARK_MODE_ENABLED;
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useTheme() {
