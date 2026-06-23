@@ -4,12 +4,39 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#20201e" />
+    <meta name="theme-color" content="#fff8fa" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="Pinly" />
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
     <title>Pinly</title>
+    <script>
+      (function () {
+        var theme = "light";
+        var lightThemeColor = "#fff8fa";
+        var darkThemeColor = "#0f1015";
+
+        try {
+          var storedTheme = localStorage.getItem("pinly.theme");
+          if (storedTheme === "dark" || storedTheme === "light") {
+            theme = storedTheme;
+          }
+        } catch (_error) {
+          theme = "light";
+        }
+
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+
+        var themeColor = document.querySelector('meta[name="theme-color"]');
+        if (themeColor) {
+          themeColor.setAttribute(
+            "content",
+            theme === "dark" ? darkThemeColor : lightThemeColor,
+          );
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

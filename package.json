@@ -13,6 +13,7 @@
     "check:map-cluster-marker": "node scripts/map-cluster-marker-contract.mjs",
     "check:map-add-pin-fab": "node scripts/map-add-pin-fab-contract.mjs",
     "check:couple-breakup": "node scripts/couple-breakup-contract.mjs",
+    "check:dark-mode": "node scripts/dark-mode-contract.mjs",
     "check:map-streak-safe-top": "node scripts/map-streak-safe-top-contract.mjs",
     "check:mobile-media-ui": "node scripts/mobile-media-ui-contract.mjs",
     "check:multi-category-timeline": "node scripts/multi-category-timeline-contract.mjs",

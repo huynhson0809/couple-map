@@ -22,7 +22,7 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useCoupleCtx } from "../hooks/CoupleContext";
-import { isDarkModeEnabled, useTheme } from "../hooks/ThemeContext";
+import { useTheme } from "../hooks/ThemeContext";
 import { useI18n } from "../hooks/I18nContext";
 import { useNotifications } from "../hooks/useNotifications";
 import { usePushSubscription } from "../hooks/usePushSubscription";
@@ -109,7 +109,6 @@ export function SettingsPage() {
   const [bgUploading, setBgUploading] = useState(false);
   const [bgError, setBgError] = useState<string | null>(null);
   const bgInput = useRef<HTMLInputElement | null>(null);
-  const showDarkToggle = isDarkModeEnabled();
   const [previewStyle, setPreviewStyle] = useState<MapStyleOption | null>(null);
   const [showBreakupConfirm, setShowBreakupConfirm] = useState(false);
   const [breakupConfirmText, setBreakupConfirmText] = useState("");
@@ -240,52 +239,40 @@ export function SettingsPage() {
         </div>
       </SettingSection>
 
-      <SettingSection
-        title={
-          showDarkToggle ? t("settings.appearance") : t("settings.language")
-        }
-        icon={<Globe size={14} />}
-      >
-        {showDarkToggle && (
-          <div className="setting-row compact">
-            <span>{t("settings.theme")}</span>
-            <SegmentedControl
-              value={theme}
-              label={t("settings.theme")}
-              options={[
-                {
-                  value: "light",
-                  label: (
-                    <>
-                      <Sun size={14} /> {t("settings.themeLight")}
-                    </>
-                  ),
-                },
-                {
-                  value: "dark",
-                  label: (
-                    <>
-                      <Moon size={14} /> {t("settings.themeDark")}
-                    </>
-                  ),
-                },
-              ]}
-              onChange={setTheme}
-            />
-          </div>
-        )}
+      <SettingSection title={t("settings.appearance")} icon={<Sun size={14} />}>
+        <div className="setting-row compact">
+          <span>{t("settings.theme")}</span>
+          <SegmentedControl
+            value={theme}
+            label={t("settings.theme")}
+            size="sm"
+            options={[
+              {
+                value: "light",
+                label: (
+                  <>
+                    <Sun size={14} /> {t("settings.themeLight")}
+                  </>
+                ),
+              },
+              {
+                value: "dark",
+                label: (
+                  <>
+                    <Moon size={14} /> {t("settings.themeDark")}
+                  </>
+                ),
+              },
+            ]}
+            onChange={setTheme}
+          />
+        </div>
 
         <div className="setting-row compact">
-          {showDarkToggle ? (
-            <span className="setting-row-label">
-              <Globe size={14} aria-hidden="true" />
-              {t("settings.language")}
-            </span>
-          ) : (
-            <span className="muted small">
-              {lang === "en" ? "Choose language" : "Chọn ngôn ngữ"}
-            </span>
-          )}
+          <span className="setting-row-label">
+            <Globe size={14} aria-hidden="true" />
+            {t("settings.language")}
+          </span>
           <SegmentedControl
             value={lang}
             label={t("settings.language")}
