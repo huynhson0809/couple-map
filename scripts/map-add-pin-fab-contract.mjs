@@ -30,6 +30,7 @@ function readFunctionBody(source, functionName) {
 }
 
 const mapPage = readProjectFile("src/pages/MapPage.tsx");
+const createPinForm = readProjectFile("src/components/pins/CreatePinForm.tsx");
 const handleFabClickBody = readFunctionBody(mapPage, "handleFabClick");
 
 assert.doesNotMatch(
@@ -76,6 +77,21 @@ assert.match(
   mapPage,
   /onClose=\{closeNewPinSheet\}/,
   "BottomSheet close should use the shared add-pin close handler.",
+);
+assert.match(
+  createPinForm,
+  /manualPinCoordsRef\s*=\s*useRef\(false\)/,
+  "CreatePinForm should track when the user manually chooses a place so GPS refinement does not overwrite it.",
+);
+assert.match(
+  createPinForm,
+  /useEffect\(\(\)\s*=>\s*\{[\s\S]*if\s*\(manualPinCoordsRef\.current\s*\|\|\s*addressEdited\)\s*return[\s\S]*setPinCoords\(coords\)[\s\S]*\},\s*\[addressEdited,\s*coords,\s*coords\.accuracy,\s*coords\.lat,\s*coords\.lng\]\)/,
+  "CreatePinForm should sync late GPS-refined coords from the parent after the sheet has already opened.",
+);
+assert.match(
+  createPinForm,
+  /function\s+selectAddressResult\([^)]*\)\s*\{[\s\S]*manualPinCoordsRef\.current\s*=\s*true[\s\S]*setPinCoords\(/,
+  "Manually selected address coordinates should opt out of later automatic GPS coordinate sync.",
 );
 
 console.log("Map add pin FAB contract passed.");

@@ -2375,31 +2375,6 @@ body { -webkit-tap-highlight-color: transparent; }
   opacity: 0.45;
   cursor: not-allowed;
 }
-@supports (-webkit-touch-callout: none) {
-  html.pin-comment-composer-active .sheet-backdrop.lg-overlay-backdrop {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-
-  html.pin-comment-composer-active .sheet:has(.pin-detail) {
-    --surface-blur: none;
-    transform: none;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-
-  html.pin-comment-composer-active .pin-comment-main {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-
-  html.pin-comment-composer-active .sheet:has(.pin-detail)::before,
-  html.pin-comment-composer-active .sheet:has(.pin-detail)::after,
-  html.pin-comment-composer-active .pin-comment-main::before,
-  html.pin-comment-composer-active .pin-comment-main::after {
-    display: none;
-  }
-}
 .image-strip {
   display: flex; gap: 12px; overflow-x: auto;
   scroll-snap-type: x mandatory;

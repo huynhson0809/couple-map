@@ -494,6 +494,12 @@ export function MapPage() {
     current: NewPinCoords,
     next: NewPinCoords,
   ) {
+    if (current.accuracy === null || current.accuracy === undefined) {
+      return true;
+    }
+    if (next.accuracy === null || next.accuracy === undefined) {
+      return false;
+    }
     return getPinCoordAccuracy(next) < getPinCoordAccuracy(current);
   }
 

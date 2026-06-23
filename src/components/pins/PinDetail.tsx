@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Trash2,
   MapPin,
@@ -41,8 +41,6 @@ interface Props {
 }
 
 const EDIT_WINDOW_MS = 60 * 60 * 1000;
-const COMMENT_COMPOSER_ACTIVE_CLASS = "pin-comment-composer-active";
-const COMMENT_COMPOSER_LAYER_RELEASE_MS = 720;
 const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
   { type: "like", emoji: "👍", label: "Like" },
   { type: "love", emoji: "❤️", label: "Love" },
@@ -85,11 +83,6 @@ function formatCommentTime(value: string, lang: string) {
   });
 }
 
-function setCommentComposerLayerMode(active: boolean) {
-  if (typeof document === "undefined") return;
-  document.documentElement.classList.toggle(COMMENT_COMPOSER_ACTIVE_CLASS, active);
-}
-
 export function PinDetail({
   pin,
   currentUserId,
@@ -130,8 +123,6 @@ export function PinDetail({
   const [pinActionMenuOpen, setPinActionMenuOpen] = useState(false);
   const longPressTimer = useRef<number | null>(null);
   const commentLongPressTimer = useRef<number | null>(null);
-  const commentComposerReleasePending = useRef<boolean>(false);
-  const commentComposerReleaseTimer = useRef<number | null>(null);
   const reactionWrapRef = useRef<HTMLDivElement | null>(null);
   const {
     reactions,
@@ -223,79 +214,6 @@ export function PinDetail({
     return () =>
       window.removeEventListener("pointerdown", handleOutsidePointer);
   }, [pinActionMenuOpen]);
-
-  const clearCommentComposerLayerRelease = useCallback(() => {
-    if (commentComposerReleaseTimer.current !== null) {
-      window.clearTimeout(commentComposerReleaseTimer.current);
-    }
-    commentComposerReleaseTimer.current = null;
-    commentComposerReleasePending.current = false;
-  }, []);
-
-  const releaseCommentComposerLayerMode = useCallback(() => {
-    commentComposerReleaseTimer.current = null;
-    commentComposerReleasePending.current = false;
-    setCommentComposerLayerMode(false);
-  }, []);
-
-  const scheduleCommentComposerLayerRelease = useCallback(() => {
-    clearCommentComposerLayerRelease();
-    commentComposerReleasePending.current = true;
-    commentComposerReleaseTimer.current = window.setTimeout(
-      releaseCommentComposerLayerMode,
-      COMMENT_COMPOSER_LAYER_RELEASE_MS,
-    );
-  }, [clearCommentComposerLayerRelease, releaseCommentComposerLayerMode]);
-
-  function enableCommentComposerLayerMode() {
-    clearCommentComposerLayerRelease();
-    setCommentComposerLayerMode(true);
-  }
-
-  useEffect(() => {
-    return () => {
-      clearCommentComposerLayerRelease();
-      setCommentComposerLayerMode(false);
-    };
-  }, [clearCommentComposerLayerRelease]);
-
-  useEffect(() => {
-    function handleCommentComposerViewportChange() {
-      if (!commentComposerReleasePending.current) return;
-      scheduleCommentComposerLayerRelease();
-    }
-
-    window.visualViewport?.addEventListener(
-      "resize",
-      handleCommentComposerViewportChange,
-    );
-    window.visualViewport?.addEventListener(
-      "scroll",
-      handleCommentComposerViewportChange,
-    );
-    return () => {
-      window.visualViewport?.removeEventListener(
-        "resize",
-        handleCommentComposerViewportChange,
-      );
-      window.visualViewport?.removeEventListener(
-        "scroll",
-        handleCommentComposerViewportChange,
-      );
-    };
-  }, [scheduleCommentComposerLayerRelease]);
-
-  function handleCommentComposerPointerDown() {
-    enableCommentComposerLayerMode();
-  }
-
-  function handleCommentComposerFocus() {
-    enableCommentComposerLayerMode();
-  }
-
-  function handleCommentComposerBlur() {
-    scheduleCommentComposerLayerRelease();
-  }
 
   async function handleDelete() {
     if (!confirm(t("pin.deleteConfirm"))) return;
@@ -1028,9 +946,6 @@ export function PinDetail({
             placeholder={t("pin.commentPlaceholder")}
             maxLength={500}
             enterKeyHint="send"
-            onPointerDown={handleCommentComposerPointerDown}
-            onFocus={handleCommentComposerFocus}
-            onBlur={handleCommentComposerBlur}
           />
           <button
             type="submit"

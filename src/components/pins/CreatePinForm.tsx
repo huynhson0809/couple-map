@@ -148,6 +148,8 @@ export function CreatePinForm({
   const markerInput = useRef<HTMLInputElement | null>(null);
   const addressDebounce = useRef<number | null>(null);
   const skipReverseGeocode = useRef(false);
+  const manualPinCoordsRef = useRef(false);
+  const lastAutoCoordsRef = useRef(coords);
   const selectedMediaRef = useRef<SelectedMediaFile[]>([]);
   const [categoriesExpanded, setCategoriesExpanded] = useState(false);
   const VISIBLE_ROWS = 2;
@@ -167,6 +169,20 @@ export function CreatePinForm({
     },
     [],
   );
+
+  useEffect(() => {
+    if (manualPinCoordsRef.current || addressEdited) return;
+    const previous = lastAutoCoordsRef.current;
+    const sameCoords =
+      previous.lat === coords.lat &&
+      previous.lng === coords.lng &&
+      (previous.accuracy ?? null) === (coords.accuracy ?? null);
+    if (sameCoords) return;
+    lastAutoCoordsRef.current = coords;
+    setAddressLoading(true);
+    setAddressResults([]);
+    setPinCoords(coords);
+  }, [addressEdited, coords, coords.accuracy, coords.lat, coords.lng]);
 
   useEffect(() => {
     let cancelled = false;
@@ -381,6 +397,7 @@ export function CreatePinForm({
     setAddressResults([]);
     setAddressEdited(false);
     skipReverseGeocode.current = true;
+    manualPinCoordsRef.current = true;
     setPinCoords({
       lat: parseFloat(place.lat),
       lng: parseFloat(place.lon),
