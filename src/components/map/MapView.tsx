@@ -53,8 +53,8 @@ const MEMORY_PIN_HIGHLIGHT_LAYER = "memory-pin-highlight";
 const MEMORY_CLUSTER_MAX_ZOOM = 15;
 const MEMORY_CLUSTER_RADIUS_PX = 56;
 const BUILDINGS_3D_LAYER_ID = "pinly-3d-buildings";
-const MAP_DEFAULT_PITCH = 58;
-const MAP_DEFAULT_BEARING = -18;
+const MAP_DEFAULT_PITCH = 62;
+const MAP_DEFAULT_BEARING = -20;
 const MEMORY_PIN_SPRITE_SIZE = 56;
 const MEMORY_PIN_SPRITE_PIXEL_RATIO = 2;
 const MEMORY_PIN_BADGE_RADIUS = 22;
@@ -500,7 +500,12 @@ export function MapView({
 
   function syncMemoryLayers() {
     const map = mapRef.current;
-    if (!map || !styleLoadedRef.current || !map.isStyleLoaded()) return;
+    if (!map || !styleLoadedRef.current) return;
+    if (!map.isStyleLoaded()) {
+      // Style sprites/glyphs still loading — retry once ready
+      map.once("idle", () => syncMemoryLayers());
+      return;
+    }
     ensureMemoryLayers(map);
     syncMemorySource(map);
     raiseMemoryLayers(map);
@@ -703,6 +708,7 @@ export function MapView({
     const style = map.getStyle();
     const layers = style?.layers ?? [];
 
+    // 1. Try to find an existing building layer in the style
     for (const layer of layers) {
       const layerType = (layer as { type?: string }).type;
       if (layerType !== "fill" && layerType !== "fill-extrusion") continue;
@@ -715,6 +721,28 @@ export function MapView({
       if (!sourceLayer.toLowerCase().includes("building")) continue;
 
       return { source, sourceLayer };
+    }
+
+    // 2. Fallback: probe vector tile sources for a "building" source-layer
+    //    (works for OpenMapTiles / MapTiler styles that don't render buildings)
+    const sources = style?.sources ?? {};
+    for (const [sourceId, sourceDef] of Object.entries(sources)) {
+      const s = sourceDef as {
+        type?: string;
+        vector_layers?: { id: string }[];
+      };
+      if (s.type !== "vector") continue;
+
+      // Some styles expose vector_layers metadata
+      if (Array.isArray(s.vector_layers)) {
+        const bl = s.vector_layers.find((vl) =>
+          vl.id.toLowerCase().includes("building"),
+        );
+        if (bl) return { source: sourceId, sourceLayer: bl.id };
+      }
+
+      // Otherwise assume standard OpenMapTiles "building" source-layer
+      return { source: sourceId, sourceLayer: "building" };
     }
 
     return null;
@@ -731,6 +759,33 @@ export function MapView({
       (layer) => (layer as { type?: string }).type === "symbol",
     )?.id;
 
+    const heightExpr: maplibregl.ExpressionSpecification = [
+      "coalesce",
+      ["to-number", ["get", "render_height"]],
+      ["to-number", ["get", "height"]],
+      ["*", ["to-number", ["get", "levels"]], 3],
+      12,
+    ];
+
+    // Height-based gradient: low=warm cream → high=cool steel blue
+    const buildingColorExpr: maplibregl.ExpressionSpecification = [
+      "interpolate",
+      ["linear"],
+      heightExpr,
+      0,
+      "#efe6d5", // ground  — warm cream
+      8,
+      "#e8dcc6", // low     — sandy
+      20,
+      "#ddd5c4", // mid-low — warm beige
+      40,
+      "#d0ccc6", // mid     — warm gray
+      70,
+      "#c2c8d0", // tall    — cool gray-blue
+      120,
+      "#a8b4c4", // tower   — steel blue
+    ];
+
     map.addLayer(
       {
         id: BUILDINGS_3D_LAYER_ID,
@@ -739,36 +794,50 @@ export function MapView({
         "source-layer": buildingSource.sourceLayer,
         minzoom: 13,
         paint: {
-          "fill-extrusion-color": [
-            "coalesce",
-            ["get", "colour"],
-            ["get", "color"],
-            "#cfd3db",
-          ],
-          "fill-extrusion-height": [
-            "coalesce",
-            ["to-number", ["get", "render_height"]],
-            ["to-number", ["get", "height"]],
-            ["*", ["to-number", ["get", "levels"]], 3],
-            12,
-          ],
+          "fill-extrusion-color": buildingColorExpr,
+          "fill-extrusion-height": heightExpr,
           "fill-extrusion-base": [
             "coalesce",
             ["to-number", ["get", "render_min_height"]],
             ["to-number", ["get", "min_height"]],
             0,
           ],
-          "fill-extrusion-opacity": 0.82,
+          // Smooth fade-in by zoom level
+          "fill-extrusion-opacity": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            13,
+            0,
+            13.5,
+            0.7,
+            15,
+            0.88,
+            18,
+            0.92,
+          ] as unknown as number,
+          // Vertical gradient: darker at base, lighter at roof — adds depth
+          "fill-extrusion-vertical-gradient": true as unknown as boolean,
         },
       },
       firstSymbolLayerId,
     );
   }
 
+  function apply3DLighting(map: maplibregl.Map) {
+    map.setLight({
+      anchor: "viewport",
+      color: "#fdf6e3", // warm sunlight tint
+      intensity: 0.35,
+      position: [1.5, 210, 30], // [radial, azimuthal°, polar°] — sun from upper-left
+    });
+  }
+
   function applyFree3DMode(map: maplibregl.Map) {
     map.setPitch(MAP_DEFAULT_PITCH);
     map.setBearing(MAP_DEFAULT_BEARING);
     ensure3DBuildingsLayer(map);
+    apply3DLighting(map);
   }
 
   function disable3DMode(map: maplibregl.Map) {
