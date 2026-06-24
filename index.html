@@ -62,6 +62,78 @@
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- Structured Data (JSON-LD) for Google Rich Results -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Pinly",
+      "url": "https://pinly-app.vercel.app",
+      "description": "Pinly giúp các cặp đôi lưu giữ kỷ niệm trên bản đồ. Ghim địa điểm, chia sẻ ảnh, theo dõi streak và tạo timeline tình yêu.",
+      "applicationCategory": "LifestyleApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "VND"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "Pinly"
+      },
+      "inLanguage": ["vi", "en"]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Pinly là gì?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Pinly là ứng dụng bản đồ kỷ niệm dành cho các cặp đôi. Bạn có thể ghim địa điểm hẹn hò, lưu ảnh kỷ niệm và xem lại timeline tình yêu."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Pinly có miễn phí không?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Có! Pinly miễn phí với 100 pins, 3 map styles và streak tracking. Nâng cấp Plus hoặc Pro để có thêm tính năng premium."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Pinly hoạt động trên thiết bị nào?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Pinly là Progressive Web App, hoạt động trên mọi trình duyệt (Chrome, Safari, Firefox) trên điện thoại và máy tính. Cài đặt như app native mà không cần App Store."
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- noscript fallback: Googlebot can always read this content -->
+    <noscript>
+      <h1>Pinly – Bản đồ kỷ niệm dành cho các cặp đôi</h1>
+      <p>Pinly giúp các cặp đôi lưu giữ kỷ niệm trên bản đồ. Ghim địa điểm hẹn hò, chia sẻ ảnh kỷ niệm, theo dõi streak và tạo timeline tình yêu của riêng bạn.</p>
+      <h2>Tính năng nổi bật</h2>
+      <ul>
+        <li>Ghim kỷ niệm trên bản đồ với ảnh và ghi chú</li>
+        <li>Timeline tình yêu – xem lại hành trình của 2 bạn</li>
+        <li>Streak hẹn hò – giữ lửa tình yêu mỗi ngày</li>
+        <li>Bản đồ 3D với nhiều style đẹp mắt</li>
+        <li>Chia sẻ share card kỷ niệm lên mạng xã hội</li>
+        <li>Hỗ trợ tiếng Việt và tiếng Anh</li>
+      </ul>
+      <p><a href="/register">Đăng ký miễn phí</a> | <a href="/login">Đăng nhập</a></p>
+    </noscript>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
