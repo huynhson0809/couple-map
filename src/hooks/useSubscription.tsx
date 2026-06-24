@@ -74,6 +74,7 @@ interface SubscriptionContextValue {
   isPremium: boolean;
   canUploadVideo: boolean;
   canUseMapStyle: (styleId: string) => boolean;
+  canUseMap3D: boolean;
   canCreatePin: (currentCount: number) => boolean;
   canAddPhoto: (currentCount: number) => boolean;
   canCreateCategory: (currentCount: number) => boolean;
@@ -93,7 +94,15 @@ const SubscriptionCtx = createContext<SubscriptionContextValue | null>(null);
 type SubscriptionContextPayload = {
   plan?: string | null;
   subscription?: Subscription | null;
+  map3d?: boolean | null;
+  entitlements?: {
+    map3d?: boolean | null;
+  } | null;
 };
+
+function readBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
 
 function normalizePlan(plan: string | null | undefined): PlanType {
   if (plan === "plus" || plan === "pro") return plan;
@@ -103,13 +112,19 @@ function normalizePlan(plan: string | null | undefined): PlanType {
 function normalizeSubscriptionContext(data: unknown): {
   plan: PlanType;
   subscription: Subscription | null;
+  canUseMap3D: boolean;
 } {
   const payload = (data ?? {}) as SubscriptionContextPayload;
   const plan = normalizePlan(payload.plan);
+  const entitlementFromObject = readBoolean(payload.entitlements?.map3d);
+  const entitlementFromTopLevel = readBoolean(payload.map3d);
+  const canUseMap3D =
+    entitlementFromObject ?? entitlementFromTopLevel ?? plan !== "free";
 
   return {
     plan,
     subscription: plan === "free" ? null : (payload.subscription ?? null),
+    canUseMap3D,
   };
 }
 
@@ -122,6 +137,7 @@ export function SubscriptionProvider({
 }) {
   const [plan, setPlan] = useState<PlanType>("free");
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [map3dEntitled, setMap3dEntitled] = useState(false);
   const [loading, setLoading] = useState(true);
   const requestIdRef = useRef(0);
 
@@ -131,6 +147,7 @@ export function SubscriptionProvider({
     if (!coupleId) {
       setPlan("free");
       setSubscription(null);
+      setMap3dEntitled(false);
       setLoading(false);
       return;
     }
@@ -147,6 +164,7 @@ export function SubscriptionProvider({
     if (error) {
       setPlan("free");
       setSubscription(null);
+      setMap3dEntitled(false);
       setLoading(false);
       return;
     }
@@ -154,6 +172,7 @@ export function SubscriptionProvider({
     const context = normalizeSubscriptionContext(data);
     setPlan(context.plan);
     setSubscription(context.subscription);
+    setMap3dEntitled(context.canUseMap3D);
     setLoading(false);
   }, [coupleId]);
 
@@ -256,6 +275,7 @@ export function SubscriptionProvider({
     isPremium: plan !== "free",
     canUploadVideo: limits.video,
     canUseMapStyle,
+    canUseMap3D: loading ? true : map3dEntitled,
     canCreatePin: (currentCount: number) => currentCount < limits.pins,
     canAddPhoto: (currentCount: number) => currentCount < limits.photosPerPin,
     canCreateCategory: (currentCount: number) =>

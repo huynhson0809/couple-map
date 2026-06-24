@@ -12,6 +12,7 @@ const PLAN_FEATURES: Record<
     { key: "photos", value: "3" },
     { key: "video", value: false },
     { key: "styles", value: "3" },
+    { key: "map3d", value: false },
     { key: "categories", value: false },
     { key: "grace", value: "0" },
     { key: "watermark", value: true },
@@ -21,6 +22,7 @@ const PLAN_FEATURES: Record<
     { key: "photos", value: "5" },
     { key: "video", value: false },
     { key: "styles", value: "10" },
+    { key: "map3d", value: true },
     { key: "categories", value: "5" },
     { key: "grace", value: "1" },
     { key: "watermark", value: false },
@@ -30,6 +32,7 @@ const PLAN_FEATURES: Record<
     { key: "photos", value: "5" },
     { key: "video", value: true },
     { key: "styles", value: "15" },
+    { key: "map3d", value: true },
     { key: "categories", value: "∞" },
     { key: "grace", value: "3" },
     { key: "watermark", value: false },
@@ -41,6 +44,7 @@ const FEATURE_LABELS: Record<string, { vi: string; en: string }> = {
   photos: { vi: "Ảnh/kỷ niệm", en: "Photos/memory" },
   video: { vi: "Upload video", en: "Video upload" },
   styles: { vi: "Map styles", en: "Map styles" },
+  map3d: { vi: "Bản đồ 3D", en: "3D map" },
   categories: { vi: "Danh mục tùy chỉnh", en: "Custom categories" },
   grace: { vi: "Streak grace (ngày)", en: "Streak grace (days)" },
   watermark: { vi: "Share card watermark", en: "Share card watermark" },
@@ -217,8 +221,8 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
         <Zap size={14} />
         <span>
           {lang === "vi"
-            ? `Free: ${PLAN_LIMITS.free.pins} pins, ${PLAN_LIMITS.free.photosPerPin} ảnh/pin, 3 map styles`
-            : `Free: ${PLAN_LIMITS.free.pins} pins, ${PLAN_LIMITS.free.photosPerPin} photos/pin, 3 map styles`}
+            ? `Free: ${PLAN_LIMITS.free.pins} pins, ${PLAN_LIMITS.free.photosPerPin} ảnh/pin, 3 map styles, không có 3D`
+            : `Free: ${PLAN_LIMITS.free.pins} pins, ${PLAN_LIMITS.free.photosPerPin} photos/pin, 3 map styles, no 3D`}
         </span>
       </div>
 

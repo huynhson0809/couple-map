@@ -26,6 +26,7 @@ import { usePinsCtx } from "../hooks/PinsContext";
 import { useBucket } from "../hooks/useBucket";
 import { useLocation as useGeo } from "../hooks/useLocation";
 import { useMapStyle } from "../hooks/useMapStyle";
+import { useMap3DMode } from "../hooks/useMap3DMode";
 import { useStreak } from "../hooks/useStreak";
 import { useSubscription } from "../hooks/useSubscription";
 import type { Pin } from "../types";
@@ -173,8 +174,9 @@ export function MapPage() {
     usePinsCtx();
   const { items: bucketItems } = useBucket(couple?.id, user?.id);
   const { getCurrentPosition } = useGeo();
-  const { canCreatePin, canUseMapStyle } = useSubscription();
+  const { canCreatePin, canUseMapStyle, canUseMap3D } = useSubscription();
   const { styleUrl } = useMapStyle(canUseMapStyle);
+  const { map3DEnabled } = useMap3DMode(canUseMap3D);
   const streak = useStreak(couple, profile?.id ?? user?.id);
   const routeLocation = useLocation();
   const navigate = useNavigate();
@@ -570,6 +572,7 @@ export function MapPage() {
           bucketItems={bucketMarkers}
           newestPinId={newestPinId}
           mapStyleUrl={styleUrl}
+          map3DEnabled={map3DEnabled}
         />
       </Suspense>
 

@@ -32,6 +32,7 @@ import {
   MAP_STYLES,
   type MapStyleOption,
 } from "../hooks/useMapStyle";
+import { useMap3DMode } from "../hooks/useMap3DMode";
 import { useSubscription } from "../hooks/useSubscription";
 import { PricingPage } from "./PricingPage";
 import { MapStylePreviewSheet } from "../components/settings/MapStylePreviewSheet";
@@ -89,8 +90,9 @@ export function SettingsPage() {
   const notif = useNotifications();
   const push = usePushSubscription(user?.id);
   const notifPrefs = useNotificationPreferences(user?.id);
-  const { plan, subscription, canUseMapStyle } = useSubscription();
+  const { plan, subscription, canUseMapStyle, canUseMap3D } = useSubscription();
   const { styleId, setStyleId } = useMapStyle(canUseMapStyle);
+  const { map3DEnabled, setMap3DEnabled } = useMap3DMode(canUseMap3D);
   const [initialStyle] = useState(styleId);
   const sortedStyles = useMemo(
     () =>
@@ -180,7 +182,9 @@ export function SettingsPage() {
       await refresh({ silent: true });
       navigate("/", { replace: true });
     } catch (e) {
-      setBreakupError(e instanceof Error ? e.message : t("settings.breakupError"));
+      setBreakupError(
+        e instanceof Error ? e.message : t("settings.breakupError"),
+      );
     } finally {
       setBreakupBusy(false);
     }
@@ -290,6 +294,30 @@ export function SettingsPage() {
         title={t("settings.mapStyle")}
         className="setting-section-map-style"
       >
+        <div className="setting-row compact">
+          <span>{t("settings.map3d")}</span>
+          {canUseMap3D ? (
+            <Switch
+              aria-label={t("settings.map3d")}
+              checked={map3DEnabled}
+              onChange={(e) => setMap3DEnabled(e.target.checked)}
+            />
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                setUpgradeFeature(lang === "vi" ? "Bản đồ 3D" : "3D map mode")
+              }
+            >
+              {lang === "vi" ? "Nâng cấp" : "Upgrade"}
+            </Button>
+          )}
+        </div>
+        {!canUseMap3D && (
+          <p className="muted small">{t("settings.map3dHint")}</p>
+        )}
         <div className="map-style-grid">
           {sortedStyles.map((s) => {
             const locked = !canUseMapStyle(s.id);
@@ -769,9 +797,7 @@ export function SettingsPage() {
       )}
 
       {showBreakupConfirm && (
-        <div
-          className="breakup-confirm-overlay lg-overlay-backdrop"
-        >
+        <div className="breakup-confirm-overlay lg-overlay-backdrop">
           <div
             className="breakup-confirm-card"
             role="dialog"

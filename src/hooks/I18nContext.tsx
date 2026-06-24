@@ -304,6 +304,8 @@ const dict = {
     "settings.coupleInfo": "Couple",
     "settings.inviteCode": "Invite code",
     "settings.mapStyle": "Map style",
+    "settings.map3d": "3D map",
+    "settings.map3dHint": "3D map is available on Plus and Pro plans.",
     "settings.mapStylePreview": "Preview {{style}}",
     "settings.mapStylePreviewHint":
       "Pan or zoom to see how this style feels on the map.",
@@ -324,8 +326,7 @@ const dict = {
     "settings.breakupConfirmPlaceholder": "KET THUC",
     "settings.breakupConfirmButton": "Delete everything and end",
     "settings.breakupDeleting": "Deleting…",
-    "settings.breakupError":
-      "Could not end this couple yet. Please try again.",
+    "settings.breakupError": "Could not end this couple yet. Please try again.",
     "settings.legal": "Legal",
     "settings.legalDesc":
       "Review Pinly's Terms and Privacy Policy, including how photos and videos are handled.",
@@ -682,6 +683,8 @@ const dict = {
     "settings.coupleInfo": "Couple",
     "settings.inviteCode": "Mã mời",
     "settings.mapStyle": "Kiểu bản đồ",
+    "settings.map3d": "Bản đồ 3D",
+    "settings.map3dHint": "Bản đồ 3D có trong gói Plus và Pro.",
     "settings.mapStylePreview": "Xem trước {{style}}",
     "settings.mapStylePreviewHint":
       "Kéo hoặc zoom để xem kiểu bản đồ này trông như thế nào.",
@@ -702,8 +705,7 @@ const dict = {
     "settings.breakupConfirmPlaceholder": "KET THUC",
     "settings.breakupConfirmButton": "Xoá tất cả và kết thúc",
     "settings.breakupDeleting": "Đang xoá…",
-    "settings.breakupError":
-      "Chưa thể kết thúc couple này. Vui lòng thử lại.",
+    "settings.breakupError": "Chưa thể kết thúc couple này. Vui lòng thử lại.",
     "settings.legal": "Pháp lý",
     "settings.legalDesc":
       "Xem lại Điều khoản và Chính sách quyền riêng tư của Pinly, bao gồm cách xử lý ảnh và video.",

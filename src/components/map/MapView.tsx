@@ -36,6 +36,7 @@ interface Props {
   onBucketClick?: (id: string) => void;
   newestPinId?: string | null;
   mapStyleUrl?: string;
+  map3DEnabled?: boolean;
 }
 
 const COLOR_USER_A = "#E24B4A";
@@ -51,6 +52,9 @@ const MEMORY_PIN_LABEL_LAYER = "memory-pin-label";
 const MEMORY_PIN_HIGHLIGHT_LAYER = "memory-pin-highlight";
 const MEMORY_CLUSTER_MAX_ZOOM = 15;
 const MEMORY_CLUSTER_RADIUS_PX = 56;
+const BUILDINGS_3D_LAYER_ID = "pinly-3d-buildings";
+const MAP_DEFAULT_PITCH = 58;
+const MAP_DEFAULT_BEARING = -18;
 const MEMORY_PIN_SPRITE_SIZE = 56;
 const MEMORY_PIN_SPRITE_PIXEL_RATIO = 2;
 const MEMORY_PIN_BADGE_RADIUS = 22;
@@ -126,6 +130,7 @@ export function MapView({
   onBucketClick,
   newestPinId,
   mapStyleUrl = "https://tiles.openfreemap.org/styles/bright",
+  map3DEnabled = false,
 }: Props) {
   const { customCategories } = useCategoriesCtx();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -238,7 +243,8 @@ export function MapView({
         iconImageId: getMemorySpriteId({ emoji, color, markerImageUrl }),
         color,
         highlighted: Boolean(
-          newestPinIdRef.current === pin.id || highlightedPinIdRef.current === pin.id,
+          newestPinIdRef.current === pin.id ||
+          highlightedPinIdRef.current === pin.id,
         ),
       },
       geometry: {
@@ -413,13 +419,7 @@ export function MapView({
     ctx.restore();
 
     if (input.image) {
-      drawCoverImage(
-        ctx,
-        input.image,
-        center,
-        center,
-        MEMORY_PIN_IMAGE_RADIUS,
-      );
+      drawCoverImage(ctx, input.image, center, center, MEMORY_PIN_IMAGE_RADIUS);
     } else {
       drawEmojiSprite(ctx, input.emoji, center, center);
     }
@@ -688,12 +688,102 @@ export function MapView({
   }
 
   function getExistingMemoryInteractionLayers(map: maplibregl.Map) {
-    return MEMORY_INTERACTION_LAYER_IDS.filter((layerId) => map.getLayer(layerId));
+    return MEMORY_INTERACTION_LAYER_IDS.filter((layerId) =>
+      map.getLayer(layerId),
+    );
   }
 
   function raiseMemoryLayers(map: maplibregl.Map) {
     for (const layerId of MEMORY_LAYER_IDS) {
       if (map.getLayer(layerId)) map.moveLayer(layerId);
+    }
+  }
+
+  function findBuildingLayerSource(map: maplibregl.Map) {
+    const style = map.getStyle();
+    const layers = style?.layers ?? [];
+
+    for (const layer of layers) {
+      const layerType = (layer as { type?: string }).type;
+      if (layerType !== "fill" && layerType !== "fill-extrusion") continue;
+
+      const sourceLayer = (layer as { "source-layer"?: string })[
+        "source-layer"
+      ];
+      const source = (layer as { source?: string }).source;
+      if (!sourceLayer || !source) continue;
+      if (!sourceLayer.toLowerCase().includes("building")) continue;
+
+      return { source, sourceLayer };
+    }
+
+    return null;
+  }
+
+  function ensure3DBuildingsLayer(map: maplibregl.Map) {
+    if (map.getLayer(BUILDINGS_3D_LAYER_ID)) return;
+
+    const buildingSource = findBuildingLayerSource(map);
+    if (!buildingSource) return;
+
+    const style = map.getStyle();
+    const firstSymbolLayerId = style?.layers?.find(
+      (layer) => (layer as { type?: string }).type === "symbol",
+    )?.id;
+
+    map.addLayer(
+      {
+        id: BUILDINGS_3D_LAYER_ID,
+        type: "fill-extrusion",
+        source: buildingSource.source,
+        "source-layer": buildingSource.sourceLayer,
+        minzoom: 13,
+        paint: {
+          "fill-extrusion-color": [
+            "coalesce",
+            ["get", "colour"],
+            ["get", "color"],
+            "#cfd3db",
+          ],
+          "fill-extrusion-height": [
+            "coalesce",
+            ["to-number", ["get", "render_height"]],
+            ["to-number", ["get", "height"]],
+            ["*", ["to-number", ["get", "levels"]], 3],
+            12,
+          ],
+          "fill-extrusion-base": [
+            "coalesce",
+            ["to-number", ["get", "render_min_height"]],
+            ["to-number", ["get", "min_height"]],
+            0,
+          ],
+          "fill-extrusion-opacity": 0.82,
+        },
+      },
+      firstSymbolLayerId,
+    );
+  }
+
+  function applyFree3DMode(map: maplibregl.Map) {
+    map.setPitch(MAP_DEFAULT_PITCH);
+    map.setBearing(MAP_DEFAULT_BEARING);
+    ensure3DBuildingsLayer(map);
+  }
+
+  function disable3DMode(map: maplibregl.Map) {
+    if (map.getLayer(BUILDINGS_3D_LAYER_ID)) {
+      map.removeLayer(BUILDINGS_3D_LAYER_ID);
+    }
+    map.setPitch(0);
+    map.setBearing(0);
+  }
+
+  function syncMap3DMode(map: maplibregl.Map) {
+    if (map3DEnabled) {
+      applyFree3DMode(map);
+    } else {
+      disable3DMode(map);
     }
   }
 
@@ -940,6 +1030,10 @@ export function MapView({
       style: mapStyleUrl,
       center: [106.6297, 10.8231],
       zoom: 12,
+      pitch: map3DEnabled ? MAP_DEFAULT_PITCH : 0,
+      bearing: map3DEnabled ? MAP_DEFAULT_BEARING : 0,
+      maxPitch: 85,
+      antialias: true,
       attributionControl: false,
       ...({ preserveDrawingBuffer: true } as Record<string, unknown>),
     } as ConstructorParameters<typeof maplibregl.Map>[0]);
@@ -1009,6 +1103,7 @@ export function MapView({
 
     map.on("load", () => {
       styleLoadedRef.current = true;
+      syncMap3DMode(map);
       fitToPinsOnce(map);
       emitMapCenter(map);
       syncMemoryLayers();
@@ -1057,11 +1152,19 @@ export function MapView({
     map.setStyle(mapStyleUrl);
     map.once("styledata", () => {
       styleLoadedRef.current = true;
+      syncMap3DMode(map);
       syncMemoryLayers();
       renderBucketMarkers();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapStyleUrl]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleLoadedRef.current) return;
+    syncMap3DMode(map);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map3DEnabled]);
 
   // Re-render memory layers when pins / users / newestPinId change
   useEffect(() => {
