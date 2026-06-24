@@ -179,7 +179,7 @@ function PairedShell() {
   const shellStyle =
     backgroundImageUrl && !isMap
       ? ({
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.16), rgba(255,255,255,0.36)), url(${backgroundImageUrl})`,
+          backgroundImage: `var(--app-shell-photo-overlay), url(${backgroundImageUrl})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundAttachment: "fixed",
