@@ -17,6 +17,10 @@ function hasNudgedToday(): boolean {
   return stored === getVnToday();
 }
 
+function markNudgedToday() {
+  localStorage.setItem(COOLDOWN_KEY, getVnToday());
+}
+
 export function useNudge(coupleId: string | null) {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(() => hasNudgedToday());
@@ -29,6 +33,28 @@ export function useNudge(coupleId: string | null) {
       mountedRef.current = false;
     };
   }, []);
+
+  // Sync with backend on mount — source of truth for "already nudged today"
+  useEffect(() => {
+    if (!coupleId || hasNudgedToday()) return;
+
+    let cancelled = false;
+    supabase
+      .rpc("can_nudge_today", { p_couple_id: coupleId })
+      .then(({ data }) => {
+        if (cancelled) return;
+        // data === true means CAN nudge (hasn't nudged yet)
+        // data === false means already nudged today
+        if (data === false) {
+          markNudgedToday();
+          setSent(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [coupleId]);
 
   // Reset sent status at midnight
   useEffect(() => {
@@ -59,9 +85,10 @@ export function useNudge(coupleId: string | null) {
     }
 
     if (data?.error === "already_nudged_today") {
-      localStorage.setItem(COOLDOWN_KEY, getVnToday());
+      markNudgedToday();
       setSent(true);
       setSending(false);
+      setError("Bạn đã nhắc hôm nay rồi");
       return;
     }
 
@@ -71,8 +98,8 @@ export function useNudge(coupleId: string | null) {
       return;
     }
 
-    // Treat "sent but push failed" same as sent (nudge logged, don't retry)
-    localStorage.setItem(COOLDOWN_KEY, getVnToday());
+    // Success
+    markNudgedToday();
     setSent(true);
     setSending(false);
   }, [coupleId, sending, sent]);
