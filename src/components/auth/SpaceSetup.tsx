@@ -13,7 +13,7 @@ const PENDING_SHARED_SETUP_KEY = "pinly.pendingSharedSetupInvite";
 function quotaMessage(lang: string) {
   return lang === "vi"
     ? "Bạn đã đạt giới hạn tạo bản đồ của gói hiện tại."
-    : "You have reached the map limit for your current plan.";
+    : "You have reached the map creation limit for your current plan.";
 }
 
 function readPendingSharedSetup() {

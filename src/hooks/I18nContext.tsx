@@ -59,6 +59,10 @@ const dict = {
       "Please accept the Terms of Use and Privacy Policy to create an account.",
     "auth.consentPrefix": "I have read and agree to Pinly's",
     "auth.consentAnd": "and",
+    "auth.continueWithGoogle": "Continue with Google",
+    "auth.redirecting": "Redirecting…",
+    "auth.socialDivider": "or continue with email",
+    "auth.oauthError": "Could not continue with Google. Please try again.",
     "legal.privacy": "Privacy Policy",
     "legal.terms": "Terms of Use",
     "legal.back": "Back",
@@ -323,6 +327,12 @@ const dict = {
     "settings.spacePersonal": "Personal",
     "settings.spaceShared": "Shared",
     "settings.createSpace": "Create new map",
+    "settings.joinSpace": "Join with invite code",
+    "settings.joinSpaceHint":
+      "Joining someone else's map does not count toward your map creation limit.",
+    "settings.joinSpaceSuccess": "Joined map.",
+    "settings.spaceQuotaCreateOnly":
+      "You have reached your map creation limit. You can still join maps you are invited to.",
     "settings.spaceInvite": "Invite someone",
     "settings.spaceInviteConfirm": "Share this map",
     "settings.spaceInviteShareAll":
@@ -488,6 +498,10 @@ const dict = {
       "Vui lòng đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư để tạo tài khoản.",
     "auth.consentPrefix": "Tôi đã đọc và đồng ý với",
     "auth.consentAnd": "và",
+    "auth.continueWithGoogle": "Tiếp tục với Google",
+    "auth.redirecting": "Đang chuyển…",
+    "auth.socialDivider": "hoặc tiếp tục bằng email",
+    "auth.oauthError": "Không thể tiếp tục với Google. Vui lòng thử lại.",
     "legal.privacy": "Chính sách quyền riêng tư",
     "legal.terms": "Điều khoản sử dụng",
     "legal.back": "Quay lại",
@@ -750,6 +764,12 @@ const dict = {
     "settings.spacePersonal": "Cá nhân",
     "settings.spaceShared": "Chung",
     "settings.createSpace": "Tạo bản đồ mới",
+    "settings.joinSpace": "Tham gia bằng mã mời",
+    "settings.joinSpaceHint":
+      "Bản đồ người khác mời bạn tham gia sẽ không tính vào giới hạn tạo bản đồ của bạn.",
+    "settings.joinSpaceSuccess": "Đã tham gia bản đồ.",
+    "settings.spaceQuotaCreateOnly":
+      "Bạn đã đạt giới hạn tạo bản đồ. Bạn vẫn có thể tham gia bản đồ được mời.",
     "settings.spaceInvite": "Mời người khác",
     "settings.spaceInviteConfirm": "Chia sẻ bản đồ này",
     "settings.spaceInviteShareAll":

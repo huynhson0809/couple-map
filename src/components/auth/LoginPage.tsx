@@ -5,12 +5,13 @@ import { useI18n } from "../../hooks/I18nContext";
 import { Button } from "../ui/Button";
 import { TextField } from "../ui/TextField";
 import { AuthShell } from "./AuthShell";
+import { SocialLoginButton } from "./SocialLoginButton";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 60_000; // 1 minute
 
 export function LoginPage() {
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const { t } = useI18n();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -60,6 +61,11 @@ export function LoginPage() {
         </>
       }
     >
+      <SocialLoginButton
+        onGoogle={signInWithGoogle}
+        errorId={error ? errorId : undefined}
+        onError={(message) => setError(message || null)}
+      />
       <form onSubmit={handleSubmit} className="auth-form">
         <TextField
           type="email"

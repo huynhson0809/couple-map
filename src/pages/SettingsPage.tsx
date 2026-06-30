@@ -300,8 +300,8 @@ export function SettingsPage() {
           {!subscriptionLoading && (
             <span className="muted setting-plan-meta">
               {lang === "vi"
-                ? `Bản đồ: ${ownedSpaceCount}/${ownedSpaceLimit}`
-                : `Maps: ${ownedSpaceCount}/${ownedSpaceLimit}`}
+                ? `Bản đồ đã tạo: ${ownedSpaceCount}/${ownedSpaceLimit}`
+                : `Maps created: ${ownedSpaceCount}/${ownedSpaceLimit}`}
             </span>
           )}
           {!subscriptionLoading && spacePlan !== accountPlan && spaceOwnerId && (
@@ -314,8 +314,8 @@ export function SettingsPage() {
           {quotaReached && (
             <span className="muted setting-plan-meta">
               {lang === "vi"
-                ? "Bạn đã đạt giới hạn tạo bản đồ của gói hiện tại."
-                : "You have reached the map limit for your current plan."}
+                ? "Bạn đã đạt giới hạn tạo bản đồ của gói hiện tại. Bạn vẫn có thể tham gia bản đồ được mời."
+                : "You have reached the map creation limit for your current plan. You can still join maps you are invited to."}
             </span>
           )}
         </div>

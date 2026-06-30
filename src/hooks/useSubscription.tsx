@@ -260,6 +260,7 @@ export function SubscriptionProvider({
   const [map3dEntitled, setMap3dEntitled] = useState(false);
   const [loading, setLoading] = useState(true);
   const requestIdRef = useRef(0);
+  const hasLoadedPlanOnceRef = useRef(false);
 
   const resetSubscriptionContext = useCallback(() => {
     setPlan(DEFAULT_SUBSCRIPTION_CONTEXT.plan);
@@ -273,6 +274,11 @@ export function SubscriptionProvider({
     setMap3dEntitled(DEFAULT_SUBSCRIPTION_CONTEXT.canUseMap3D);
   }, []);
 
+  const finishPlanLoad = useCallback(() => {
+    hasLoadedPlanOnceRef.current = true;
+    setLoading(false);
+  }, []);
+
   const fetchPlan = useCallback(async (scheduledRequestId?: number) => {
     const requestId = scheduledRequestId ?? ++requestIdRef.current;
 
@@ -280,11 +286,11 @@ export function SubscriptionProvider({
 
     if (!spaceId) {
       resetSubscriptionContext();
-      setLoading(false);
+      finishPlanLoad();
       return;
     }
 
-    setLoading(true);
+    if (!hasLoadedPlanOnceRef.current) setLoading(true);
 
     const { data, error } = await supabase.rpc(
       "get_subscription_context_for_space",
@@ -295,7 +301,7 @@ export function SubscriptionProvider({
 
     if (error) {
       resetSubscriptionContext();
-      setLoading(false);
+      finishPlanLoad();
       return;
     }
 
@@ -309,8 +315,8 @@ export function SubscriptionProvider({
     setCanCreateSpace(context.canCreateSpace);
     setSubscription(context.subscription);
     setMap3dEntitled(context.canUseMap3D);
-    setLoading(false);
-  }, [resetSubscriptionContext, spaceId]);
+    finishPlanLoad();
+  }, [finishPlanLoad, resetSubscriptionContext, spaceId]);
 
   useEffect(() => {
     const requestId = ++requestIdRef.current;

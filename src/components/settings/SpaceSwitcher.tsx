@@ -1,4 +1,4 @@
-import { Plus, Trash2, X } from "lucide-react";
+import { LogIn, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "../../hooks/I18nContext";
@@ -13,8 +13,8 @@ const DELETE_SPACE_CONFIRM_TEXT = "XOA";
 
 function quotaMessage(lang: string) {
   return lang === "vi"
-    ? "Bạn đã đạt giới hạn bản đồ của gói hiện tại."
-    : "You have reached your current plan's map limit.";
+    ? "Bạn đã đạt giới hạn tạo bản đồ. Bạn vẫn có thể tham gia bản đồ được mời."
+    : "You have reached your map creation limit. You can still join maps you are invited to.";
 }
 
 function formatSpaceError(err: unknown, lang: string) {
@@ -40,6 +40,7 @@ export function SpaceSwitcher() {
     members,
     setActiveSpace,
     createPersonalSpace,
+    joinSpaceByInvite,
     deleteSpace,
   } = useSpaceCtx();
   const {
@@ -47,10 +48,12 @@ export function SpaceSwitcher() {
     loading: subscriptionLoading,
     refetch: refetchSubscription,
   } = useSubscription();
-  const [busy, setBusy] = useState<"switch" | "create" | "delete" | null>(
-    null,
-  );
+  const [busy, setBusy] = useState<
+    "switch" | "create" | "join" | "delete" | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
+  const [joinInviteCode, setJoinInviteCode] = useState("");
+  const [joinSuccess, setJoinSuccess] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Space | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -100,6 +103,24 @@ export function SpaceSwitcher() {
     setError(null);
     try {
       await createPersonalSpace();
+    } catch (err) {
+      setError(formatSpaceError(err, lang));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleJoinSpaceByInvite(event: React.FormEvent) {
+    event.preventDefault();
+    if (busy || !joinInviteCode.trim()) return;
+    setBusy("join");
+    setError(null);
+    setJoinSuccess(false);
+    try {
+      await joinSpaceByInvite(joinInviteCode);
+      setJoinInviteCode("");
+      setJoinSuccess(true);
+      await refetchSubscription();
     } catch (err) {
       setError(formatSpaceError(err, lang));
     } finally {
@@ -295,9 +316,50 @@ export function SpaceSwitcher() {
           >
             {t("settings.createSpace")}
           </Button>
+          <form
+            className="space-join-form"
+            onSubmit={(event) => void handleJoinSpaceByInvite(event)}
+          >
+            <label className="space-join-label" htmlFor="settings-space-join-code">
+              {t("settings.joinSpace")}
+            </label>
+            <div className="space-join-row">
+              <input
+                id="settings-space-join-code"
+                className="space-join-input"
+                value={joinInviteCode}
+                onChange={(event) => {
+                  setJoinInviteCode(event.target.value.toUpperCase());
+                  setJoinSuccess(false);
+                  if (error) setError(null);
+                }}
+                placeholder={t("spaceSetup.inviteCode")}
+                maxLength={12}
+                autoComplete="off"
+                disabled={busy !== null && busy !== "join"}
+              />
+              <Button
+                type="submit"
+                variant="secondary"
+                size="sm"
+                loading={busy === "join"}
+                disabled={
+                  (busy !== null && busy !== "join") || !joinInviteCode.trim()
+                }
+                leadingIcon={<LogIn size={15} />}
+                className="space-join-submit"
+              >
+                {t("spaceSetup.join")}
+              </Button>
+            </div>
+            <p className="space-join-hint">{t("settings.joinSpaceHint")}</p>
+          </form>
         </div>
         {quotaReached && (
           <p className="space-quota-note">{quotaMessage(lang)}</p>
+        )}
+        {joinSuccess && (
+          <p className="space-join-success">{t("settings.joinSpaceSuccess")}</p>
         )}
         {error && <p className="error small">{error}</p>}
       </GlassSurface>

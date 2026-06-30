@@ -1227,6 +1227,84 @@ body { -webkit-tap-highlight-color: transparent; }
   gap: 12px;
 }
 
+.auth-social-stack {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.auth-social-button {
+  width: 100%;
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--fg);
+  box-shadow: 0 12px 30px rgba(18, 24, 38, 0.08);
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 850;
+  transition: transform 0.12s, border-color 0.16s, box-shadow 0.16s;
+}
+
+.auth-social-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(255, 90, 95, 0.35);
+  box-shadow: 0 16px 36px rgba(255, 90, 95, 0.12);
+}
+
+.auth-social-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.auth-social-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+[data-theme="dark"] .auth-social-button {
+  background: rgba(23, 27, 40, 0.82);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.auth-social-google-mark {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #fff;
+  color: #4285f4;
+  box-shadow: inset 0 0 0 1px rgba(18, 24, 38, 0.08);
+  font-size: 15px;
+  font-weight: 950;
+  font-family: Arial, sans-serif;
+}
+
+.auth-social-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.auth-social-divider::before,
+.auth-social-divider::after {
+  content: "";
+  height: 1px;
+  background: var(--glass-border);
+}
+
 .auth-consent-check {
   display: flex;
   align-items: center;
@@ -5953,6 +6031,77 @@ button.stat-card {
   justify-content: center;
 }
 
+.space-join-form {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.34);
+  box-shadow: inset 0 0.75px 0 rgba(255, 255, 255, 0.42);
+}
+
+.space-join-label {
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.space-join-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.space-join-input {
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.44);
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 850;
+  text-transform: uppercase;
+  outline: none;
+  box-shadow: inset 0 0.75px 0 rgba(255, 255, 255, 0.44);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.space-join-input:focus {
+  border-color: rgba(255, 90, 112, 0.62);
+  box-shadow:
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.44),
+    0 0 0 3px rgba(255, 90, 112, 0.14);
+}
+
+.space-join-submit {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.space-join-hint,
+.space-join-success {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.space-join-hint {
+  color: var(--muted);
+}
+
+.space-join-success {
+  margin-top: 8px;
+  color: #16a34a;
+}
+
 .space-quota-note {
   margin: 8px 0 0;
   color: var(--muted);
@@ -6145,6 +6294,15 @@ button.stat-card {
 
   .space-delete-actions {
     grid-template-columns: 1fr;
+  }
+
+  .space-join-row {
+    grid-template-columns: 1fr;
+  }
+
+  .space-join-submit {
+    width: 100%;
+    justify-content: center;
   }
 }
 
@@ -8797,6 +8955,7 @@ button.stat-card {
 [data-theme="dark"] .notif-pref-row,
 [data-theme="dark"] .map-style-card,
 [data-theme="dark"] .copy-chip,
+[data-theme="dark"] .space-join-form,
 [data-theme="dark"] .setting-input {
   background:
     linear-gradient(180deg, rgba(35, 39, 54, 0.88), rgba(21, 24, 35, 0.82)),
@@ -8805,6 +8964,10 @@ button.stat-card {
   box-shadow:
     inset 0 0 0 0.5px rgba(255, 255, 255, 0.12),
     0 10px 28px rgba(0, 0, 0, 0.22);
+}
+
+[data-theme="dark"] .space-join-success {
+  color: #86efac;
 }
 
 [data-theme="dark"] .map-style-card.active {

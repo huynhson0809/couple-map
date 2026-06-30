@@ -7,12 +7,13 @@ import { supabase } from "../../lib/supabase";
 import { Button } from "../ui/Button";
 import { TextField } from "../ui/TextField";
 import { AuthShell } from "./AuthShell";
+import { SocialLoginButton } from "./SocialLoginButton";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 60_000; // 1 minute
 
 export function RegisterPage() {
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
   const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -98,6 +99,11 @@ export function RegisterPage() {
         </p>
       }
     >
+      <SocialLoginButton
+        onGoogle={signInWithGoogle}
+        errorId={error ? errorId : undefined}
+        onError={(message) => setError(message || null)}
+      />
       <form onSubmit={handleSubmit} className="auth-form">
         <TextField
           type="text"

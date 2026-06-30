@@ -5,6 +5,10 @@ import { supabase } from "../lib/supabase";
 
 const RECOVERY_KEY = "pinly_password_recovery";
 
+function getAuthRedirectTo() {
+  return typeof window === "undefined" ? undefined : window.location.origin;
+}
+
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<SupaUser | null>(null);
@@ -115,6 +119,13 @@ export function useAuth() {
     },
     signIn: (email: string, password: string) =>
       supabase.auth.signInWithPassword({ email, password }),
+    signInWithGoogle: () =>
+      supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: getAuthRedirectTo(),
+        },
+      }),
     signOut: () => supabase.auth.signOut(),
   };
 }
