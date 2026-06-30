@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MapPin, Flame, Camera, Heart, Download, Globe } from "lucide-react";
+import { MapPin, Flame, Camera, Heart, Download, Globe, Lock } from "lucide-react";
 import { Logo } from "../components/ui/Logo";
 import { useI18n } from "../hooks/I18nContext";
 import { useState } from "react";
@@ -63,19 +63,57 @@ export function LandingPage() {
             </div>
             <div className="lp-hero-proof">
               <span className="lp-hero-proof-text">
-                {t("landing.proofCouples")}
+                {t("landing.proofSpaces")}
               </span>
             </div>
           </div>
           <div className="lp-hero-visual">
-            <div className="lp-phone">
-              <div className="lp-phone-notch" />
-              <div className="lp-phone-screen lp-phone-map">
-                <img
-                  src="/icons/map-preview.png"
-                  alt="Pinly map"
-                  className="lp-phone-map-img"
-                />
+            <div
+              className="lp-space-showcase"
+              aria-label={t("landing.spaceShowcaseTitle")}
+            >
+              <div className="lp-space-panel">
+                <div className="lp-space-panel-header">
+                  <span>{t("landing.spaceShowcaseTitle")}</span>
+                  <span>{t("landing.spaceInvite")}</span>
+                </div>
+                <div className="lp-space-list">
+                  <div className="lp-space-card active lp-space-card-one">
+                    <span>{t("landing.spacePersonal")}</span>
+                    <small>{t("landing.spacePrivate")}</small>
+                  </div>
+                  <div className="lp-space-card lp-space-card-two">
+                    <span>{t("landing.spaceTrip")}</span>
+                    <small>{t("landing.spaceMembers")}</small>
+                  </div>
+                  <div className="lp-space-card lp-space-card-three">
+                    <span>{t("landing.spaceFamily")}</span>
+                    <small>{t("landing.spaceShared")}</small>
+                  </div>
+                  <div className="lp-space-card lp-space-card-four">
+                    <span>{t("landing.spaceFriends")}</span>
+                    <small>{t("landing.spaceInvite")}</small>
+                  </div>
+                </div>
+              </div>
+              <div className="lp-memory-map-stage">
+                <div className="lp-map-scan" aria-hidden="true" />
+                <div className="lp-memory-map">
+                  <img
+                    src="/icons/map-preview.png"
+                    alt="Pinly map"
+                    className="lp-memory-map-img"
+                  />
+                  <span className="lp-map-pin one" />
+                  <span className="lp-map-pin two" />
+                  <span className="lp-map-pin three" />
+                  <span className="lp-memory-chip lp-memory-chip-one">51</span>
+                  <span className="lp-memory-chip lp-memory-chip-two">366</span>
+                  <div className="lp-map-caption">
+                    <MapPin size={14} />
+                    <span>{t("landing.mockupTagline")}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -84,11 +122,8 @@ export function LandingPage() {
 
       {/* Features */}
       <section className="lp-features" id="features">
-        <h2>
-          {t("landing.featuresTitle")}{" "}
-          <span className="lp-text-gradient">{t("landing.heroAccent")}</span>
-        </h2>
-        <p className="lp-features-sub">{t("landing.heroDesc")}</p>
+        <h2>{t("landing.featuresTitle")}</h2>
+        <p className="lp-features-sub">{t("landing.featuresSub")}</p>
         <div className="lp-features-grid">
           <div className="lp-fcard lp-fcard-wide">
             <div className="lp-fcard-content">
@@ -97,6 +132,15 @@ export function LandingPage() {
               </div>
               <h3>{t("landing.feat1Title")}</h3>
               <p>{t("landing.feat1Desc")}</p>
+            </div>
+          </div>
+          <div className="lp-fcard">
+            <div className="lp-fcard-content">
+              <div className="lp-fcard-icon">
+                <Heart size={18} />
+              </div>
+              <h3>{t("landing.feat5Title")}</h3>
+              <p>{t("landing.feat5Desc")}</p>
             </div>
           </div>
           <div className="lp-fcard">
@@ -117,10 +161,10 @@ export function LandingPage() {
               <p>{t("landing.feat2Desc")}</p>
             </div>
           </div>
-          <div className="lp-fcard lp-fcard-wide">
+          <div className="lp-fcard">
             <div className="lp-fcard-content">
               <div className="lp-fcard-icon">
-                <Heart size={18} />
+                <Lock size={18} />
               </div>
               <h3>{t("landing.feat4Title")}</h3>
               <p>{t("landing.feat4Desc")}</p>
