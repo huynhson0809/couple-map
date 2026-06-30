@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useCoupleCtx } from "../hooks/CoupleContext";
+import { useSpaceCtx } from "../hooks/SpaceContext";
 import { useBucket } from "../hooks/useBucket";
 import { useI18n } from "../hooks/I18nContext";
 import { useStreak } from "../hooks/useStreak";
@@ -30,14 +31,16 @@ import { searchPlaces, type PlaceSearchResult } from "../lib/placeSearch";
 export function WishlistPage() {
   const { user } = useAuth();
   const { couple, profile, partner } = useCoupleCtx();
+  const { activeSpace, capabilities } = useSpaceCtx();
+  const duoEnabled = capabilities.canUseDuoFeatures;
   const { items, addItem, removeItem, markDone, markDream } = useBucket(
     couple?.id,
     user?.id,
   );
   const { t } = useI18n();
-  const streak = useStreak(couple, profile?.id ?? user?.id);
-  const nudge = useNudge(couple?.id ?? null);
-  const { stats } = useStatsApi(couple?.id, couple);
+  const streak = useStreak(couple, profile?.id ?? user?.id, duoEnabled);
+  const nudge = useNudge(couple?.id ?? null, duoEnabled);
+  const { stats } = useStatsApi(activeSpace?.id, couple);
   const navigate = useNavigate();
 
   const [adding, setAdding] = useState(false);
@@ -136,7 +139,7 @@ export function WishlistPage() {
         <p className="muted">{t("wish.subtitle")}</p>
       </header>
 
-      {!streak.error && (
+      {duoEnabled && !streak.error && (
         <StreakCard
           currentCount={streak.currentCount}
           bestCount={streak.bestCount}
@@ -193,13 +196,15 @@ export function WishlistPage() {
             <div className="stat-value">{stats.countries}</div>
             <div className="stat-label">{t("stats.countries")}</div>
           </button>
-          <div className="stat-card stat-card-rose">
-            <div className="stat-icon">
-              <CalendarHeart size={20} />
+          {duoEnabled && (
+            <div className="stat-card stat-card-rose">
+              <div className="stat-icon">
+                <CalendarHeart size={20} />
+              </div>
+              <div className="stat-value">{stats.daysTogether ?? "—"}</div>
+              <div className="stat-label">{t("stats.daysTogether")}</div>
             </div>
-            <div className="stat-value">{stats.daysTogether ?? "—"}</div>
-            <div className="stat-label">{t("stats.daysTogether")}</div>
-          </div>
+          )}
           <div className="stat-card stat-card-amber">
             <div className="stat-icon">
               <Plane size={20} />

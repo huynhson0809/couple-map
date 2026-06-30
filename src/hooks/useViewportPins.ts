@@ -26,7 +26,7 @@ function expandBounds(vp: Viewport): Viewport {
   };
 }
 
-export function useViewportPins(coupleId: string | null | undefined) {
+export function useViewportPins(spaceId: string | null | undefined) {
   const [pins, setPins] = useState<Pin[]>([]);
   const [loading, setLoading] = useState(false);
   const [allLoaded, setAllLoaded] = useState(false);
@@ -38,7 +38,7 @@ export function useViewportPins(coupleId: string | null | undefined) {
 
   const fetchForViewport = useCallback(
     async (viewport: Viewport) => {
-      if (!coupleId) return;
+      if (!spaceId) return;
 
       // If we already loaded all pins, skip
       if (allLoaded) return;
@@ -67,7 +67,7 @@ export function useViewportPins(coupleId: string | null | undefined) {
         const { data, error } = await supabase
           .from("pins")
           .select(PIN_SELECT_WITH_CATEGORIES)
-          .eq("couple_id", coupleId)
+          .eq("couple_id", spaceId)
           .gte("lat", expanded.south)
           .lte("lat", expanded.north)
           .gte("lng", expanded.west)
@@ -107,7 +107,7 @@ export function useViewportPins(coupleId: string | null | undefined) {
       }
       setLoading(false);
     },
-    [coupleId, allLoaded],
+    [spaceId, allLoaded],
   );
 
   /** Call this when map viewport changes (debounced) */
@@ -123,12 +123,12 @@ export function useViewportPins(coupleId: string | null | undefined) {
 
   /** Load ALL pins (for stats/search that need full dataset) */
   const loadAll = useCallback(async () => {
-    if (!coupleId || allLoaded) return;
+    if (!spaceId || allLoaded) return;
     setLoading(true);
     const { data, error } = await supabase
       .from("pins")
       .select(PIN_SELECT_WITH_CATEGORIES)
-      .eq("couple_id", coupleId)
+      .eq("couple_id", spaceId)
       .order("position", { referencedTable: "categories", ascending: true })
       .order("created_at", { ascending: false });
     if (!error && data) {
@@ -138,15 +138,15 @@ export function useViewportPins(coupleId: string | null | undefined) {
       setAllLoaded(true);
     }
     setLoading(false);
-  }, [coupleId, allLoaded]);
+  }, [spaceId, allLoaded]);
 
   const loadPinById = useCallback(
     async (id: string): Promise<Pin | null> => {
-      if (!coupleId) return null;
+      if (!spaceId) return null;
       const { data, error } = await supabase
         .from("pins")
         .select(PIN_SELECT_WITH_CATEGORIES)
-        .eq("couple_id", coupleId)
+        .eq("couple_id", spaceId)
         .eq("id", id)
         .order("position", { referencedTable: "categories", ascending: true })
         .maybeSingle();
@@ -161,7 +161,7 @@ export function useViewportPins(coupleId: string | null | undefined) {
       });
       return pin;
     },
-    [coupleId],
+    [spaceId],
   );
 
   /** Add a newly created pin to local state */
@@ -181,7 +181,7 @@ export function useViewportPins(coupleId: string | null | undefined) {
     setPins((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   }, []);
 
-  // Reset when coupleId changes
+  // Reset when spaceId changes
   useEffect(() => {
     requestIdRef.current += 1;
     loadedBoundsRef.current = null;
@@ -192,7 +192,7 @@ export function useViewportPins(coupleId: string | null | undefined) {
       setAllLoaded(false);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [coupleId]);
+  }, [spaceId]);
 
   return {
     pins,

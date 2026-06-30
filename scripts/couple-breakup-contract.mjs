@@ -81,6 +81,16 @@ assert.match(edge, /pinly\/\$\{coupleId\}/, "Cloudinary cleanup should use the c
 assert.match(edge, /resourceType:\s*"image"/, "Cloudinary cleanup should include images");
 assert.match(edge, /resourceType:\s*"video"/, "Cloudinary cleanup should include videos");
 assert.match(edge, /finalize_couple_breakup/, "Edge Function should call the DB finalization RPC");
+assert.match(
+  edge,
+  /async\s+function\s+assertSpaceDeleteAllowed/,
+  "Edge Function should verify memory-space delete ownership before media cleanup",
+);
+assert.ok(
+  edge.indexOf("assertSpaceDeleteAllowed") <
+    edge.indexOf("deleteCloudinaryResourcesByPrefix"),
+  "owner authorization must happen before Cloudinary media cleanup",
+);
 assert.ok(
   edge.indexOf("deleteCloudinaryResourcesByPrefix") <
     edge.indexOf("finalize_couple_breakup"),

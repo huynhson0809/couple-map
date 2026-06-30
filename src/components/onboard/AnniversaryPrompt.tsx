@@ -3,16 +3,23 @@ import { Heart } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useCoupleCtx } from '../../hooks/CoupleContext'
 import { useI18n } from '../../hooks/I18nContext'
+import { useSpaceCtx } from '../../hooks/SpaceContext'
 
 export function AnniversaryPrompt() {
   const { couple, updateCouple } = useCoupleCtx()
+  const { capabilities } = useSpaceCtx()
   const { t } = useI18n()
   const [date, setDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [skipped, setSkipped] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const shouldShow = !!couple && !couple.anniversary_date && !skipped
+  const shouldShow =
+    capabilities.canDeleteSpace &&
+    capabilities.canUseDuoFeatures &&
+    !!couple &&
+    !couple.anniversary_date &&
+    !skipped
 
   if (!shouldShow) return null
 

@@ -15,6 +15,7 @@ import { Logo } from "./components/ui/Logo";
 import { getImageUrl } from "./lib/cloudinary";
 import { useAuth } from "./hooks/useAuth";
 import { CoupleProvider, useCoupleCtx } from "./hooks/CoupleContext";
+import { SpaceProvider, useSpaceCtx } from "./hooks/SpaceContext";
 import { PinsProvider } from "./hooks/PinsContext";
 import { CategoriesProvider } from "./hooks/CategoriesContext";
 import { ThemeProvider } from "./hooks/ThemeContext";
@@ -50,9 +51,9 @@ const ConsentGate = lazy(() =>
     default: module.ConsentGate,
   })),
 );
-const CoupleSetup = lazy(() =>
-  import("./components/auth/CoupleSetup").then((module) => ({
-    default: module.CoupleSetup,
+const SpaceSetup = lazy(() =>
+  import("./components/auth/SpaceSetup").then((module) => ({
+    default: module.SpaceSetup,
   })),
 );
 const PrivacyPage = lazy(() =>
@@ -126,11 +127,11 @@ function AppStatusScreen({
 }
 
 function PairedShell() {
-  const { couple, profile } = useCoupleCtx();
+  const { activeSpace, profile } = useSpaceCtx();
   const location = useLocation();
   const navigate = useNavigate();
   const isMap = location.pathname === "/";
-  const bgUrl = couple?.background_image_url;
+  const bgUrl = activeSpace?.background_image_url;
   const backgroundImageUrl = bgUrl ? getImageUrl(bgUrl, 1200) : undefined;
   const backgroundPreloadRef = useRef<HTMLImageElement | null>(null);
   const push = usePushSubscription(profile?.id);
@@ -209,12 +210,15 @@ function PairedShell() {
 }
 
 function PinsScope() {
-  const { couple, profile } = useCoupleCtx();
+  const { couple, profile: coupleProfile } = useCoupleCtx();
+  const { activeSpace, profile: spaceProfile } = useSpaceCtx();
+  const scopedId = activeSpace?.id ?? couple?.id ?? null;
+  const scopedUserId = spaceProfile?.id ?? coupleProfile?.id;
 
   return (
-    <SubscriptionProvider coupleId={couple?.id ?? null}>
-      <PinsProvider coupleId={couple?.id} userId={profile?.id}>
-        <CategoriesProvider coupleId={couple?.id} userId={profile?.id}>
+    <SubscriptionProvider spaceId={scopedId}>
+      <PinsProvider spaceId={scopedId} userId={scopedUserId}>
+        <CategoriesProvider spaceId={scopedId} userId={scopedUserId}>
           <RoutedShell />
         </CategoriesProvider>
       </PinsProvider>
@@ -223,7 +227,8 @@ function PinsScope() {
 }
 
 function RoutedShell() {
-  const { couple, loading, error } = useCoupleCtx();
+  const { activeSpace, loading, error } = useSpaceCtx();
+  const location = useLocation();
 
   if (loading) return <AppStatusScreen title="Loading Pinly…" />;
 
@@ -237,12 +242,20 @@ function RoutedShell() {
     );
   }
 
-  const paired = !!couple && !!couple.user_b;
-  if (!paired) {
+  if (!activeSpace) {
     return (
       <Routes>
-        <Route path="/setup" element={<CoupleSetup />} />
+        <Route path="/setup" element={<SpaceSetup />} />
         <Route path="*" element={<Navigate to="/setup" replace />} />
+      </Routes>
+    );
+  }
+
+  if (location.pathname === "/setup") {
+    return (
+      <Routes>
+        <Route path="/setup" element={<SpaceSetup />} />
+        <Route path="*" element={<PairedShell />} />
       </Routes>
     );
   }
@@ -290,9 +303,11 @@ function AppRoutes() {
         element={
           <DesktopGate>
             <ConsentGate userId={user.id}>
-              <CoupleProvider userId={user.id}>
-                <PinsScope />
-              </CoupleProvider>
+              <SpaceProvider userId={user.id}>
+                <CoupleProvider userId={user.id}>
+                  <PinsScope />
+                </CoupleProvider>
+              </SpaceProvider>
             </ConsentGate>
           </DesktopGate>
         }

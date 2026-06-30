@@ -12,18 +12,23 @@ function getVnToday() {
   }).format(new Date());
 }
 
-function hasNudgedToday(): boolean {
-  const stored = localStorage.getItem(COOLDOWN_KEY);
+function cooldownKey(coupleId: string) {
+  return `${COOLDOWN_KEY}:${coupleId}`;
+}
+
+function hasNudgedToday(coupleId: string | null): boolean {
+  if (!coupleId) return false;
+  const stored = localStorage.getItem(cooldownKey(coupleId));
   return stored === getVnToday();
 }
 
-function markNudgedToday() {
-  localStorage.setItem(COOLDOWN_KEY, getVnToday());
+function markNudgedToday(coupleId: string) {
+  localStorage.setItem(cooldownKey(coupleId), getVnToday());
 }
 
-export function useNudge(coupleId: string | null) {
+export function useNudge(coupleId: string | null, enabled = true) {
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(() => hasNudgedToday());
+  const [sent, setSent] = useState(() => hasNudgedToday(coupleId));
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
@@ -36,7 +41,11 @@ export function useNudge(coupleId: string | null) {
 
   // Sync with backend on mount — source of truth for "already nudged today"
   useEffect(() => {
-    if (!coupleId || hasNudgedToday()) return;
+    if (!enabled || !coupleId) return;
+    if (hasNudgedToday(coupleId)) {
+      queueMicrotask(() => setSent(true));
+      return;
+    }
 
     let cancelled = false;
     supabase
@@ -46,34 +55,37 @@ export function useNudge(coupleId: string | null) {
         // data === true means CAN nudge (hasn't nudged yet)
         // data === false means already nudged today
         if (data === false) {
-          markNudgedToday();
+          markNudgedToday(coupleId);
           setSent(true);
+        } else {
+          setSent(false);
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [coupleId]);
+  }, [coupleId, enabled]);
 
   // Reset sent status at midnight
   useEffect(() => {
+    if (!enabled) return;
     const check = () => {
-      if (!hasNudgedToday()) setSent(false);
+      if (!hasNudgedToday(coupleId)) setSent(false);
     };
     const interval = window.setInterval(check, 60_000);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [coupleId, enabled]);
 
   const sendNudge = useCallback(async () => {
-    if (!coupleId || sending || sent) return;
+    if (!enabled || !coupleId || sending || sent) return;
 
     setSending(true);
     setError(null);
 
     const { data, error: fnError } = await supabase.functions.invoke(
       "send-nudge",
-      { body: {} },
+      { body: { coupleId } },
     );
 
     if (!mountedRef.current) return;
@@ -85,7 +97,7 @@ export function useNudge(coupleId: string | null) {
     }
 
     if (data?.error === "already_nudged_today") {
-      markNudgedToday();
+      markNudgedToday(coupleId);
       setSent(true);
       setSending(false);
       setError("Bạn đã nhắc hôm nay rồi");
@@ -99,12 +111,18 @@ export function useNudge(coupleId: string | null) {
     }
 
     // Success
-    markNudgedToday();
+    markNudgedToday(coupleId);
     setSent(true);
     setSending(false);
-  }, [coupleId, sending, sent]);
+  }, [coupleId, enabled, sending, sent]);
 
-  const canNudge = !sent && !sending;
+  const canNudge = enabled && !sent && !sending;
 
-  return { sendNudge, sending, sent, error, canNudge };
+  return {
+    sendNudge,
+    sending: enabled ? sending : false,
+    sent: enabled ? sent : false,
+    error: enabled ? error : null,
+    canNudge,
+  };
 }

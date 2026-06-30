@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { MapPin, Globe2, Sparkles, CalendarHeart, Plane, X } from "lucide-react";
 import { useCoupleCtx } from "../hooks/CoupleContext";
+import { useSpaceCtx } from "../hooks/SpaceContext";
 import { usePinsCtx } from "../hooks/PinsContext";
 import { useStats } from "../hooks/useStats";
 import { useI18n } from "../hooks/I18nContext";
@@ -10,6 +11,8 @@ type DetailType = "cities" | "countries" | "memories" | "farthest" | null;
 
 export function StatsPage() {
   const { couple, partner, profile } = useCoupleCtx();
+  const { capabilities } = useSpaceCtx();
+  const duoEnabled = capabilities.canUseDuoFeatures;
   const { pins } = usePinsCtx();
   const { t } = useI18n();
   const s = useStats(pins, couple);
@@ -84,12 +87,14 @@ export function StatsPage() {
           color="#9333ea"
           onClick={() => setDetail("countries")}
         />
-        <StatCard
-          icon={<CalendarHeart />}
-          value={s.daysTogether ?? "—"}
-          label={t("stats.daysTogether")}
-          color="#ff4d57"
-        />
+        {duoEnabled && (
+          <StatCard
+            icon={<CalendarHeart />}
+            value={s.daysTogether ?? "—"}
+            label={t("stats.daysTogether")}
+            color="#ff4d57"
+          />
+        )}
         <StatCard
           icon={<Plane />}
           value={`${s.farthestKm} km`}

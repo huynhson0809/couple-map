@@ -59,6 +59,12 @@ type CoupleStreakRow = {
   today_completed: boolean;
 };
 
+type DuoSpaceMemberRow = {
+  user_id: string;
+  status: string;
+  joined_at: string | null;
+};
+
 type GeminiReminderResult =
   | {
       ok: true;
@@ -115,6 +121,33 @@ type DebugCouple = {
 };
 
 type ReasonCounts = Record<string, number>;
+
+async function loadDuoSpaceMembersForCouple(
+  supabase: ReturnType<typeof createClient>,
+  coupleId: string,
+) {
+  const { data: space, error: spaceError } = await supabase
+    .from("spaces")
+    .select("id")
+    .or(`id.eq.${coupleId},legacy_couple_id.eq.${coupleId}`)
+    .limit(1)
+    .maybeSingle();
+
+  if (spaceError) throw spaceError;
+  if (!space?.id) return null;
+
+  const { data: members, error: membersError } = await supabase
+    .from("space_members")
+    .select("user_id,status,joined_at")
+    .eq("space_id", space.id)
+    .eq("status", "active")
+    .order("joined_at", { ascending: true });
+
+  if (membersError) throw membersError;
+  if (!members || members.length !== 2) return null;
+
+  return members as DuoSpaceMemberRow[];
+}
 
 function localParts(date = new Date(), timeZone = "Asia/Ho_Chi_Minh") {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -837,11 +870,15 @@ serve(async (req) => {
 
     if (couplesError) throw couplesError;
 
-    await Promise.all(
-      (couplesForRefresh ?? []).map((couple) =>
+    const refreshTasks = [];
+    for (const couple of couplesForRefresh ?? []) {
+      const duoMembers = await loadDuoSpaceMembersForCouple(supabase, couple.id);
+      if (!duoMembers) continue;
+      refreshTasks.push(
         supabase.rpc("refresh_couple_streak", { target_couple_id: couple.id }),
-      ),
-    );
+      );
+    }
+    await Promise.all(refreshTasks);
 
     let streakQuery = supabase
       .from("couple_streaks")
@@ -892,13 +929,31 @@ serve(async (req) => {
         }
       }
 
+      const duoMembers = await loadDuoSpaceMembersForCouple(
+        supabase,
+        streak.couple_id,
+      );
+
+      if (!duoMembers) {
+        skipped += 1;
+        debugCouple.logStatus = "missing_couple";
+        debugCouples.push(debugCouple);
+        continue;
+      }
+
       const { data: couple } = await supabase
         .from("couples")
         .select("user_a,user_b")
         .eq("id", streak.couple_id)
         .single();
 
-      if (!couple?.user_a || !couple?.user_b) {
+      const duoMemberIds = new Set(duoMembers.map((member) => member.user_id));
+      if (
+        !couple?.user_a ||
+        !couple?.user_b ||
+        !duoMemberIds.has(couple.user_a) ||
+        !duoMemberIds.has(couple.user_b)
+      ) {
         skipped += 1;
         debugCouple.logStatus = "missing_couple";
         debugCouples.push(debugCouple);

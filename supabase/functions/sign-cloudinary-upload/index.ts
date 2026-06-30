@@ -1,5 +1,5 @@
 // Supabase Edge Function: sign-cloudinary-upload
-// Returns a short-lived Cloudinary upload signature for the authenticated user's couple folder.
+// Returns a short-lived Cloudinary upload signature for an authenticated space folder.
 //
 // Deploy: supabase functions deploy sign-cloudinary-upload
 // Env vars needed: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
@@ -20,6 +20,8 @@ const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 const IMAGE_FORMATS = ["jpg", "jpeg", "png", "webp", "gif", "avif", "heic", "heif"];
 const VIDEO_FORMATS = ["mp4", "mov", "webm", "m4v"];
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -71,18 +73,33 @@ function signCloudinaryParams(
   return sha1Hex(`${payload}${apiSecret}`);
 }
 
-function resolveAllowedFolder(requestedFolder: string, coupleId: string) {
-  const root = `pinly/${coupleId}`;
-  const normalized = sanitizeFolder(requestedFolder || root);
-  const legacyBackground = `pinly/backgrounds/${coupleId}`;
-  const folder = normalized === "pinly"
-    ? root
-    : normalized === legacyBackground
-      ? `${root}/backgrounds`
-      : normalized;
+function resolveAllowedFolder(
+  requestedFolder: string,
+  fallbackSpaceId: string | null,
+) {
+  const fallbackRoot = fallbackSpaceId ? `pinly/${fallbackSpaceId}` : "pinly";
+  const normalized = sanitizeFolder(requestedFolder || fallbackRoot);
+  const parts = normalized.split("/");
+  const legacyBackgroundSpaceId =
+    parts.length === 3 && parts[0] === "pinly" && parts[1] === "backgrounds"
+      ? parts[2]
+      : null;
+  const requestedSpaceId =
+    normalized === "pinly" ? fallbackSpaceId : legacyBackgroundSpaceId ?? parts[1];
+
+  if (!requestedSpaceId || !UUID_PATTERN.test(requestedSpaceId)) return null;
+
+  const root = `pinly/${requestedSpaceId}`;
+  const legacyBackground = `pinly/backgrounds/${requestedSpaceId}`;
+  const folder =
+    normalized === "pinly"
+      ? root
+      : normalized === legacyBackground
+        ? `${root}/backgrounds`
+        : normalized;
   const allowed = new Set([root, `${root}/backgrounds`, `${root}/markers`]);
   if (!allowed.has(folder)) return null;
-  return folder;
+  return { folder, spaceId: requestedSpaceId };
 }
 
 function normalizeResourceType(value: unknown): UploadResourceType | null {
@@ -126,15 +143,36 @@ serve(async (req) => {
 
     const { data: profile, error: profileError } = await supabase
       .from("users")
-      .select("couple_id")
+      .select("couple_id, active_space_id")
       .eq("id", authData.user.id)
       .single();
     if (profileError) throw profileError;
-    if (!profile?.couple_id) return jsonResponse({ error: "No couple" }, 403);
 
     const body = await req.json().catch(() => ({}));
-    const folder = resolveAllowedFolder(String(body.folder || ""), profile.couple_id);
-    if (!folder) return jsonResponse({ error: "Forbidden upload folder" }, 403);
+    const fallbackSpaceId = profile?.active_space_id ?? profile?.couple_id ?? null;
+    const resolvedUpload = resolveAllowedFolder(
+      String(body.folder || ""),
+      fallbackSpaceId,
+    );
+    if (!resolvedUpload) {
+      return jsonResponse({ error: "Forbidden upload folder" }, 403);
+    }
+
+    const { data: membership, error: membershipError } = await serviceSupabase
+      .from("space_members")
+      .select("space_id")
+      .eq("space_id", resolvedUpload.spaceId)
+      .eq("user_id", authData.user.id)
+      .eq("status", "active")
+      .limit(1);
+
+    if (membershipError) {
+      console.error("Space membership lookup error:", membershipError.message);
+      return jsonResponse({ error: "Unable to verify space access" }, 500);
+    }
+    if (!membership?.length) {
+      return jsonResponse({ error: "Forbidden upload folder" }, 403);
+    }
 
     const resourceType = normalizeResourceType(body.resourceType);
     if (!resourceType) return jsonResponse({ error: "Invalid resource type" }, 400);
@@ -157,14 +195,16 @@ serve(async (req) => {
       return jsonResponse({ error: "File too large", maxFileSize }, 413);
     }
 
-    const { data: couple, error: coupleError } = await supabase
-      .from("couples")
-      .select("plan")
-      .eq("id", profile.couple_id)
-      .single();
-    if (coupleError) throw coupleError;
+    const { data: effectivePlan, error: planError } = await serviceSupabase.rpc(
+      "get_space_effective_plan",
+      { p_space_id: resolvedUpload.spaceId },
+    );
+    if (planError) {
+      console.error("Plan lookup error:", planError.message);
+      return jsonResponse({ error: "Unable to verify plan" }, 500);
+    }
 
-    const canUploadVideo = couple?.plan === "pro";
+    const canUploadVideo = effectivePlan === "pro";
     if (resourceType === "video" && !canUploadVideo) {
       return jsonResponse({ error: "Video upload requires Pro" }, 403);
     }
@@ -177,7 +217,7 @@ serve(async (req) => {
       resourceType === "video" ? VIDEO_FORMATS.join(",") : IMAGE_FORMATS.join(",");
     const signatureParams = {
       allowed_formats: allowedFormats,
-      folder,
+      folder: resolvedUpload.folder,
       timestamp,
     };
     const signature = await signCloudinaryParams(signatureParams, apiSecret);
@@ -187,7 +227,7 @@ serve(async (req) => {
       apiKey,
       timestamp,
       signature,
-      folder,
+      folder: resolvedUpload.folder,
       resourceType,
       allowedFormats,
       maxFileSize,

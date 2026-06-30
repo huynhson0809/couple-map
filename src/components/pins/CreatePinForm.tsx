@@ -42,7 +42,7 @@ import { usePinsCtx } from "../../hooks/PinsContext";
 import { supabase } from "../../lib/supabase";
 
 interface Props {
-  coupleId: string;
+  spaceId: string;
   userId: string;
   coords: { lat: number; lng: number; accuracy?: number | null };
   onCreated: () => void;
@@ -100,13 +100,13 @@ async function compressImageForUpload(file: File) {
 }
 
 export function CreatePinForm({
-  coupleId,
+  spaceId,
   userId,
   coords,
   onCreated,
   onCancel,
 }: Props) {
-  const { createPin } = usePins(coupleId, userId);
+  const { createPin } = usePins(spaceId, userId);
   const {
     allCategories,
     customCategories,
@@ -278,7 +278,7 @@ export function CreatePinForm({
     try {
       const compressed = await compressImageForUpload(file);
       const res = await uploadToCloudinary(compressed, {
-        folder: `pinly/${coupleId}`,
+        folder: `pinly/${spaceId}`,
       });
       setMarkerImageUrl(res.url);
       setMarkerEmoji(null);
@@ -467,9 +467,9 @@ export function CreatePinForm({
 
       // Upload in background after the created-memory UI has had a frame to paint.
       startAfterNextPaint(() => {
-        void savePendingUploads(pin.id, coupleId, mediaFiles)
+        void savePendingUploads(pin.id, spaceId, mediaFiles)
           .then(() =>
-            uploadPinMediaFiles(mediaFiles, `pinly/${coupleId}`, (pct) =>
+            uploadPinMediaFiles(mediaFiles, `pinly/${spaceId}`, (pct) =>
               setUploadProgress(pin.id, pct),
             ),
           )

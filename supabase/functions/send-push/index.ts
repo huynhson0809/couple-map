@@ -119,6 +119,37 @@ async function assertActorAllowed(
     throw Object.assign(new Error("Forbidden actor"), { status: 403 });
 }
 
+async function resolveDuoRecipientForPin(
+  supabase: ReturnType<typeof createClient>,
+  pin: {
+    space_id?: string | null;
+    couple_id: string | null;
+    created_by: string;
+  },
+) {
+  const targetSpaceId =
+    typeof pin.space_id === "string" ? pin.space_id : pin.couple_id;
+  if (!targetSpaceId) return null;
+
+  const { data: members, error } = await supabase
+    .from("space_members")
+    .select("user_id,status,joined_at")
+    .eq("space_id", targetSpaceId)
+    .eq("status", "active")
+    .order("joined_at", { ascending: true });
+
+  if (error) throw error;
+  if (!members || members.length !== 2) return null;
+  if (!members.some((member) => member.user_id === pin.created_by)) {
+    return null;
+  }
+
+  const recipient = members.find(
+    (member) => member.user_id !== pin.created_by,
+  );
+  return recipient?.user_id ?? null;
+}
+
 async function loadEventContext(
   supabase: ReturnType<typeof createClient>,
   eventType: EventType,
@@ -132,7 +163,7 @@ async function loadEventContext(
     const pinId = requireUuid(record.id, "pin id");
     const { data: pin } = await supabase
       .from("pins")
-      .select("id,title,couple_id,created_by,created_at")
+      .select("id,title,couple_id,space_id,created_by,created_at")
       .eq("id", pinId)
       .single();
     if (!pin) throw Object.assign(new Error("Pin not found"), { status: 404 });
@@ -143,16 +174,7 @@ async function loadEventContext(
       trustedWebhook,
     );
 
-    const { data: couple } = await supabase
-      .from("couples")
-      .select("user_a,user_b")
-      .eq("id", pin.couple_id)
-      .single();
-    if (!couple)
-      throw Object.assign(new Error("Couple not found"), { status: 404 });
-
-    const recipientId =
-      couple.user_a === pin.created_by ? couple.user_b : couple.user_a;
+    const recipientId = await resolveDuoRecipientForPin(supabase, pin);
     return {
       eventType,
       notificationKind,
@@ -434,7 +456,7 @@ serve(async (req) => {
       .eq("user_id", context.recipientId);
 
     if (!subscriptions || subscriptions.length === 0) {
-      return jsonResponse({ message: "No push subscriptions for partner" });
+      return jsonResponse({ message: "No push subscriptions for recipient" });
     }
 
     const { data: creator } = await supabase
@@ -443,7 +465,7 @@ serve(async (req) => {
       .eq("id", context.actorId)
       .single();
 
-    const creatorName = creator?.display_name || "Người yêu";
+    const creatorName = creator?.display_name || "Một thành viên";
     const bodyPreview = context.interactionBody
       ? `“${context.interactionBody.slice(0, 80)}”`
       : context.pinTitle;

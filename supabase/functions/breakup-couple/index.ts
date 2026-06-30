@@ -163,6 +163,44 @@ async function destroyCloudinaryAsset({
   return json;
 }
 
+async function assertSpaceDeleteAllowed(
+  serviceSupabase: ReturnType<typeof createClient>,
+  coupleId: string,
+  userId: string,
+) {
+  const { data: space, error: spaceError } = await serviceSupabase
+    .from("spaces")
+    .select("id,owner_id")
+    .or(`id.eq.${coupleId},legacy_couple_id.eq.${coupleId}`)
+    .limit(1)
+    .maybeSingle();
+
+  if (spaceError) throw spaceError;
+  if (!space) return;
+
+  if (space.owner_id !== userId) {
+    throw Object.assign(new Error("Only space owners can delete spaces"), {
+      status: 403,
+    });
+  }
+
+  const { data: ownerMember, error: memberError } = await serviceSupabase
+    .from("space_members")
+    .select("user_id")
+    .eq("space_id", space.id)
+    .eq("user_id", userId)
+    .eq("role", "owner")
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (memberError) throw memberError;
+  if (!ownerMember) {
+    throw Object.assign(new Error("Only active space owners can delete spaces"), {
+      status: 403,
+    });
+  }
+}
+
 async function deleteCloudinaryResourcesByPrefix({
   cloudName,
   apiKey,
@@ -294,6 +332,8 @@ serve(async (req) => {
       return jsonResponse({ error: "Not a couple member" }, 403);
     }
 
+    await assertSpaceDeleteAllowed(serviceSupabase, coupleId, userId);
+
     const cloudName = getRequiredEnv("CLOUDINARY_CLOUD_NAME");
     const apiKey = getRequiredEnv("CLOUDINARY_API_KEY");
     const apiSecret = getRequiredEnv("CLOUDINARY_API_SECRET");
@@ -341,6 +381,10 @@ serve(async (req) => {
   } catch (err) {
     console.error("breakup-couple error:", err);
     const message = err instanceof Error ? err.message : String(err);
+    const status = (err as { status?: unknown })?.status;
+    if (typeof status === "number") {
+      return jsonResponse({ error: message }, status);
+    }
     if (message.includes("Cloudinary")) {
       return jsonResponse(
         { error: "Could not delete all media. Please try again.", details: message },

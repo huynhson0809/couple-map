@@ -39,6 +39,11 @@ type CoupleRow = {
   user_b: string | null;
 };
 
+type NudgeTarget = {
+  spaceId: string;
+  couple: CoupleRow;
+};
+
 type CoupleStreakRow = {
   today_user_a_posted: boolean;
   today_user_b_posted: boolean;
@@ -55,6 +60,89 @@ function hasPostedToday(streak: CoupleStreakRow, slot: StreakSlot) {
   return slot === "user_a"
     ? streak.today_user_a_posted
     : streak.today_user_b_posted;
+}
+
+function isUuid(value: unknown) {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  );
+}
+
+function requireUuid(value: unknown, label: string) {
+  if (!isUuid(value)) {
+    throw Object.assign(new Error(`Invalid ${label}`), { status: 400 });
+  }
+  return value as string;
+}
+
+async function loadDuoSpaceForNudge(
+  supabase: SupabaseClient,
+  coupleId: string,
+  senderId: string,
+): Promise<NudgeTarget> {
+  const { data: space, error: spaceError } = await supabase
+    .from("spaces")
+    .select("id,legacy_couple_id")
+    .or(`id.eq.${coupleId},legacy_couple_id.eq.${coupleId}`)
+    .limit(1)
+    .maybeSingle();
+
+  if (spaceError) throw spaceError;
+  if (!space?.id) {
+    throw Object.assign(new Error("Space not found"), { status: 404 });
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("users")
+    .select("active_space_id")
+    .eq("id", senderId)
+    .single();
+
+  if (profileError) throw profileError;
+  if (profile?.active_space_id !== space.id) {
+    throw Object.assign(new Error("Space is not active"), { status: 403 });
+  }
+
+  const { data: members, error: membersError } = await supabase
+    .from("space_members")
+    .select("user_id,joined_at,status")
+    .eq("space_id", space.id)
+    .eq("status", "active")
+    .order("joined_at", { ascending: true });
+
+  if (membersError) throw membersError;
+  if (!members || members.length !== 2) {
+    throw Object.assign(new Error("Duo space required"), { status: 403 });
+  }
+  if (!members.some((member) => member.user_id === senderId)) {
+    throw Object.assign(new Error("Not a space member"), { status: 403 });
+  }
+
+  const legacyCoupleId = space.legacy_couple_id ?? space.id;
+  const { data: couple, error: coupleError } = await supabase
+    .from("couples")
+    .select("id,user_a,user_b")
+    .eq("id", legacyCoupleId)
+    .single();
+
+  if (coupleError) throw coupleError;
+  if (!couple?.user_a || !couple?.user_b) {
+    throw Object.assign(new Error("Duo compatibility couple required"), {
+      status: 409,
+    });
+  }
+
+  const memberIds = new Set(members.map((member) => member.user_id));
+  if (!memberIds.has(couple.user_a) || !memberIds.has(couple.user_b)) {
+    throw Object.assign(new Error("Duo members do not match streak slots"), {
+      status: 409,
+    });
+  }
+
+  return { spaceId: space.id, couple: couple as CoupleRow };
 }
 
 async function logNudge(
@@ -79,6 +167,7 @@ async function insertNudgeNotification(
   params: {
     partnerId: string;
     coupleId: string;
+    spaceId: string;
     senderId: string;
     title: string;
     body: string;
@@ -87,6 +176,7 @@ async function insertNudgeNotification(
   const { error } = await supabase.from("notifications").insert({
     user_id: params.partnerId,
     couple_id: params.coupleId,
+    space_id: params.spaceId,
     type: "streak_reminder",
     title: params.title,
     body: params.body,
@@ -131,18 +221,25 @@ serve(async (req: Request) => {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
-  // Get the user's couple
-  const { data: couple } = await supabase
-    .from("couples")
-    .select("id, user_a, user_b")
-    .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
-    .maybeSingle();
-
-  if (!couple) {
-    return jsonResponse({ error: "No couple found" }, 404);
+  const requestBody = await req.json().catch(() => ({}));
+  let target: NudgeTarget;
+  try {
+    const requestedCoupleId = requireUuid(requestBody.coupleId, "couple id");
+    target = await loadDuoSpaceForNudge(
+      supabase,
+      requestedCoupleId,
+      user.id,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const status = (err as { status?: unknown })?.status;
+    return jsonResponse(
+      { error: message },
+      typeof status === "number" ? status : 500,
+    );
   }
 
-  const coupleRow = couple as CoupleRow;
+  const coupleRow = target.couple;
   const senderSlot: StreakSlot =
     coupleRow.user_a === user.id ? "user_a" : "user_b";
   const partnerSlot: StreakSlot = senderSlot === "user_a" ? "user_b" : "user_a";
@@ -231,13 +328,14 @@ serve(async (req: Request) => {
     .eq("id", user.id)
     .maybeSingle();
 
-  const senderName = senderProfile?.display_name ?? "Người ấy";
-  const title = `${senderName} nhắc nhẹ 💕`;
+  const senderName = senderProfile?.display_name ?? "Một thành viên";
+  const title = `${senderName} nhắc nhẹ`;
   const body = "Hôm nay chưa nối chuỗi nè, lưu một khoảnh khắc nhé!";
 
   await insertNudgeNotification(supabase, {
     partnerId,
     coupleId: coupleRow.id,
+    spaceId: target.spaceId,
     senderId: user.id,
     title,
     body,

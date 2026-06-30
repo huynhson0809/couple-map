@@ -10,6 +10,7 @@ function readProjectFile(path) {
 }
 
 const sendNudge = readProjectFile("supabase/functions/send-nudge/index.ts");
+const useNudge = readProjectFile("src/hooks/useNudge.ts");
 const streakCard = readProjectFile("src/components/streak/StreakCard.tsx");
 const notificationFeed = readProjectFile("src/hooks/NotificationFeedContext.tsx");
 const settingsPage = readProjectFile("src/pages/SettingsPage.tsx");
@@ -24,6 +25,36 @@ assert.match(
   sendNudge,
   /refresh_couple_streak/,
   "send-nudge should refresh streak state before deciding whether partner still needs a nudge",
+);
+assert.match(
+  useNudge,
+  /body:\s*\{\s*coupleId\s*\}/,
+  "useNudge should pass the active space/couple id to send-nudge.",
+);
+assert.match(
+  useNudge,
+  /function\s+cooldownKey[\s\S]*coupleId/,
+  "useNudge should scope local nudge cooldown by active space/couple id.",
+);
+assert.match(
+  sendNudge,
+  /loadDuoSpaceForNudge/,
+  "send-nudge should resolve the nudge target through active memory-space membership.",
+);
+assert.match(
+  sendNudge,
+  /space_members[\s\S]*space_id[\s\S]*status[\s\S]*members\.length !== 2/,
+  "send-nudge should require exactly two active space members before sending.",
+);
+assert.match(
+  sendNudge,
+  /active_space_id/,
+  "send-nudge should require the requested duo space to be the sender's active space.",
+);
+assert.doesNotMatch(
+  sendNudge,
+  /\.or\(`user_a\.eq\.\$\{user\.id\},user_b\.eq\.\$\{user\.id\}`\)/,
+  "send-nudge must not auto-pick a legacy couple by user membership when multiple spaces can exist.",
 );
 assert.match(
   sendNudge,

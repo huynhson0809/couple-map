@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import type { BucketListItem } from '../types'
 
 export function useBucket(
-  coupleId: string | null | undefined,
+  spaceId: string | null | undefined,
   userId: string | undefined,
   statusFilter?: BucketListItem['status'],
 ) {
@@ -11,7 +11,7 @@ export function useBucket(
   const [loading, setLoading] = useState(false)
 
   const fetchItems = useCallback(async () => {
-    if (!coupleId) {
+    if (!spaceId) {
       setItems([])
       return
     }
@@ -19,7 +19,7 @@ export function useBucket(
     let query = supabase
       .from('bucket_list')
       .select('*')
-      .eq('couple_id', coupleId)
+      .eq('couple_id', spaceId)
 
     if (statusFilter) {
       query = query.eq('status', statusFilter)
@@ -30,7 +30,7 @@ export function useBucket(
 
     setItems((data as BucketListItem[]) ?? [])
     setLoading(false)
-  }, [coupleId, statusFilter])
+  }, [spaceId, statusFilter])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -41,11 +41,11 @@ export function useBucket(
 
   const addItem = useCallback(
     async (input: { title: string; lat: number; lng: number }) => {
-      if (!coupleId || !userId) throw new Error('Not in a couple')
+      if (!spaceId || !userId) throw new Error('Not in a space')
       const { data, error } = await supabase
         .from('bucket_list')
         .insert({
-          couple_id: coupleId,
+          couple_id: spaceId,
           created_by: userId,
           title: input.title,
           lat: input.lat,
@@ -61,7 +61,7 @@ export function useBucket(
       }
       return row
     },
-    [coupleId, statusFilter, userId],
+    [spaceId, statusFilter, userId],
   )
 
   const removeItem = useCallback(async (id: string) => {

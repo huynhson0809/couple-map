@@ -1,5 +1,5 @@
 // Supabase Edge Function: couple-stats
-// Returns aggregate stats for a couple: totalPins, cities, countries, daysTogether, farthestKm
+// Returns aggregate stats for a memory space: totalPins, cities, countries, daysTogether, farthestKm
 //
 // Deploy: supabase functions deploy couple-stats
 
@@ -26,7 +26,7 @@ interface StatsData {
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-pinly-space-id",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
@@ -73,10 +73,12 @@ function normalizeTextArray(value: unknown): string[] {
 
 async function fetchStatsSummaryFromRpc(
   supabase: ReturnType<typeof createClient>,
-  coupleId: string,
+  spaceId: string,
 ): Promise<StatsSummary | null> {
-  const { data, error } = await supabase.rpc("get_couple_stats_summary", {
-    target_couple_id: coupleId,
+  // The legacy get_couple_stats_summary RPC remains deployed for older clients;
+  // active-space stats use the space-scoped summary below.
+  const { data, error } = await supabase.rpc("get_space_stats_summary", {
+    target_space_id: spaceId,
   });
   if (error || !data) return null;
 
@@ -95,12 +97,12 @@ async function fetchStatsSummaryFromRpc(
 
 async function fetchStatsDataFallback(
   supabase: ReturnType<typeof createClient>,
-  coupleId: string,
+  spaceId: string,
 ): Promise<StatsData> {
   const { data: pins, error: pinsError } = await supabase
     .from("pins")
     .select("lat, lng, city, country, created_at")
-    .eq("couple_id", coupleId);
+    .eq("space_id", spaceId);
 
   if (pinsError) throw pinsError;
 
@@ -138,15 +140,15 @@ async function fetchStatsDataFallback(
 
 async function fetchStatsData(
   supabase: ReturnType<typeof createClient>,
-  coupleId: string,
+  spaceId: string,
 ): Promise<StatsData> {
-  const summary = await fetchStatsSummaryFromRpc(supabase, coupleId);
-  if (!summary) return fetchStatsDataFallback(supabase, coupleId);
+  const summary = await fetchStatsSummaryFromRpc(supabase, spaceId);
+  if (!summary) return fetchStatsDataFallback(supabase, spaceId);
 
   const { data: points, error: pointsError } = await supabase
     .from("pins")
     .select("lat, lng")
-    .eq("couple_id", coupleId);
+    .eq("space_id", spaceId);
   if (pointsError) throw pointsError;
 
   return {
@@ -198,26 +200,33 @@ serve(async (req) => {
   if (allowed === false)
     return jsonResponse({ error: "Rate limit exceeded" }, 429);
 
-  // Get user's couple_id
-  const { data: profile } = await supabase
-    .from("users")
-    .select("couple_id")
-    .eq("id", user.id)
+  const spaceId = req.headers.get("X-Pinly-Space-Id")?.trim();
+  if (!spaceId) return jsonResponse({ error: "No space found" }, 404);
+
+  const { data: membership, error: membershipError } = await supabase
+    .from("space_members")
+    .select("space_id")
+    .eq("space_id", spaceId)
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (membershipError) {
+    return jsonResponse({ error: "Could not verify space access" }, 500);
+  }
+  if (!membership) return jsonResponse({ error: "Space not found" }, 404);
+
+  const { data: space, error: spaceError } = await supabase
+    .from("spaces")
+    .select("started_on")
+    .eq("id", spaceId)
     .single();
 
-  const coupleId = profile?.couple_id;
-  if (!coupleId) return jsonResponse({ error: "No couple found" }, 404);
-
-  // Get couple info for anniversary
-  const { data: couple } = await supabase
-    .from("couples")
-    .select("anniversary_date")
-    .eq("id", coupleId)
-    .single();
+  if (spaceError) return jsonResponse({ error: "Could not load space" }, 500);
 
   let stats: StatsData;
   try {
-    stats = await fetchStatsData(supabase, coupleId);
+    stats = await fetchStatsData(supabase, spaceId);
   } catch (err) {
     return jsonResponse(
       { error: err instanceof Error ? err.message : "Could not load stats" },
@@ -243,9 +252,9 @@ serve(async (req) => {
 
   // Days together
   let daysTogether: number | null = null;
-  if (couple?.anniversary_date) {
+  if (space?.started_on) {
     daysTogether = Math.floor(
-      (Date.now() - new Date(couple.anniversary_date).getTime()) / 86_400_000,
+      (Date.now() - new Date(space.started_on).getTime()) / 86_400_000,
     );
   } else if (stats.summary.firstPinAt) {
     daysTogether = Math.floor(
@@ -265,8 +274,8 @@ serve(async (req) => {
     },
     200,
     {
-      "Cache-Control": "private, max-age=30, stale-while-revalidate=120",
-      Vary: "Authorization",
+      "Cache-Control": "no-store",
+      Vary: "Authorization, X-Pinly-Space-Id",
     },
   );
 });

@@ -18,14 +18,14 @@ export interface LegalContent {
 const privacyVi: LegalContent = {
   title: "Chính sách quyền riêng tư",
   summary:
-    "Pinly giúp các cặp đôi lưu giữ kỷ niệm trên bản đồ chung. Chính sách này giải thích dữ liệu nào được thu thập, cách Pinly sử dụng dữ liệu và cách ảnh, video được xử lý trong dịch vụ.",
+    "Pinly giúp bạn lưu giữ kỷ niệm trên bản đồ cá nhân hoặc không gian chung. Chính sách này giải thích dữ liệu nào được thu thập, cách Pinly sử dụng dữ liệu và cách ảnh, video được xử lý trong dịch vụ.",
   effectiveDate: LEGAL_EFFECTIVE_DATE,
   sections: [
     {
       title: "Dữ liệu Pinly thu thập",
       body: [
         "Thông tin tài khoản như email, tên hiển thị và ngôn ngữ.",
-        "Thông tin couple như mã mời, ngày kỷ niệm và kết nối với đối tác.",
+        "Thông tin không gian như mã mời, ngày bắt đầu và thành viên được mời.",
         "Nội dung kỷ niệm như tiêu đề, ghi chú, tag, tọa độ, địa chỉ, thành phố, quốc gia và thời gian tạo.",
         "Ảnh, video, marker, hình nền, mã định danh tệp media, liên kết media và kích thước media.",
         "Tùy chọn thông báo, thông tin thiết bị cần thiết để gửi thông báo, và dữ liệu kỹ thuật cần thiết để vận hành ứng dụng.",
@@ -34,7 +34,7 @@ const privacyVi: LegalContent = {
     {
       title: "Cách Pinly sử dụng dữ liệu",
       body: [
-        "Tạo và bảo vệ tài khoản, hiển thị kỷ niệm cho đúng couple, đồng bộ bản đồ và dòng thời gian.",
+        "Tạo và bảo vệ tài khoản, hiển thị kỷ niệm cho đúng không gian, đồng bộ bản đồ và dòng thời gian.",
         "Tải lên, hiển thị, tối ưu kích thước ảnh/video và gửi thông báo hoặc email nhắc nhở nếu bạn bật tính năng này.",
         "Giảm lỗi, ngăn lạm dụng và cải thiện độ ổn định của ứng dụng.",
       ],
@@ -42,7 +42,7 @@ const privacyVi: LegalContent = {
     {
       title: "Ảnh và video",
       body: [
-        "Pinly bảo vệ dữ liệu trong ứng dụng bằng đăng nhập và quyền truy cập theo couple.",
+        "Pinly bảo vệ dữ liệu trong ứng dụng bằng đăng nhập và quyền truy cập theo không gian.",
         "Ảnh và video có thể được xử lý qua dịch vụ lưu trữ media để tải lên, tối ưu kích thước và hiển thị ổn định trên nhiều thiết bị.",
         "Bạn nên chỉ chia sẻ đường dẫn media trong những ngữ cảnh đáng tin cậy và không tải lên nội dung quá nhạy cảm hoặc hình ảnh của người khác khi chưa có quyền phù hợp.",
       ],
@@ -50,8 +50,8 @@ const privacyVi: LegalContent = {
     {
       title: "Dịch vụ xử lý dữ liệu",
       body: [
-        "Pinly có thể sử dụng các đối tác hạ tầng để vận hành đăng nhập, lưu trữ dữ liệu, lưu trữ media, bản đồ, email và thông báo.",
-        "Các đối tác này chỉ xử lý dữ liệu cần thiết để tính năng tương ứng hoạt động và được giới hạn theo mục đích vận hành dịch vụ.",
+        "Pinly có thể sử dụng các nhà cung cấp hạ tầng để vận hành đăng nhập, lưu trữ dữ liệu, lưu trữ media, bản đồ, email và thông báo.",
+        "Các nhà cung cấp này chỉ xử lý dữ liệu cần thiết để tính năng tương ứng hoạt động và được giới hạn theo mục đích vận hành dịch vụ.",
       ],
     },
     {
@@ -65,7 +65,7 @@ const privacyVi: LegalContent = {
     {
       title: "Thời gian lưu trữ và liên hệ",
       body: [
-        "Dữ liệu tài khoản được lưu khi tài khoản còn tồn tại. Kỷ niệm và media được lưu đến khi bạn xóa hoặc khi tài khoản/couple được dọn dẹp theo quy trình của Pinly.",
+        "Dữ liệu tài khoản được lưu khi tài khoản còn tồn tại. Kỷ niệm và media được lưu đến khi bạn xóa hoặc khi tài khoản/không gian được dọn dẹp theo quy trình của Pinly.",
         "Một số nhật ký kỹ thuật có thể được lưu trong thời gian giới hạn để bảo mật, vận hành và chẩn đoán lỗi.",
         "Bạn có thể liên hệ hỗ trợ qua kênh Zalo hoặc email được hiển thị trong ứng dụng.",
       ],
@@ -76,14 +76,14 @@ const privacyVi: LegalContent = {
 const privacyEn: LegalContent = {
   title: "Privacy Policy",
   summary:
-    "Pinly helps couples keep memories on a shared map. This policy explains what data is collected, how Pinly uses it, and how photos and videos are handled in the service.",
+    "Pinly helps you keep memories on personal maps or shared spaces. This policy explains what data is collected, how Pinly uses it, and how photos and videos are handled in the service.",
   effectiveDate: LEGAL_EFFECTIVE_DATE,
   sections: [
     {
       title: "Data we collect",
       body: [
         "Account data such as email, display name, and language.",
-        "Couple data such as invite code, anniversary date, and partner connection.",
+        "Space data such as invite code, started date, and invited member connection.",
         "Memory data such as title, note, tags, coordinates, address, city, country, and timestamps.",
         "Photos, videos, marker images, backgrounds, media identifiers, media links, and media dimensions.",
         "Notification preferences, device information needed for notifications, and technical data needed to operate the app.",
@@ -92,7 +92,7 @@ const privacyEn: LegalContent = {
     {
       title: "How we use data",
       body: [
-        "To create and secure accounts, show memories to the correct couple, and sync the map and timeline.",
+        "To create and secure accounts, show memories to the correct space, and sync the map and timeline.",
         "To upload, display, optimize media, and send push notifications or optional reminder emails.",
         "To diagnose issues, prevent abuse, and improve reliability.",
       ],
@@ -100,7 +100,7 @@ const privacyEn: LegalContent = {
     {
       title: "Photos and videos",
       body: [
-        "Pinly protects app data with login and couple-based access controls.",
+        "Pinly protects app data with login and space-based access controls.",
         "Photos and videos may be processed through media storage services so they can be uploaded, optimized, and delivered reliably across devices.",
         "Share media links only in trusted contexts, and do not upload highly sensitive content or images of other people unless you have the right to do so.",
       ],
@@ -108,8 +108,8 @@ const privacyEn: LegalContent = {
     {
       title: "Data processing services",
       body: [
-        "Pinly may use infrastructure partners to operate login, data storage, media storage, maps, email, and notifications.",
-        "These partners process only the data needed for the related feature and are limited to operating the service.",
+        "Pinly may use infrastructure providers to operate login, data storage, media storage, maps, email, and notifications.",
+        "These providers process only the data needed for the related feature and are limited to operating the service.",
       ],
     },
     {
@@ -123,7 +123,7 @@ const privacyEn: LegalContent = {
     {
       title: "Retention and contact",
       body: [
-        "Account data is kept while the account exists. Memories and media are kept until deleted or until account/couple cleanup under Pinly's operating process.",
+        "Account data is kept while the account exists. Memories and media are kept until deleted or until account/space cleanup under Pinly's operating process.",
         "Some technical records may be retained for a limited time for security, operations, and issue diagnosis.",
         "Contact support through the Zalo or email channel shown in the app.",
       ],
@@ -141,7 +141,7 @@ const termsVi: LegalContent = {
       title: "Tài khoản và quyền sử dụng",
       body: [
         "Bạn cần cung cấp thông tin đăng ký chính xác và bảo mật tài khoản của mình.",
-        "Bạn chỉ nên mời đúng người là đối tác của mình vào couple.",
+        "Bạn chỉ nên mời người bạn tin tưởng để chia sẻ không gian bản đồ.",
       ],
     },
     {
@@ -186,7 +186,7 @@ const termsEn: LegalContent = {
       title: "Account and access",
       body: [
         "You must provide accurate registration information and keep your account secure.",
-        "You should only invite your actual partner into your couple space.",
+        "You should only invite people you trust to share your map space.",
       ],
     },
     {

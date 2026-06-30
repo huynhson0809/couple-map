@@ -21,24 +21,24 @@ interface Ctx {
 const CategoriesCtx = createContext<Ctx | null>(null)
 
 export function CategoriesProvider({
-  coupleId,
+  spaceId,
   userId,
   children,
 }: {
-  coupleId: string | null | undefined
+  spaceId: string | null | undefined
   userId: string | undefined
   children: ReactNode
 }) {
   const [customCategories, setCustomCategories] = useState<Category[]>([])
 
   const refresh = useCallback(async () => {
-    if (!coupleId) {
+    if (!spaceId) {
       setCustomCategories([])
       return
     }
-    const rows = await fetchCustomCategories(coupleId)
+    const rows = await fetchCustomCategories(spaceId)
     setCustomCategories(rows)
-  }, [coupleId])
+  }, [spaceId])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -46,16 +46,16 @@ export function CategoriesProvider({
   }, [refresh])
 
   useEffect(() => {
-    if (!coupleId) return
+    if (!spaceId) return
     const channel = supabase
-      .channel(`custom-categories:${coupleId}`)
+      .channel(`custom-categories:${spaceId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'custom_categories',
-          filter: `couple_id=eq.${coupleId}`,
+          filter: `couple_id=eq.${spaceId}`,
         },
         () => void refresh(),
       )
@@ -64,12 +64,12 @@ export function CategoriesProvider({
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [coupleId, refresh])
+  }, [spaceId, refresh])
 
   const saveCustomCategory = useCallback(
     async (cat: Category) => {
-      if (!coupleId || !userId) throw new Error('Missing couple')
-      const saved = await upsertCustomCategory(coupleId, userId, cat)
+      if (!spaceId || !userId) throw new Error('Missing space')
+      const saved = await upsertCustomCategory(spaceId, userId, cat)
       setCustomCategories((prev) => {
         const idx = prev.findIndex((c) => c.id === saved.id)
         if (idx < 0) return [...prev, saved]
@@ -79,16 +79,16 @@ export function CategoriesProvider({
       })
       return saved
     },
-    [coupleId, userId],
+    [spaceId, userId],
   )
 
   const deleteCustomCategory = useCallback(
     async (id: string) => {
-      if (!coupleId) throw new Error('Missing couple')
-      await removeCustomCategory(coupleId, id)
+      if (!spaceId) throw new Error('Missing space')
+      await removeCustomCategory(spaceId, id)
       setCustomCategories((prev) => prev.filter((c) => c.id !== id))
     },
-    [coupleId],
+    [spaceId],
   )
 
   const allCategories = useMemo(() => getAllCategories(customCategories), [customCategories])

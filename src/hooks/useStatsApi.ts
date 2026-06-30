@@ -42,7 +42,7 @@ function normalizeStats(data: Partial<Stats>): Stats {
  * all stats server-side in a single request.
  */
 export function useStatsApi(
-  coupleId: string | null | undefined,
+  spaceId: string | null | undefined,
   couple: Couple | null,
 ) {
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
@@ -50,7 +50,7 @@ export function useStatsApi(
   const requestIdRef = useRef(0);
 
   const fetchStats = useCallback(async () => {
-    if (!coupleId) {
+    if (!spaceId) {
       setStats(EMPTY_STATS);
       return;
     }
@@ -65,7 +65,7 @@ export function useStatsApi(
       return;
     }
 
-    const cacheKey = `couple-stats:${session.user.id}:${coupleId}:${couple?.anniversary_date ?? "none"}`;
+    const cacheKey = `space-stats:v2:${session.user.id}:${spaceId}:${couple?.anniversary_date ?? "none"}`;
     const cached = getApiCache<Stats>(cacheKey);
     if (cached) {
       setStats(cached);
@@ -80,7 +80,10 @@ export function useStatsApi(
         "couple-stats",
         {
           method: "GET",
-          headers: { Authorization: `Bearer ${session.access_token}` },
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "X-Pinly-Space-Id": spaceId,
+          },
           timeout: 8_000,
         },
       );
@@ -95,7 +98,15 @@ export function useStatsApi(
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
-  }, [couple?.anniversary_date, coupleId]);
+  }, [couple?.anniversary_date, spaceId]);
+
+  useEffect(() => {
+    requestIdRef.current += 1;
+    queueMicrotask(() => {
+      setStats(EMPTY_STATS);
+      setLoading(Boolean(spaceId));
+    });
+  }, [spaceId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Sparkles, X } from 'lucide-react'
 import { usePinsCtx } from '../../hooks/PinsContext'
 import { useCoupleCtx } from '../../hooks/CoupleContext'
+import { useSpaceCtx } from '../../hooks/SpaceContext'
 import { useNotifications } from '../../hooks/useNotifications'
 import { useI18n } from '../../hooks/I18nContext'
 import { getImageUrl, getVideoThumbnailUrl, isVideoUrl } from '../../lib/cloudinary'
@@ -14,6 +15,8 @@ const TOAST_MS = 6000
 export function NotificationToast() {
   const { latestPartnerPin, clearLatestPartnerPin } = usePinsCtx()
   const { partner } = useCoupleCtx()
+  const { capabilities } = useSpaceCtx()
+  const duoEnabled = capabilities.canUseDuoFeatures
   const { notify } = useNotifications()
   const { t } = useI18n()
   const { getCategory } = useCategoriesCtx()
@@ -21,6 +24,18 @@ export function NotificationToast() {
   const timerRef = useRef<number | null>(null)
 
   useEffect(() => {
+    if (duoEnabled) return
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+    if (!duoEnabled && latestPartnerPin) {
+      clearLatestPartnerPin()
+    }
+  }, [duoEnabled, latestPartnerPin, clearLatestPartnerPin])
+
+  useEffect(() => {
+    if (!duoEnabled) return
     if (!latestPartnerPin) return
     const pin = latestPartnerPin
     const who = partner?.display_name ?? t('common.partner')
@@ -47,9 +62,9 @@ export function NotificationToast() {
         timerRef.current = null
       }
     }
-  }, [latestPartnerPin, partner, t, notify, navigate, clearLatestPartnerPin])
+  }, [duoEnabled, latestPartnerPin, partner, t, notify, navigate, clearLatestPartnerPin])
 
-  if (!latestPartnerPin) return null
+  if (!duoEnabled || !latestPartnerPin) return null
   const pin = latestPartnerPin
   const cat = getCategory(pin.category)
   const cover = pin.images?.[0]?.cloudinary_url

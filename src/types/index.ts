@@ -156,22 +156,46 @@ export type NotificationType =
   | "streak_broken";
 
 export type PlanType = "free" | "plus" | "pro";
+export type BillingCycle = "monthly" | "annual";
+export type SubscriptionStatus =
+  | "active"
+  | "trialing"
+  | "canceled"
+  | "past_due"
+  | "expired"
+  | "revoked"
+  | "incomplete";
 
 export interface Subscription {
   id: string;
   couple_id: string;
   plan: PlanType;
-  billing_cycle: "monthly" | "annual";
-  status: "active" | "canceled" | "past_due" | "expired";
+  billing_cycle: BillingCycle;
+  status: SubscriptionStatus;
   current_period_start: string;
   current_period_end: string;
   created_at: string;
+}
+
+export interface AccountSubscription {
+  id: string;
+  user_id: string;
+  plan: Exclude<PlanType, "free">;
+  source: "polar" | "activation_code" | "manual";
+  status: SubscriptionStatus;
+  billing_cycle: BillingCycle | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AppNotification {
   id: string;
   user_id: string;
   couple_id: string | null;
+  space_id: string | null;
   type: NotificationType;
   title: string;
   body: string | null;
@@ -179,3 +203,14 @@ export interface AppNotification {
   read: boolean;
   created_at: string;
 }
+
+export type {
+  Space,
+  SpaceContextPayload,
+  SpaceMember,
+  SpaceMemberStatus,
+  SpacePlan,
+  SpaceProfile,
+  SpaceRole,
+  SpaceType,
+} from "./space";

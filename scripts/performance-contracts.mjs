@@ -127,6 +127,7 @@ const mapPreviewGenerator = readOptional(
 const generatedMapPreviewDir = resolve(root, "public/map-style-previews");
 const coupleStats = read("supabase/functions/couple-stats/index.ts");
 const checkout = read("supabase/functions/create-checkout/index.ts");
+const activationCodeHelper = read("supabase/functions/_shared/activation-code.ts");
 const cloudinaryUpload = read("supabase/functions/sign-cloudinary-upload/index.ts");
 const cloudinaryDelete = read("supabase/functions/delete-pin-media/index.ts");
 const cloudinaryClient = read("src/lib/cloudinary.ts");
@@ -282,13 +283,33 @@ assert(
 );
 
 assert(
-  /req\.method\s*!==\s*["']POST["']/.test(checkout),
-  "create-checkout must reject non-POST requests server-side.",
+  /handleActivateCodeRequest/.test(checkout) &&
+    /create-checkout compatibility/.test(checkout),
+  "create-checkout must delegate activation-code compatibility behavior to the shared helper.",
 );
 
 assert(
-  /check_edge_rate_limit/.test(checkout),
-  "create-checkout must rate-limit activation code attempts.",
+  /req\.method\s*===\s*["']OPTIONS["']/.test(activationCodeHelper) &&
+    /req\.method\s*!==\s*["']POST["']/.test(activationCodeHelper) &&
+    /Method not allowed/.test(activationCodeHelper) &&
+    /Allow["']?:\s*["']POST, OPTIONS["']/.test(activationCodeHelper),
+  "Activation-code helper must handle OPTIONS and reject non-POST requests server-side.",
+);
+
+assert(
+  /check_edge_rate_limit/.test(activationCodeHelper) &&
+    /limit_key:\s*`activate-code:\$\{user\.id\}`/.test(activationCodeHelper) &&
+    /window_seconds:\s*3600/.test(activationCodeHelper) &&
+    /max_requests:\s*20/.test(activationCodeHelper),
+  "Activation-code helper must rate-limit activation code attempts.",
+);
+
+assert(
+  /rpc\(["']activate_account_code["']/.test(activationCodeHelper) &&
+    /p_user_id:\s*user\.id/.test(activationCodeHelper) &&
+    /p_code:\s*normalizedCode/.test(activationCodeHelper) &&
+    /p_user_email:/.test(activationCodeHelper),
+  "Activation-code helper must redeem via the atomic activate_account_code RPC.",
 );
 
 assert(
@@ -475,7 +496,7 @@ assert(
 );
 
 assert(
-  /const\s+\{\s*plan,\s*subscription,\s*canUseMapStyle\s*\}\s*=\s*useSubscription\(\)/.test(
+  /const\s+\{(?=[^}]*\bplan\b)(?=[^}]*\bsubscription\b)(?=[^}]*\bcanUseMapStyle\b)[^}]*\}\s*=\s*useSubscription\(\)/.test(
     settingsPage,
   ) &&
     /useMapStyle\(canUseMapStyle\)/.test(settingsPage) &&

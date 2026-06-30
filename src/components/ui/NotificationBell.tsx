@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useNotificationFeed } from "../../hooks/useNotificationFeed";
 import { useCoupleCtx } from "../../hooks/CoupleContext";
+import { useSpaceCtx } from "../../hooks/SpaceContext";
 import type { AppNotification } from "../../types";
 
 function timeAgo(dateStr: string): string {
@@ -69,6 +70,7 @@ function notifColor(type: AppNotification["type"]) {
 
 export function TopBar() {
   const { profile } = useCoupleCtx();
+  const { activeSpace } = useSpaceCtx();
   const {
     notifications,
     unreadCount,
@@ -77,7 +79,7 @@ export function TopBar() {
     fetchMore,
     markAsRead,
     markAllAsRead,
-  } = useNotificationFeed(profile?.id);
+  } = useNotificationFeed(profile?.id, activeSpace?.id);
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);

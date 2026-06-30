@@ -23,6 +23,7 @@ import { UpgradePrompt } from "../components/ui/UpgradePrompt";
 import { useAuth } from "../hooks/useAuth";
 import { useCoupleCtx } from "../hooks/CoupleContext";
 import { usePinsCtx } from "../hooks/PinsContext";
+import { useSpaceCtx } from "../hooks/SpaceContext";
 import { useBucket } from "../hooks/useBucket";
 import { useLocation as useGeo } from "../hooks/useLocation";
 import { useMapStyle } from "../hooks/useMapStyle";
@@ -170,6 +171,8 @@ export function MapPage() {
   const { user } = useAuth();
   const { t, lang } = useI18n();
   const { couple, profile, partner } = useCoupleCtx();
+  const { capabilities } = useSpaceCtx();
+  const duoEnabled = capabilities.canUseDuoFeatures;
   const { pins, deletePin, fetchPins, onViewportChange, loadPinById } =
     usePinsCtx();
   const { items: bucketItems } = useBucket(couple?.id, user?.id);
@@ -177,7 +180,7 @@ export function MapPage() {
   const { canCreatePin, canUseMapStyle, canUseMap3D } = useSubscription();
   const { styleUrl } = useMapStyle(canUseMapStyle);
   const { map3DEnabled } = useMap3DMode(canUseMap3D);
-  const streak = useStreak(couple, profile?.id ?? user?.id);
+  const streak = useStreak(couple, profile?.id ?? user?.id, duoEnabled);
   const routeLocation = useLocation();
   const navigate = useNavigate();
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
@@ -585,21 +588,23 @@ export function MapPage() {
         <Plus size={24} />
       </button>
 
-      <button
-        type="button"
-        ref={streakButtonRef}
-        className={streakFloatClassName}
-        style={streakFloatStyle}
-        onPointerDown={handleStreakPointerDown}
-        onPointerMove={handleStreakPointerMove}
-        onPointerUp={handleStreakPointerUp}
-        onPointerCancel={handleStreakPointerUp}
-        onClick={handleStreakClick}
-        aria-label={t("streak.title")}
-      >
-        <Flame size={20} fill="currentColor" />
-        <span>{streak.currentCount}</span>
-      </button>
+      {duoEnabled && (
+        <button
+          type="button"
+          ref={streakButtonRef}
+          className={streakFloatClassName}
+          style={streakFloatStyle}
+          onPointerDown={handleStreakPointerDown}
+          onPointerMove={handleStreakPointerMove}
+          onPointerUp={handleStreakPointerUp}
+          onPointerCancel={handleStreakPointerUp}
+          onClick={handleStreakClick}
+          aria-label={t("streak.title")}
+        >
+          <Flame size={20} fill="currentColor" />
+          <span>{streak.currentCount}</span>
+        </button>
+      )}
 
       <BottomSheet
         open={!!newPinCoords}
@@ -608,7 +613,7 @@ export function MapPage() {
       >
         {newPinCoords && couple && user && (
           <CreatePinForm
-            coupleId={couple.id}
+            spaceId={couple.id}
             userId={user.id}
             coords={newPinCoords}
             onCreated={() => {

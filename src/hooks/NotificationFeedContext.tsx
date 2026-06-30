@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext } from "react";
 import { useNotificationFeed } from "./useNotificationFeed";
 import { useCoupleCtx } from "./CoupleContext";
+import { useSpaceCtx } from "./SpaceContext";
 import { useToast } from "./ToastContext";
 import type { AppNotification } from "../types";
 
@@ -16,6 +17,7 @@ export function NotificationFeedProvider({
   children: React.ReactNode;
 }) {
   const { profile } = useCoupleCtx();
+  const { activeSpace } = useSpaceCtx();
   const { showToast } = useToast();
 
   const onNewNotification = useCallback(
@@ -32,7 +34,11 @@ export function NotificationFeedProvider({
     [showToast],
   );
 
-  const feed = useNotificationFeed(profile?.id, onNewNotification);
+  const feed = useNotificationFeed(
+    profile?.id,
+    activeSpace?.id,
+    onNewNotification,
+  );
   return <Ctx.Provider value={feed}>{children}</Ctx.Provider>;
 }
 

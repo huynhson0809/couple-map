@@ -35,13 +35,13 @@ interface TimelinePinPageId {
 }
 
 async function fetchTimelinePinPageIds(
-  coupleId: string,
+  spaceId: string,
   filters: TimelinePinFilters,
   offset: number,
 ): Promise<TimelinePinPageId[]> {
   const { data, error } = await supabase
     .rpc("get_timeline_pin_page_ids", {
-      in_couple_id: coupleId,
+      in_couple_id: spaceId,
       in_category_ids: filters.categoryIds,
       in_include_favorites: filters.includeFavorites,
       in_date_from: filters.dateFrom ? localDateBoundaryIso(filters.dateFrom, "start") : null,
@@ -71,7 +71,7 @@ async function fetchTimelinePinsByIds(ids: string[]): Promise<Pin[]> {
 }
 
 export function useTimelinePins(
-  coupleId: string | null | undefined,
+  spaceId: string | null | undefined,
   filters: TimelinePinFilters,
   version = 0,
 ) {
@@ -84,7 +84,7 @@ export function useTimelinePins(
 
   const fetchPage = useCallback(
     async (offset: number, append: boolean) => {
-      if (!coupleId) {
+      if (!spaceId) {
         setPins([]);
         setTotal(0);
         return;
@@ -99,7 +99,7 @@ export function useTimelinePins(
       setError(null);
 
       try {
-        const pageIds = await fetchTimelinePinPageIds(coupleId, filters, offset);
+        const pageIds = await fetchTimelinePinPageIds(spaceId, filters, offset);
         if (requestId !== requestIdRef.current) return;
 
         const ids = pageIds.map((row) => row.pin_id);
@@ -121,7 +121,7 @@ export function useTimelinePins(
       setLoadingMore(false);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [coupleId, filters, version],
+    [spaceId, filters, version],
   );
 
   useEffect(() => {

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check, Crown, Sparkles, X, Zap } from "lucide-react";
 import { useSubscription, PLAN_LIMITS } from "../hooks/useSubscription";
 import { useI18n } from "../hooks/I18nContext";
+import type { PlanType } from "../types";
 
 const PLAN_FEATURES: Record<
   string,
@@ -53,6 +54,8 @@ const FEATURE_LABELS: Record<string, { vi: string; en: string }> = {
 export function PricingPage({ onClose }: { onClose: () => void }) {
   const {
     plan: currentPlan,
+    accountPlan,
+    checkout,
     activateCode,
     loading: subLoading,
   } = useSubscription();
@@ -60,10 +63,19 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
   const [cycle, setCycle] = useState<"monthly" | "annual">("monthly");
   const [code, setCode] = useState("");
   const [activating, setActivating] = useState(false);
+  const [checkoutBusy, setCheckoutBusy] = useState<"plus" | "pro" | null>(
+    null,
+  );
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [showActivationCode, setShowActivationCode] = useState(false);
   const [activateResult, setActivateResult] = useState<{
     success: boolean;
     message: string;
   } | null>(null);
+  const checkoutErrorMessage =
+    lang === "vi"
+      ? "Không thể tạo phiên thanh toán."
+      : "Unable to create checkout session.";
 
   const prices = {
     plus: cycle === "annual" ? 278400 : 29000,
@@ -111,6 +123,21 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
     </ul>
   );
 
+  const handleCheckout = async (targetPlan: Exclude<PlanType, "free">) => {
+    if (subLoading || checkoutBusy !== null) return;
+
+    setCheckoutBusy(targetPlan);
+    setCheckoutError(null);
+
+    try {
+      await checkout(targetPlan, cycle);
+    } catch {
+      setCheckoutError(checkoutErrorMessage);
+    } finally {
+      setCheckoutBusy(null);
+    }
+  };
+
   const handleActivate = async () => {
     if (!code.trim()) return;
     setActivating(true);
@@ -132,18 +159,20 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
         </button>
         <div className="pricing-premium-badge">
           <Sparkles size={14} aria-hidden="true" />
-          <span>{lang === "vi" ? "Dành cho hai người" : "Built for two"}</span>
+          <span>
+            {lang === "vi" ? "Cho bản đồ kỷ niệm" : "Built for memory maps"}
+          </span>
         </div>
         <h1>{lang === "vi" ? "Nâng cấp Pinly" : "Upgrade Pinly"}</h1>
         <p className="muted">
           {lang === "vi"
-            ? "Mở khóa tất cả tính năng cho kỷ niệm của hai bạn"
-            : "Unlock all features for your memories together"}
+            ? "Mở khóa tất cả tính năng cho không gian kỷ niệm của bạn"
+            : "Unlock all features for your memory space"}
         </p>
         <p className="muted pricing-gift-note">
           {lang === "vi"
-            ? "🎁 Chỉ cần 1 người mua, cả 2 cùng dùng được!"
-            : "🎁 One purchase covers both of you!"}
+            ? "🎁 Một lần mua áp dụng cho toàn bộ bản đồ!"
+            : "🎁 One purchase covers the whole map!"}
         </p>
       </header>
 
@@ -190,6 +219,23 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
             </div>
           ) : null}
           {renderFeatures("plus")}
+          <button
+            type="button"
+            className="pricing-buy-btn"
+            onClick={() => void handleCheckout("plus")}
+            disabled={
+              checkoutBusy !== null ||
+              subLoading ||
+              accountPlan === "plus" ||
+              accountPlan === "pro"
+            }
+          >
+            {checkoutBusy === "plus"
+              ? "..."
+              : lang === "vi"
+                ? "Nâng cấp Plus"
+                : "Upgrade Plus"}
+          </button>
         </div>
 
         {/* Pro */}
@@ -213,8 +259,24 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
             </div>
           ) : null}
           {renderFeatures("pro")}
+          <button
+            type="button"
+            className="pricing-buy-btn pricing-buy-btn-pro"
+            onClick={() => void handleCheckout("pro")}
+            disabled={checkoutBusy !== null || subLoading || accountPlan === "pro"}
+          >
+            {checkoutBusy === "pro"
+              ? "..."
+              : lang === "vi"
+                ? "Nâng cấp Pro"
+                : "Upgrade Pro"}
+          </button>
         </div>
       </div>
+
+      {checkoutError && (
+        <div className="pricing-activate-result error">{checkoutError}</div>
+      )}
 
       {/* Free comparison */}
       <div className="pricing-free-note">
@@ -227,55 +289,73 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Activation code section */}
-      {currentPlan === "free" && (
-        <div className="pricing-activate-section">
-          <h3>{lang === "vi" ? "Kích hoạt gói" : "Activate plan"}</h3>
-          <p className="muted">
-            {lang === "vi"
-              ? "Liên hệ để nhận mã kích hoạt, sau đó nhập mã bên dưới."
-              : "Contact us to get an activation code, then enter it below."}
-          </p>
-          <div className="pricing-activate-input">
-            <input
-              type="text"
-              placeholder={lang === "vi" ? "Nhập mã kích hoạt" : "Enter code"}
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              maxLength={8}
-              disabled={activating}
-            />
-            <button
-              type="button"
-              className="pricing-activate-btn"
-              onClick={handleActivate}
-              disabled={activating || !code.trim() || subLoading}
-            >
-              {activating ? "..." : lang === "vi" ? "Kích hoạt" : "Activate"}
-            </button>
-          </div>
-          {activateResult && (
-            <div
-              className={`pricing-activate-result ${activateResult.success ? "success" : "error"}`}
-            >
-              {activateResult.message}
-            </div>
+      {!subLoading && accountPlan === "free" && (
+        <div className="pricing-activate-section pricing-activate-section-secondary">
+          <button
+            type="button"
+            className="pricing-code-toggle"
+            onClick={() => setShowActivationCode((show) => !show)}
+          >
+            {lang === "vi" ? "Có mã kích hoạt?" : "Have an activation code?"}
+          </button>
+
+          {showActivationCode && (
+            <>
+              <h3>{lang === "vi" ? "Kích hoạt gói" : "Activate plan"}</h3>
+              <p className="muted">
+                {lang === "vi"
+                  ? "Liên hệ để nhận mã kích hoạt, sau đó nhập mã bên dưới."
+                  : "Contact us to get an activation code, then enter it below."}
+              </p>
+              <div className="pricing-activate-input">
+                <input
+                  type="text"
+                  placeholder={
+                    lang === "vi" ? "Nhập mã kích hoạt" : "Enter code"
+                  }
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.toUpperCase())}
+                  maxLength={8}
+                  disabled={activating}
+                />
+                <button
+                  type="button"
+                  className="pricing-activate-btn"
+                  onClick={handleActivate}
+                  disabled={activating || !code.trim() || subLoading}
+                >
+                  {activating
+                    ? "..."
+                    : lang === "vi"
+                      ? "Kích hoạt"
+                      : "Activate"}
+                </button>
+              </div>
+              {activateResult && (
+                <div
+                  className={`pricing-activate-result ${activateResult.success ? "success" : "error"}`}
+                >
+                  {activateResult.message}
+                </div>
+              )}
+              <div className="pricing-contact-buttons">
+                <a
+                  href="https://zalo.me/0965125914"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="pricing-contact-btn pricing-contact-zalo"
+                >
+                  💬 Zalo
+                </a>
+                <a
+                  href="mailto:huynhngocson8902@gmail.com"
+                  className="pricing-contact-btn pricing-contact-email"
+                >
+                  ✉️ Email
+                </a>
+              </div>
+            </>
           )}
-          <div className="pricing-contact-buttons">
-            <a
-              href="https://zalo.me/0965125914"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="pricing-contact-btn pricing-contact-zalo"
-            >
-              💬 Zalo
-            </a>
-            <a
-              href="mailto:huynhngocson8902@gmail.com"
-              className="pricing-contact-btn pricing-contact-email"
-            >
-              ✉️ Email
-            </a>
-          </div>
         </div>
       )}
     </div>

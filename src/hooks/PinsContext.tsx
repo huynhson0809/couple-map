@@ -42,16 +42,16 @@ interface Ctx extends PinsHook {
 const PinsCtx = createContext<Ctx | null>(null);
 
 export function PinsProvider({
-  coupleId,
+  spaceId,
   userId,
   children,
 }: {
-  coupleId: string | null | undefined;
+  spaceId: string | null | undefined;
   userId: string | undefined;
   children: ReactNode;
 }) {
-  const pinsHook = usePins(coupleId, userId);
-  const viewport = useViewportPins(coupleId);
+  const pinsHook = usePins(spaceId, userId);
+  const viewport = useViewportPins(spaceId);
   const {
     fetchPinImages: fetchPinImagesBase,
     createPin: createPinBase,
@@ -133,7 +133,7 @@ export function PinsProvider({
 
   // Resume any pending uploads from IndexedDB on app start
   useEffect(() => {
-    if (!coupleId) return;
+    if (!spaceId) return;
     processPendingUploads(
       (pinId, pct) => {
         setUploadingPins((prev) => {
@@ -153,10 +153,10 @@ export function PinsProvider({
       },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coupleId]);
+  }, [spaceId]);
 
   useCoupleRealtime({
-    coupleId,
+    coupleId: spaceId,
     onInsert: async (pin) => {
       invalidateStatsCache();
       let pinWithRelations = pin;

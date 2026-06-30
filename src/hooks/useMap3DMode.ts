@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 const MAP_3D_MODE_STORAGE_KEY = "pinly.map-3d-enabled";
 
@@ -19,22 +19,14 @@ function writeStoredMap3DMode(enabled: boolean) {
 }
 
 export function useMap3DMode(canUseMap3D: boolean) {
-  const [map3DEnabled, setMap3DEnabledState] = useState<boolean>(() =>
-    canUseMap3D ? readStoredMap3DMode() : false,
-  );
-
-  useEffect(() => {
-    if (!canUseMap3D) {
-      setMap3DEnabledState(false);
-      return;
-    }
-    setMap3DEnabledState(readStoredMap3DMode());
-  }, [canUseMap3D]);
+  const [storedMap3DEnabled, setStoredMap3DEnabled] =
+    useState(readStoredMap3DMode);
+  const map3DEnabled = canUseMap3D && storedMap3DEnabled;
 
   const setMap3DEnabled = useCallback(
     (enabled: boolean) => {
       if (!canUseMap3D) return;
-      setMap3DEnabledState(enabled);
+      setStoredMap3DEnabled(enabled);
       writeStoredMap3DMode(enabled);
     },
     [canUseMap3D],

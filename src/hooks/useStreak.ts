@@ -23,45 +23,66 @@ function addDaysIso(isoDate: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-export function useStreak(couple: Couple | null, userId: string | undefined) {
-  const [streak, setStreak] = useState<CoupleStreak | null>(null);
-  const [today, setToday] = useState<CoupleStreakDay | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+interface StreakSnapshot {
+  coupleId: string;
+  streak: CoupleStreak | null;
+  today: CoupleStreakDay | null;
+  error: string | null;
+}
+
+export function useStreak(
+  couple: Couple | null,
+  userId: string | undefined,
+  enabled = true,
+) {
+  const [snapshot, setSnapshot] = useState<StreakSnapshot | null>(null);
+  const [loadingCoupleId, setLoadingCoupleId] = useState<string | null>(null);
   const fetchRequestRef = useRef(0);
   const refreshTimerRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
 
   const coupleId = couple?.id;
+  const activeSnapshot =
+    enabled && snapshot?.coupleId === coupleId ? snapshot : null;
+  const streak = activeSnapshot?.streak ?? null;
+  const today = activeSnapshot?.today ?? null;
 
   const fetchStreak = useCallback(async () => {
     const requestId = fetchRequestRef.current + 1;
     fetchRequestRef.current = requestId;
 
-    if (!coupleId) {
-      setStreak(null);
-      setToday(null);
+    if (!enabled || !coupleId) {
+      setSnapshot(null);
+      setLoadingCoupleId(null);
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    const targetCoupleId = coupleId;
+    setLoadingCoupleId(targetCoupleId);
+    setSnapshot((prev) =>
+      prev?.coupleId === targetCoupleId ? { ...prev, error: null } : prev,
+    );
 
     const { data: streakData, error: streakError } = await supabase
       .from("couple_streaks")
       .select("*")
-      .eq("couple_id", coupleId)
+      .eq("couple_id", targetCoupleId)
       .maybeSingle();
 
     if (requestId !== fetchRequestRef.current) return;
 
     if (streakError) {
-      setError(streakError.message);
-      setLoading(false);
+      setSnapshot({
+        coupleId: targetCoupleId,
+        streak: null,
+        today: null,
+        error: streakError.message,
+      });
+      setLoadingCoupleId(null);
       return;
     }
 
     const nextStreak = (streakData as CoupleStreak | null) ?? null;
-    setStreak(nextStreak);
 
     const streakDate = dateInTimeZone(
       new Date(),
@@ -70,16 +91,27 @@ export function useStreak(couple: Couple | null, userId: string | undefined) {
     const { data: dayData, error: dayError } = await supabase
       .from("couple_streak_days")
       .select("*")
-      .eq("couple_id", coupleId)
+      .eq("couple_id", targetCoupleId)
       .eq("streak_date", streakDate)
       .maybeSingle();
 
     if (requestId !== fetchRequestRef.current) return;
 
-    if (dayError) setError(dayError.message);
-    setToday((dayData as CoupleStreakDay | null) ?? null);
-    setLoading(false);
-  }, [coupleId]);
+    setSnapshot({
+      coupleId: targetCoupleId,
+      streak: nextStreak,
+      today: (dayData as CoupleStreakDay | null) ?? null,
+      error: dayError?.message ?? null,
+    });
+    setLoadingCoupleId(null);
+  }, [coupleId, enabled]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const scheduleFetchStreak = useCallback(
     (delayMs = 250) => {
@@ -93,6 +125,7 @@ export function useStreak(couple: Couple | null, userId: string | undefined) {
   );
 
   useEffect(() => {
+    if (!enabled) return;
     scheduleFetchStreak(0);
     return () => {
       if (refreshTimerRef.current) {
@@ -100,10 +133,24 @@ export function useStreak(couple: Couple | null, userId: string | undefined) {
         refreshTimerRef.current = null;
       }
     };
-  }, [scheduleFetchStreak]);
+  }, [enabled, scheduleFetchStreak]);
 
   useEffect(() => {
-    if (!coupleId) return;
+    if (enabled) return;
+    fetchRequestRef.current += 1;
+    if (refreshTimerRef.current) {
+      window.clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+    queueMicrotask(() => {
+      if (!mountedRef.current) return;
+      setSnapshot(null);
+      setLoadingCoupleId(null);
+    });
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled || !coupleId) return;
     const channel = supabase
       .channel(`streak:${coupleId}`)
       .on(
@@ -121,13 +168,29 @@ export function useStreak(couple: Couple | null, userId: string | undefined) {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [coupleId, scheduleFetchStreak]);
+  }, [coupleId, enabled, scheduleFetchStreak]);
 
   const state = useMemo(() => {
     const localToday = dateInTimeZone(
       new Date(),
       streak?.timezone ?? DEFAULT_TIMEZONE,
     );
+    if (!enabled) {
+      return {
+        currentCount: 0,
+        bestCount: 0,
+        todayDate: localToday,
+        lastCompletedDate: null,
+        todayCompleted: false,
+        youPosted: false,
+        partnerPosted: false,
+        userAPosted: false,
+        userBPosted: false,
+        needsAction: false,
+        atRisk: false,
+      };
+    }
+
     const yesterday = addDaysIso(localToday, -1);
     const streakIsForToday = streak?.today_date === localToday;
     const userSlot =
@@ -191,13 +254,13 @@ export function useStreak(couple: Couple | null, userId: string | undefined) {
       needsAction: !todayCompleted,
       atRisk: !todayCompleted && currentCount > 0,
     };
-  }, [couple?.user_a, couple?.user_b, streak, today, userId]);
+  }, [couple?.user_a, couple?.user_b, enabled, streak, today, userId]);
 
   return {
     streak,
     today,
-    loading,
-    error,
+    loading: enabled && loadingCoupleId === coupleId,
+    error: activeSnapshot?.error ?? null,
     refresh: fetchStreak,
     ...state,
   };

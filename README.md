@@ -1,6 +1,6 @@
 # Pinly
 
-Bản đồ kỷ niệm của 2 người. React + Vite + TypeScript + MapLibre GL JS + OpenFreeMap + Supabase + Cloudinary. PWA-ready.
+Bản đồ kỷ niệm cá nhân hoặc chia sẻ. React + Vite + TypeScript + MapLibre GL JS + OpenFreeMap + Supabase + Cloudinary. PWA-ready.
 
 ## Setup
 
@@ -50,18 +50,18 @@ Push to GitHub → import into Vercel (framework: Vite) → set the env vars →
 - **MapLibre GL JS** + **OpenFreeMap** tiles — free forever, no API key, no usage cap.
 - **Mapbox Geocoding** address search — set `VITE_MAPBOX_ACCESS_TOKEN` to search streets/addresses with coordinate results. If the token is missing or Mapbox returns nothing, the app falls back to Nominatim.
 - **Nominatim** reverse geocoding — free; we omit a custom User-Agent (browsers forbid setting it from `fetch`), so requests inherit the browser UA. For heavy traffic, switch to a self-hosted Nominatim or a paid provider.
-- **Supabase RLS** — every pin/image row is gated by `get_my_couple_id()` so each couple only sees their own data.
-- **Cloudinary** — signed uploads via Supabase Edge Function, scoped to `pinly/<couple_id>`, with on-the-fly transforms via `w_<n>,q_auto,f_auto`.
+- **Supabase RLS** — memory rows are gated by space membership so each map only exposes data to its active members.
+- **Cloudinary** — signed uploads via Supabase Edge Function, scoped to the active map, with on-the-fly transforms via `w_<n>,q_auto,f_auto`.
 
 ## Phase 1 MVP — implemented
 
 - Email/password auth
-- Couple pairing via invite code
+- Personal and shared map setup via invite code
 - Shared MapLibre map (Liberty style, OpenFreeMap tiles)
 - Long-press map to drop pin / FAB → GPS pin
 - Create pin: title, note, up to 5 photos (compressed → Cloudinary), reverse-geocoded address
 - Pin detail bottom sheet with image carousel, delete (creator only), share, open in Google Maps
-- Realtime sync between paired devices
+- Realtime sync between members of the active map
 - PWA: installable, offline tile/image cache
 
 Phase 2–4 features (heatmap, stats, timeline, share card, bucket list) are scoped by the type/hook layer and ready to extend per the build guide.

@@ -12,6 +12,10 @@
     "check:interaction-notifications": "node scripts/interaction-notifications-contract.mjs",
     "check:map-cluster-marker": "node scripts/map-cluster-marker-contract.mjs",
     "check:map-add-pin-fab": "node scripts/map-add-pin-fab-contract.mjs",
+    "check:memory-spaces-schema": "node scripts/memory-spaces-schema-contract.mjs",
+    "check:memory-spaces-frontend": "node scripts/memory-spaces-frontend-contract.mjs",
+    "check:polar-billing-schema": "node scripts/polar-billing-schema-contract.mjs",
+    "check:polar-billing-frontend": "node scripts/polar-billing-frontend-contract.mjs",
     "check:couple-breakup": "node scripts/couple-breakup-contract.mjs",
     "check:dark-mode": "node scripts/dark-mode-contract.mjs",
     "check:map-streak-safe-top": "node scripts/map-streak-safe-top-contract.mjs",
@@ -28,6 +32,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@polar-sh/supabase": "^0.4.5",
     "@supabase/supabase-js": "^2.106.0",
     "browser-image-compression": "^2.0.2",
     "lucide-react": "^1.16.0",
@@ -37,7 +42,8 @@
     "react-router-dom": "^7.15.1",
     "react-window": "^2.2.7",
     "supercluster": "^8.0.1",
-    "workbox-window": "^7.4.1"
+    "workbox-window": "^7.4.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

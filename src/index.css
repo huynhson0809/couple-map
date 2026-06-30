@@ -5830,7 +5830,301 @@ button.stat-card {
   min-height: 46px;
 }
 
-@media (max-width: 360px) {
+.space-switcher,
+.space-invite-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+}
+
+.space-switcher-controls {
+  display: grid;
+  gap: 12px;
+}
+
+.space-switcher-list {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 8px;
+}
+
+.space-switcher-card {
+  position: relative;
+  min-width: 0;
+}
+
+.space-switcher-card .space-switcher-option {
+  padding-right: 44px;
+}
+
+.space-switcher-option {
+  width: 100%;
+  min-width: 0;
+  min-height: 58px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.34);
+  color: var(--fg);
+  text-align: left;
+  box-shadow:
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.44),
+    0 10px 22px rgba(43, 49, 69, 0.08);
+  cursor: pointer;
+  transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.space-switcher-option:disabled {
+  cursor: default;
+  opacity: 0.62;
+}
+
+.space-switcher-option:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.space-switcher-option.active {
+  border-color: rgba(255, 90, 112, 0.54);
+  background: linear-gradient(135deg, #ff6576, #ff4f69);
+  color: white;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 14px 30px rgba(255, 80, 105, 0.22);
+}
+
+.space-switcher-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.42);
+  color: currentColor;
+  box-shadow: inset 0 0.75px 0 rgba(255, 255, 255, 0.44);
+  cursor: pointer;
+}
+
+.space-switcher-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.space-switcher-name {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.space-switcher-meta {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.15;
+  opacity: 0.74;
+}
+
+.space-switcher-create,
+.space-invite-action {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.space-switcher-create {
+  width: 100%;
+  justify-content: center;
+}
+
+.space-quota-note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.space-create-button:disabled,
+.space-switcher-create:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.space-delete-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 260;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 50% 8%, rgba(255, 214, 224, 0.28), transparent 44%),
+    rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(16px) saturate(1.18);
+  -webkit-backdrop-filter: blur(16px) saturate(1.18);
+  animation: fade-in 0.2s;
+}
+
+.space-delete-dialog {
+  position: relative;
+  width: min(420px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 24px 20px 20px;
+  border-radius: 28px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(255, 240, 246, 0.58)),
+    var(--glass-section-bg);
+  box-shadow:
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.72),
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.82),
+    0 28px 72px rgba(15, 23, 42, 0.24);
+  backdrop-filter: blur(44px) saturate(1.6);
+  -webkit-backdrop-filter: blur(44px) saturate(1.6);
+  animation: slide-up 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.space-delete-dialog h3 {
+  margin: 0;
+  color: var(--fg);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.space-delete-dialog p {
+  margin: 0;
+  color: var(--fg-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.space-delete-dialog strong,
+.space-delete-dialog span {
+  display: block;
+}
+
+.space-delete-dialog strong {
+  color: var(--fg);
+  margin-bottom: 6px;
+}
+
+.space-delete-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-control-bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.space-delete-close:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.space-delete-icon {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  background: rgba(244, 63, 94, 0.12);
+  color: #fb5264;
+}
+
+.space-delete-field {
+  display: grid;
+  gap: 8px;
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 820;
+}
+
+.space-delete-field input {
+  width: 100%;
+  border: 1px solid rgba(244, 63, 94, 0.24);
+  border-radius: 16px;
+  padding: 13px 14px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--fg);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 850;
+  letter-spacing: 0;
+  outline: none;
+  box-shadow: inset 0 0.75px 0 rgba(255, 255, 255, 0.84);
+}
+
+.space-delete-field input:focus {
+  border-color: #fb5264;
+  box-shadow:
+    0 0 0 4px rgba(251, 82, 100, 0.14),
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.84);
+}
+
+.space-delete-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 10px;
+}
+
+.space-delete-actions .lg-button {
+  min-width: 0;
+}
+
+.space-invite-confirm,
+.space-invite-code-block {
+  display: grid;
+  gap: 10px;
+}
+
+.space-invite-warning {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.space-invite-code {
+  width: 100%;
+  min-height: 54px;
+  justify-content: center;
+  font-size: 22px;
+  letter-spacing: 0.14em;
+  font-weight: 900;
+  text-align: center;
+}
+
+@media (min-width: 560px) {
+  .space-switcher-create {
+    width: auto;
+    justify-self: end;
+  }
+}
+
+@media (max-width: 420px) {
   .setting-plan-main {
     align-items: flex-start;
     flex-direction: column;
@@ -5839,11 +6133,17 @@ button.stat-card {
   .setting-plan-actions,
   .setting-plan-upgrade,
   .setting-plan-manage,
+  .space-switcher-create,
+  .space-invite-action,
   .settings-legal-actions {
     width: 100%;
   }
 
   .settings-legal-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .space-delete-actions {
     grid-template-columns: 1fr;
   }
 }
@@ -7736,7 +8036,7 @@ button.stat-card {
   font-size: 13px;
   color: var(--muted);
 }
-.pricing-cta {
+.pricing-buy-btn {
   width: 100%;
   padding: 12px;
   border: 0;
@@ -7747,13 +8047,13 @@ button.stat-card {
   font-weight: 700;
   cursor: pointer;
   transition: opacity 0.2s;
-  margin-bottom: 14px;
+  margin-top: 14px;
 }
-.pricing-cta:disabled {
+.pricing-buy-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.pricing-cta-pro {
+.pricing-buy-btn-pro {
   background: linear-gradient(135deg, var(--coral) 0%, #ff8a80 100%);
 }
 .pricing-current-badge {
@@ -7838,6 +8138,20 @@ button.stat-card {
 .pricing-activate-section .muted {
   font-size: 12px;
   margin-bottom: 12px;
+}
+.pricing-activate-section-secondary {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+.pricing-code-toggle {
+  border: 0;
+  background: transparent;
+  color: var(--coral);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .pricing-activate-input {
   display: flex;

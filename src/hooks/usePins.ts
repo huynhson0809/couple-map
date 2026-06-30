@@ -27,7 +27,7 @@ export interface CreatePinInput {
   images: CloudinaryUploadResult[]
 }
 
-export function usePins(coupleId: string | null | undefined, userId: string | undefined) {
+export function usePins(spaceId: string | null | undefined, userId: string | undefined) {
   const [pins, setPins] = useState<Pin[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,7 +45,7 @@ export function usePins(coupleId: string | null | undefined, userId: string | un
   }, [])
 
   const fetchPins = useCallback(async () => {
-    if (!coupleId) {
+    if (!spaceId) {
       setPins([])
       return
     }
@@ -56,13 +56,13 @@ export function usePins(coupleId: string | null | undefined, userId: string | un
     const { data, error } = await supabase
       .from('pins')
       .select(PIN_SELECT_WITH_CATEGORIES)
-      .eq('couple_id', coupleId)
+      .eq('couple_id', spaceId)
       .order('position', { referencedTable: 'categories', ascending: true })
       .order('created_at', { ascending: false })
     if (error) setError(error.message)
     setPins(((data as Pin[]) ?? []).map((p) => ({ ...p, images: undefined })))
     setLoading(false)
-  }, [coupleId])
+  }, [spaceId])
 
   /** Fetch images for a single pin on-demand */
   const fetchPinImages = useCallback(async (pinId: string): Promise<PinImage[]> => {
@@ -78,7 +78,7 @@ export function usePins(coupleId: string | null | undefined, userId: string | un
 
   const createPin = useCallback(
     async (input: CreatePinInput): Promise<Pin> => {
-      if (!coupleId || !userId) throw new Error('Not in a couple')
+      if (!spaceId || !userId) throw new Error('Not in a space')
       let address: string | null = null
       let city: string | null = null
       let country: string | null = null
@@ -101,7 +101,7 @@ export function usePins(coupleId: string | null | undefined, userId: string | un
 
       const { data: pinId, error: insErr } = await supabase
         .rpc('create_pin_with_categories', {
-          in_couple_id: coupleId,
+          in_couple_id: spaceId,
           in_created_by: userId,
           in_title: input.title,
           in_note: input.note ?? null,
@@ -142,7 +142,7 @@ export function usePins(coupleId: string | null | undefined, userId: string | un
       })
       return newPin
     },
-    [coupleId, fetchPinWithRelations, userId],
+    [spaceId, fetchPinWithRelations, userId],
   )
 
   const deletePin = useCallback(async (id: string) => {

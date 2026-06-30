@@ -46,8 +46,19 @@ function mergeNotifications(
   return Array.from(byId.values()).sort(byNewestFirst);
 }
 
+function notificationBelongsToActiveSpace(
+  notification: AppNotification,
+  activeSpaceId: string,
+) {
+  return (
+    notification.space_id === activeSpaceId ||
+    (notification.space_id === null && notification.couple_id === activeSpaceId)
+  );
+}
+
 export function useNotificationFeed(
   userId: string | undefined,
+  activeSpaceId: string | null | undefined,
   onNewNotification?: (notif: AppNotification) => void,
 ) {
   const instanceId = useId();
@@ -77,7 +88,7 @@ export function useNotificationFeed(
 
   const fetchNotifications = useCallback(
     async (reset = false) => {
-      if (!userId) return;
+      if (!userId || !activeSpaceId) return;
       if (loadingRef.current) return;
 
       loadingRef.current = true;
@@ -89,6 +100,7 @@ export function useNotificationFeed(
         const { data, error } = await supabase.rpc("get_notification_feed", {
           p_limit: PAGE_SIZE,
           p_offset: offset,
+          p_space_id: activeSpaceId,
         });
 
         if (error || requestId !== requestIdRef.current) return;
@@ -111,11 +123,12 @@ export function useNotificationFeed(
         }
       }
     },
-    [setNotificationState, userId],
+    [activeSpaceId, setNotificationState, userId],
   );
 
   const markAsRead = useCallback(
     async (id: string) => {
+      if (!userId || !activeSpaceId) return;
       const wasUnread = notificationsRef.current.some(
         (notification) => notification.id === id && !notification.read,
       );
@@ -123,6 +136,7 @@ export function useNotificationFeed(
         .from("notifications")
         .update({ read: true })
         .eq("id", id)
+        .eq("user_id", userId)
         .eq("read", false);
 
       if (error) return;
@@ -136,15 +150,18 @@ export function useNotificationFeed(
       );
       if (wasUnread) setUnreadCount((count) => Math.max(0, count - 1));
     },
-    [setNotificationState],
+    [activeSpaceId, setNotificationState, userId],
   );
 
   const markAllAsRead = useCallback(async () => {
-    if (!userId) return;
+    if (!userId || !activeSpaceId) return;
     const { error } = await supabase
       .from("notifications")
       .update({ read: true })
       .eq("user_id", userId)
+      .or(
+        `space_id.eq.${activeSpaceId},and(space_id.is.null,couple_id.eq.${activeSpaceId})`,
+      )
       .eq("read", false);
 
     if (error) return;
@@ -153,7 +170,7 @@ export function useNotificationFeed(
       prev.map((notification) => ({ ...notification, read: true })),
     );
     setUnreadCount(0);
-  }, [setNotificationState, userId]);
+  }, [activeSpaceId, setNotificationState, userId]);
 
   const fetchMore = useCallback(
     () => fetchNotifications(false),
@@ -167,33 +184,34 @@ export function useNotificationFeed(
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      requestIdRef.current += 1;
       notificationsRef.current = [];
       nextOffsetRef.current = 0;
       loadingRef.current = false;
       setNotifications([]);
       setUnreadCount(0);
-      setHasMore(Boolean(userId));
+      setHasMore(Boolean(userId && activeSpaceId));
       setLoading(false);
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [userId]);
+  }, [activeSpaceId, userId]);
 
   // Initial fetch
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !activeSpaceId) return;
     const timer = window.setTimeout(() => {
       void refresh();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [refresh, userId]);
+  }, [activeSpaceId, refresh, userId]);
 
   // Realtime subscription
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !activeSpaceId) return;
 
     const channel = supabase
-      .channel(`notifications:${userId}:${instanceId}`)
+      .channel(`notifications:${userId}:${activeSpaceId}:${instanceId}`)
       .on(
         "postgres_changes",
         {
@@ -204,6 +222,7 @@ export function useNotificationFeed(
         },
         (payload) => {
           const newNotif = payload.new as AppNotification;
+          if (!notificationBelongsToActiveSpace(newNotif, activeSpaceId)) return;
           const alreadyLoaded = notificationsRef.current.some(
             (notification) => notification.id === newNotif.id,
           );
@@ -220,7 +239,7 @@ export function useNotificationFeed(
     return () => {
       void channel.unsubscribe();
     };
-  }, [instanceId, setNotificationState, userId]);
+  }, [activeSpaceId, instanceId, setNotificationState, userId]);
 
   return {
     notifications,

@@ -8,7 +8,12 @@ import {
   type ReactNode,
 } from "react";
 import { supabase } from "../lib/supabase";
-import type { PlanType, Subscription } from "../types";
+import type {
+  AccountSubscription,
+  BillingCycle,
+  PlanType,
+  Subscription,
+} from "../types";
 
 // All style IDs in display order (matches MAP_STYLES in useMapStyle.ts)
 const MAP_STYLE_IDS = [
@@ -40,6 +45,7 @@ const PLAN_LIMITS = {
     graceperiodDays: 0,
     collections: 0,
     shareCardWatermark: true,
+    ownedSpaces: 1,
   },
   plus: {
     pins: 300,
@@ -50,6 +56,7 @@ const PLAN_LIMITS = {
     graceperiodDays: 1,
     collections: 3,
     shareCardWatermark: false,
+    ownedSpaces: 2,
   },
   pro: {
     pins: Infinity,
@@ -60,15 +67,29 @@ const PLAN_LIMITS = {
     graceperiodDays: 3,
     collections: Infinity,
     shareCardWatermark: false,
+    ownedSpaces: 3,
   },
 } as const;
 
 // Free map styles (indices into the styles array)
 const FREE_STYLE_IDS = ["bright", "midnight", "candy"];
+const BILLING_RETURN_POLL_DELAYS_MS = [
+  0, 1000, 2000, 3000, 5000, 8000, 13000,
+];
+
+type ActiveSubscription =
+  | Subscription
+  | (AccountSubscription & { current_period_end: string });
 
 interface SubscriptionContextValue {
   plan: PlanType;
-  subscription: Subscription | null;
+  accountPlan: PlanType;
+  spacePlan: PlanType;
+  spaceOwnerId: string | null;
+  ownedSpaceCount: number;
+  ownedSpaceLimit: number;
+  canCreateSpace: boolean;
+  subscription: ActiveSubscription | null;
   loading: boolean;
   limits: (typeof PLAN_LIMITS)[PlanType];
   isPremium: boolean;
@@ -81,6 +102,11 @@ interface SubscriptionContextValue {
   canCreateCollection: (currentCount: number) => boolean;
   hasWatermark: boolean;
   refetch: () => Promise<void>;
+  checkout: (
+    plan: Exclude<PlanType, "free">,
+    cycle: BillingCycle,
+  ) => Promise<void>;
+  openCustomerPortal: () => Promise<void>;
   activateCode: (code: string) => Promise<{
     success: boolean;
     message: string;
@@ -93,15 +119,40 @@ const SubscriptionCtx = createContext<SubscriptionContextValue | null>(null);
 
 type SubscriptionContextPayload = {
   plan?: string | null;
-  subscription?: Subscription | null;
+  account_plan?: string | null;
+  space_plan?: string | null;
+  space_owner_id?: string | null;
+  owned_space_count?: number | null;
+  owned_space_limit?: number | null;
+  can_create_space?: boolean | null;
+  subscription?: AccountSubscription | Subscription | null;
+  limits?: {
+    ownedSpaces?: number | null;
+  } | null;
   map3d?: boolean | null;
   entitlements?: {
     map3d?: boolean | null;
   } | null;
 };
 
+const DEFAULT_SUBSCRIPTION_CONTEXT = {
+  plan: "free" as PlanType,
+  accountPlan: "free" as PlanType,
+  spacePlan: "free" as PlanType,
+  spaceOwnerId: null as string | null,
+  ownedSpaceCount: 0,
+  ownedSpaceLimit: PLAN_LIMITS.free.ownedSpaces,
+  canCreateSpace: true,
+  subscription: null as ActiveSubscription | null,
+  canUseMap3D: false,
+};
+
 function readBoolean(value: unknown): boolean | null {
   return typeof value === "boolean" ? value : null;
+}
+
+function readNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function normalizePlan(plan: string | null | undefined): PlanType {
@@ -109,13 +160,35 @@ function normalizePlan(plan: string | null | undefined): PlanType {
   return "free";
 }
 
+function normalizeActiveSubscription(
+  subscription: AccountSubscription | Subscription | null | undefined,
+  accountPlan: PlanType,
+): ActiveSubscription | null {
+  if (accountPlan === "free" || !subscription) return null;
+  if (typeof subscription.current_period_end !== "string") return null;
+  return subscription as ActiveSubscription;
+}
+
 function normalizeSubscriptionContext(data: unknown): {
   plan: PlanType;
-  subscription: Subscription | null;
+  accountPlan: PlanType;
+  spacePlan: PlanType;
+  spaceOwnerId: string | null;
+  ownedSpaceCount: number;
+  ownedSpaceLimit: number;
+  canCreateSpace: boolean;
+  subscription: ActiveSubscription | null;
   canUseMap3D: boolean;
 } {
   const payload = (data ?? {}) as SubscriptionContextPayload;
-  const plan = normalizePlan(payload.plan);
+  const accountPlan = normalizePlan(payload.account_plan ?? payload.plan);
+  const spacePlan = normalizePlan(payload.space_plan ?? payload.plan);
+  const plan = spacePlan;
+  const ownedSpaceCount = readNumber(payload.owned_space_count) ?? 0;
+  const ownedSpaceLimit =
+    readNumber(payload.owned_space_limit) ??
+    readNumber(payload.limits?.ownedSpaces) ??
+    PLAN_LIMITS[accountPlan].ownedSpaces;
   const entitlementFromObject = readBoolean(payload.entitlements?.map3d);
   const entitlementFromTopLevel = readBoolean(payload.map3d);
   const canUseMap3D =
@@ -123,31 +196,73 @@ function normalizeSubscriptionContext(data: unknown): {
 
   return {
     plan,
-    subscription: plan === "free" ? null : (payload.subscription ?? null),
+    accountPlan,
+    spacePlan,
+    spaceOwnerId:
+      typeof payload.space_owner_id === "string" ? payload.space_owner_id : null,
+    ownedSpaceCount,
+    ownedSpaceLimit,
+    canCreateSpace:
+      readBoolean(payload.can_create_space) ??
+      ownedSpaceCount < ownedSpaceLimit,
+    subscription: normalizeActiveSubscription(payload.subscription, accountPlan),
     canUseMap3D,
   };
 }
 
+function messageFromError(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
+function returnedUrl(data: unknown): string | null {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  const url = (data as { url?: unknown }).url;
+  return typeof url === "string" && url.length > 0 ? url : null;
+}
+
 export function SubscriptionProvider({
-  coupleId,
+  spaceId,
   children,
 }: {
-  coupleId: string | null;
+  spaceId: string | null;
   children: ReactNode;
 }) {
   const [plan, setPlan] = useState<PlanType>("free");
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [accountPlan, setAccountPlan] = useState<PlanType>("free");
+  const [spacePlan, setSpacePlan] = useState<PlanType>("free");
+  const [spaceOwnerId, setSpaceOwnerId] = useState<string | null>(null);
+  const [ownedSpaceCount, setOwnedSpaceCount] = useState(0);
+  const [ownedSpaceLimit, setOwnedSpaceLimit] = useState<number>(
+    PLAN_LIMITS.free.ownedSpaces,
+  );
+  const [canCreateSpace, setCanCreateSpace] = useState(true);
+  const [subscription, setSubscription] = useState<ActiveSubscription | null>(
+    null,
+  );
   const [map3dEntitled, setMap3dEntitled] = useState(false);
   const [loading, setLoading] = useState(true);
   const requestIdRef = useRef(0);
 
-  const fetchPlan = useCallback(async () => {
-    const requestId = ++requestIdRef.current;
+  const resetSubscriptionContext = useCallback(() => {
+    setPlan(DEFAULT_SUBSCRIPTION_CONTEXT.plan);
+    setAccountPlan(DEFAULT_SUBSCRIPTION_CONTEXT.accountPlan);
+    setSpacePlan(DEFAULT_SUBSCRIPTION_CONTEXT.spacePlan);
+    setSpaceOwnerId(DEFAULT_SUBSCRIPTION_CONTEXT.spaceOwnerId);
+    setOwnedSpaceCount(DEFAULT_SUBSCRIPTION_CONTEXT.ownedSpaceCount);
+    setOwnedSpaceLimit(DEFAULT_SUBSCRIPTION_CONTEXT.ownedSpaceLimit);
+    setCanCreateSpace(DEFAULT_SUBSCRIPTION_CONTEXT.canCreateSpace);
+    setSubscription(DEFAULT_SUBSCRIPTION_CONTEXT.subscription);
+    setMap3dEntitled(DEFAULT_SUBSCRIPTION_CONTEXT.canUseMap3D);
+  }, []);
 
-    if (!coupleId) {
-      setPlan("free");
-      setSubscription(null);
-      setMap3dEntitled(false);
+  const fetchPlan = useCallback(async (scheduledRequestId?: number) => {
+    const requestId = scheduledRequestId ?? ++requestIdRef.current;
+
+    if (requestId !== requestIdRef.current) return;
+
+    if (!spaceId) {
+      resetSubscriptionContext();
       setLoading(false);
       return;
     }
@@ -155,49 +270,86 @@ export function SubscriptionProvider({
     setLoading(true);
 
     const { data, error } = await supabase.rpc(
-      "get_subscription_context_for_couple",
-      { p_couple_id: coupleId },
+      "get_subscription_context_for_space",
+      { p_space_id: spaceId },
     );
 
     if (requestId !== requestIdRef.current) return;
 
     if (error) {
-      setPlan("free");
-      setSubscription(null);
-      setMap3dEntitled(false);
+      resetSubscriptionContext();
       setLoading(false);
       return;
     }
 
     const context = normalizeSubscriptionContext(data);
     setPlan(context.plan);
+    setAccountPlan(context.accountPlan);
+    setSpacePlan(context.spacePlan);
+    setSpaceOwnerId(context.spaceOwnerId);
+    setOwnedSpaceCount(context.ownedSpaceCount);
+    setOwnedSpaceLimit(context.ownedSpaceLimit);
+    setCanCreateSpace(context.canCreateSpace);
     setSubscription(context.subscription);
     setMap3dEntitled(context.canUseMap3D);
     setLoading(false);
-  }, [coupleId]);
+  }, [resetSubscriptionContext, spaceId]);
 
   useEffect(() => {
+    const requestId = ++requestIdRef.current;
     const timer = window.setTimeout(() => {
-      void fetchPlan();
+      void fetchPlan(requestId);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [fetchPlan]);
 
-  // Listen for realtime changes to couple plan
   useEffect(() => {
-    if (!coupleId) return;
+    if (!spaceId) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const billingReturn = params.get("billing");
+    if (billingReturn !== "success") return;
+
+    let cancelled = false;
+    const timers: number[] = [];
+
+    BILLING_RETURN_POLL_DELAYS_MS.forEach((delay) => {
+      const timer = window.setTimeout(() => {
+        if (!cancelled) void fetchPlan();
+      }, delay);
+      timers.push(timer);
+    });
+
+    params.delete("billing");
+    params.delete("plan");
+    const nextSearch = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`,
+    );
+
+    return () => {
+      cancelled = true;
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [fetchPlan, spaceId]);
+
+  // Keep legacy couple/subscription invalidation while billing moves to spaces.
+  useEffect(() => {
+    if (!spaceId) return;
     const channel = supabase
-      .channel(`couple-plan-${coupleId}`)
+      .channel(`couple-plan-${spaceId}`)
       .on(
         "postgres_changes",
         {
           event: "UPDATE",
           schema: "public",
           table: "couples",
-          filter: `id=eq.${coupleId}`,
+          filter: `id=eq.${spaceId}`,
         },
         (payload) => {
-          const newPlan = payload.new?.plan as PlanType;
+          const newPlan = normalizePlan(payload.new?.plan as string | null);
           if (newPlan) {
             setPlan(newPlan);
             void fetchPlan();
@@ -210,7 +362,7 @@ export function SubscriptionProvider({
           event: "*",
           schema: "public",
           table: "subscriptions",
-          filter: `couple_id=eq.${coupleId}`,
+          filter: `couple_id=eq.${spaceId}`,
         },
         () => {
           void fetchPlan();
@@ -221,14 +373,103 @@ export function SubscriptionProvider({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [coupleId, fetchPlan]);
+  }, [spaceId, fetchPlan]);
+
+  useEffect(() => {
+    let active = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!active || !data.user?.id) return;
+
+      const targetUserIds = Array.from(
+        new Set([data.user.id, spaceOwnerId].filter(Boolean)),
+      ) as string[];
+
+      channel = supabase.channel(
+        `account-subscription-${targetUserIds.join("-")}`,
+      );
+
+      targetUserIds.forEach((userId) => {
+        if (!channel) return;
+        channel.on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "account_subscriptions",
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            void fetchPlan();
+          },
+        );
+      });
+
+      channel?.subscribe();
+    });
+
+    return () => {
+      active = false;
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [fetchPlan, spaceOwnerId]);
 
   const limits = PLAN_LIMITS[plan];
+
+  const checkout = useCallback(
+    async (checkoutPlan: Exclude<PlanType, "free">, cycle: BillingCycle) => {
+      const { data, error } = await supabase.functions.invoke(
+        "create-polar-checkout",
+        {
+          body: {
+            plan: checkoutPlan,
+            cycle,
+            app_url: window.location.origin,
+          },
+        },
+      );
+
+      if (error) {
+        throw new Error(
+          messageFromError(error, "Unable to create checkout session"),
+        );
+      }
+
+      const url = returnedUrl(data);
+      if (!url) throw new Error("Checkout URL missing");
+
+      window.location.assign(url);
+    },
+    [],
+  );
+
+  const openCustomerPortal = useCallback(async () => {
+    const { data, error } = await supabase.functions.invoke(
+      "create-customer-portal",
+      {
+        body: { app_url: window.location.origin },
+      },
+    );
+
+    if (error) {
+      throw new Error(
+        messageFromError(error, "Unable to open customer portal"),
+      );
+    }
+
+    const url = returnedUrl(data);
+    if (!url) throw new Error("Customer portal URL missing");
+
+    window.location.assign(url);
+  }, []);
 
   const activateCode = useCallback(
     async (code: string) => {
       const { data, error } = await supabase.functions.invoke(
-        "create-checkout",
+        "activate-code",
         {
           body: { code },
         },
@@ -269,6 +510,12 @@ export function SubscriptionProvider({
 
   const value: SubscriptionContextValue = {
     plan,
+    accountPlan,
+    spacePlan,
+    spaceOwnerId,
+    ownedSpaceCount,
+    ownedSpaceLimit,
+    canCreateSpace,
     subscription,
     loading,
     limits,
@@ -284,6 +531,8 @@ export function SubscriptionProvider({
       currentCount < limits.collections,
     hasWatermark: limits.shareCardWatermark,
     refetch: fetchPlan,
+    checkout,
+    openCustomerPortal,
     activateCode,
   };
 

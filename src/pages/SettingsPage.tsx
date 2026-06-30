@@ -2,8 +2,6 @@ import {
   LogOut,
   Globe,
   Heart,
-  Copy,
-  Check,
   Sun,
   Moon,
   ImageUp,
@@ -22,6 +20,7 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useCoupleCtx } from "../hooks/CoupleContext";
+import { useSpaceCtx } from "../hooks/SpaceContext";
 import { useTheme } from "../hooks/ThemeContext";
 import { useI18n } from "../hooks/I18nContext";
 import { useNotifications } from "../hooks/useNotifications";
@@ -36,6 +35,8 @@ import { useMap3DMode } from "../hooks/useMap3DMode";
 import { useSubscription } from "../hooks/useSubscription";
 import { PricingPage } from "./PricingPage";
 import { MapStylePreviewSheet } from "../components/settings/MapStylePreviewSheet";
+import { SpaceInvitePanel } from "../components/settings/SpaceInvitePanel";
+import { SpaceSwitcher } from "../components/settings/SpaceSwitcher";
 import { UpgradePrompt } from "../components/ui/UpgradePrompt";
 import { Button } from "../components/ui/Button";
 import { GlassSurface } from "../components/ui/GlassSurface";
@@ -85,15 +86,30 @@ export function SettingsPage() {
   const { user, signOut } = useAuth();
   const { profile, partner, couple, updateCouple, refresh, breakupCouple } =
     useCoupleCtx();
+  const { capabilities } = useSpaceCtx();
   const { theme, setTheme } = useTheme();
   const { lang, setLang, t } = useI18n();
   const notif = useNotifications();
   const push = usePushSubscription(user?.id);
   const notifPrefs = useNotificationPreferences(user?.id);
-  const { plan, subscription, canUseMapStyle, canUseMap3D } = useSubscription();
+  const {
+    accountPlan,
+    spacePlan,
+    spaceOwnerId,
+    ownedSpaceCount,
+    ownedSpaceLimit,
+    canCreateSpace,
+    subscription,
+    openCustomerPortal,
+    canUseMapStyle,
+    canUseMap3D,
+    loading: subscriptionLoading,
+  } = useSubscription();
   const { styleId, setStyleId } = useMapStyle(canUseMapStyle);
   const { map3DEnabled, setMap3DEnabled } = useMap3DMode(canUseMap3D);
   const [initialStyle] = useState(styleId);
+  const canManageSpaceDetails = capabilities.canDeleteSpace;
+  const duoFeaturesEnabled = capabilities.canUseDuoFeatures;
   const sortedStyles = useMemo(
     () =>
       [...MAP_STYLES].sort((a, b) => {
@@ -104,8 +120,8 @@ export function SettingsPage() {
     [initialStyle],
   );
   const [showPricing, setShowPricing] = useState(false);
+  const [planActionBusy, setPlanActionBusy] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [annivDate, setAnnivDate] = useState(couple?.anniversary_date ?? "");
   const [annivSaving, setAnnivSaving] = useState(false);
   const [bgUploading, setBgUploading] = useState(false);
@@ -120,15 +136,8 @@ export function SettingsPage() {
   const breakupConfirmValid =
     breakupConfirmText.trim().toUpperCase() === BREAKUP_CONFIRM_TEXT;
 
-  async function copyCode() {
-    if (!couple) return;
-    await navigator.clipboard.writeText(couple.invite_code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
-
   async function saveAnniversary() {
-    if (!annivDate) return;
+    if (!annivDate || !canManageSpaceDetails) return;
     setAnnivSaving(true);
     try {
       await updateCouple({ anniversary_date: annivDate });
@@ -138,7 +147,7 @@ export function SettingsPage() {
   }
 
   async function handleBgUpload(file: File | undefined) {
-    if (!file) return;
+    if (!file || !canManageSpaceDetails) return;
     setBgUploading(true);
     setBgError(null);
     try {
@@ -155,6 +164,7 @@ export function SettingsPage() {
   }
 
   async function removeBg() {
+    if (!canManageSpaceDetails) return;
     setBgUploading(true);
     try {
       await updateCouple({ background_image_url: null });
@@ -171,7 +181,7 @@ export function SettingsPage() {
   }
 
   async function handleBreakupCouple() {
-    if (!breakupConfirmValid || breakupBusy) return;
+    if (!breakupConfirmValid || breakupBusy || !canManageSpaceDetails) return;
     setBreakupBusy(true);
     setBreakupError(null);
     try {
@@ -189,6 +199,34 @@ export function SettingsPage() {
       setBreakupBusy(false);
     }
   }
+
+  async function handleManagePlan() {
+    if (subscriptionLoading || planActionBusy) return;
+
+    if (accountPlan === "free") {
+      setShowPricing(true);
+      return;
+    }
+
+    setPlanActionBusy(true);
+    try {
+      await openCustomerPortal();
+    } catch {
+      setPlanActionBusy(false);
+      setShowPricing(true);
+    }
+  }
+
+  const accountPlanName = subscriptionLoading
+    ? "..."
+    : accountPlan === "free"
+      ? "Free"
+      : accountPlan === "plus"
+        ? "Plus"
+        : "Pro";
+  const effectiveSpacePlanName =
+    spacePlan === "free" ? "FREE" : spacePlan === "plus" ? "PLUS" : "PRO";
+  const quotaReached = !subscriptionLoading && !canCreateSpace;
 
   return (
     <div className="page page-settings">
@@ -208,40 +246,82 @@ export function SettingsPage() {
         <div className="setting-plan-overview">
           <div className="setting-plan-main">
             <span className="setting-plan-name">
-              {plan === "free" ? "Free" : plan === "plus" ? "Plus" : "Pro"}
+              {accountPlanName}
             </span>
             <div className="setting-plan-actions">
-              {plan === "free" ? (
+              {accountPlan === "free" ? (
                 <Button
                   variant="primary"
                   size="sm"
-                  onClick={() => setShowPricing(true)}
+                  onClick={() => void handleManagePlan()}
+                  loading={planActionBusy}
+                  disabled={subscriptionLoading || planActionBusy}
                   className="setting-plan-upgrade"
                 >
-                  {lang === "vi" ? "Nâng cấp" : "Upgrade"}
+                  {planActionBusy
+                    ? lang === "vi"
+                      ? "Đang mở..."
+                      : "Opening..."
+                    : lang === "vi"
+                      ? "Nâng cấp"
+                      : "Upgrade"}
                 </Button>
               ) : (
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
-                  onClick={() => setShowPricing(true)}
+                  onClick={() => void handleManagePlan()}
+                  loading={planActionBusy}
+                  disabled={subscriptionLoading || planActionBusy}
                   className="setting-plan-manage"
                 >
-                  {lang === "vi" ? "Quản lý gói" : "Manage plan"}
+                  {planActionBusy
+                    ? lang === "vi"
+                      ? "Đang mở..."
+                      : "Opening..."
+                    : lang === "vi"
+                      ? "Quản lý gói"
+                      : "Manage plan"}
                 </Button>
               )}
             </div>
           </div>
-          {plan !== "free" && (
+          {accountPlan !== "free" && (
             <span className="muted setting-plan-meta">
               {subscription
                 ? `${lang === "vi" ? "Hết hạn" : "Expires"}: ${new Date(subscription.current_period_end).toLocaleDateString("vi-VN")}`
-                : "Active"}
+                : lang === "vi"
+                  ? "Đang hoạt động"
+                  : "Active"}
+            </span>
+          )}
+          {!subscriptionLoading && (
+            <span className="muted setting-plan-meta">
+              {lang === "vi"
+                ? `Bản đồ: ${ownedSpaceCount}/${ownedSpaceLimit}`
+                : `Maps: ${ownedSpaceCount}/${ownedSpaceLimit}`}
+            </span>
+          )}
+          {!subscriptionLoading && spacePlan !== accountPlan && spaceOwnerId && (
+            <span className="muted setting-plan-meta">
+              {lang === "vi"
+                ? `Space này dùng gói owner: ${effectiveSpacePlanName}`
+                : `This space uses owner plan: ${effectiveSpacePlanName}`}
+            </span>
+          )}
+          {quotaReached && (
+            <span className="muted setting-plan-meta">
+              {lang === "vi"
+                ? "Bạn đã đạt giới hạn tạo bản đồ của gói hiện tại."
+                : "You have reached the map limit for your current plan."}
             </span>
           )}
         </div>
       </SettingSection>
+
+      <SpaceSwitcher />
+      <SpaceInvitePanel />
 
       <SettingSection title={t("settings.appearance")} icon={<Sun size={14} />}>
         <div className="setting-row compact">
@@ -521,7 +601,8 @@ export function SettingsPage() {
             />
           )}
         </div>
-        <div className="notif-pref-list">
+        {duoFeaturesEnabled && (
+          <div className="notif-pref-list">
           <div className="notif-pref-row">
             <span>
               <strong>{t("notif.memoryAdded")}</strong>
@@ -596,10 +677,11 @@ export function SettingsPage() {
               }
             />
           </div>
-        </div>
+          </div>
+        )}
       </SettingSection>
 
-      {couple && (
+      {couple && canManageSpaceDetails && (
         <SettingSection
           title={t("settings.anniversary")}
           icon={<Calendar size={14} />}
@@ -626,7 +708,7 @@ export function SettingsPage() {
         </SettingSection>
       )}
 
-      {couple && (
+      {couple && canManageSpaceDetails && (
         <SettingSection
           title={t("settings.background")}
           icon={<ImageUp size={14} />}
@@ -707,24 +789,15 @@ export function SettingsPage() {
             <div className="muted small">
               <span className="setting-row-label">
                 <Heart size={12} aria-hidden="true" />
-                Partner
+                {t("common.partner")}
               </span>
             </div>
             <div>{partner.display_name ?? partner.email}</div>
           </div>
         )}
-        {couple && (
-          <div className="setting-row">
-            <span>{t("settings.inviteCode")}</span>
-            <button className="copy-chip" onClick={copyCode}>
-              <code>{couple.invite_code}</code>
-              {copied ? <Check size={14} /> : <Copy size={14} />}
-            </button>
-          </div>
-        )}
       </SettingSection>
 
-      {couple && (
+      {couple && canManageSpaceDetails && (
         <SettingSection
           title={t("settings.breakupTitle")}
           icon={<HeartCrack size={14} />}
