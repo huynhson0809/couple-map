@@ -221,6 +221,23 @@ function returnedUrl(data: unknown): string | null {
   return typeof url === "string" && url.length > 0 ? url : null;
 }
 
+function configuredBillingAppUrl(): string | null {
+  const value = import.meta.env.VITE_APP_URL;
+  if (typeof value !== "string" || !value.trim()) return null;
+
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+function billingReturnAppUrl() {
+  return configuredBillingAppUrl() ?? window.location.origin;
+}
+
 export function SubscriptionProvider({
   spaceId,
   children,
@@ -427,7 +444,7 @@ export function SubscriptionProvider({
           body: {
             plan: checkoutPlan,
             cycle,
-            app_url: window.location.origin,
+            app_url: billingReturnAppUrl(),
           },
         },
       );
@@ -450,7 +467,7 @@ export function SubscriptionProvider({
     const { data, error } = await supabase.functions.invoke(
       "create-customer-portal",
       {
-        body: { app_url: window.location.origin },
+        body: { app_url: billingReturnAppUrl() },
       },
     );
 

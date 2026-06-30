@@ -6,6 +6,13 @@ const subscriptionHook = readFileSync(resolve("src/hooks/useSubscription.tsx"), 
 const pricingPage = readFileSync(resolve("src/pages/PricingPage.tsx"), "utf8");
 const settingsPage = readFileSync(resolve("src/pages/SettingsPage.tsx"), "utf8");
 const spacesHook = readFileSync(resolve("src/hooks/useSpaces.ts"), "utf8");
+const managePlanStart = settingsPage.indexOf("async function handleManagePlan()");
+const managePlanEnd = settingsPage.indexOf("const accountPlanName", managePlanStart);
+assert.ok(
+  managePlanStart >= 0 && managePlanEnd > managePlanStart,
+  "Settings must define handleManagePlan before accountPlanName.",
+);
+const managePlanBlock = settingsPage.slice(managePlanStart, managePlanEnd);
 
 assert.match(
   subscriptionHook,
@@ -46,6 +53,11 @@ assert.match(
   subscriptionHook,
   /billing=success|URLSearchParams\(window\.location\.search\)|billingReturn/i,
   "useSubscription must refresh after returning from Polar checkout.",
+);
+assert.match(
+  subscriptionHook,
+  /VITE_APP_URL|billingReturnAppUrl/i,
+  "useSubscription must support a configured public billing return app URL for mobile browser flows.",
 );
 assert.match(
   subscriptionHook,
@@ -98,6 +110,11 @@ assert.match(
   settingsPage,
   /Đang mở|Opening/,
   "Settings plan action button must communicate that the portal is opening.",
+);
+assert.match(
+  managePlanBlock,
+  /finally\s*{[\s\S]*setPlanActionBusy\(false\)/,
+  "Settings must clear the plan action busy state after launching or failing billing navigation.",
 );
 
 assert.match(

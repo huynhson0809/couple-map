@@ -16,6 +16,7 @@
     "check:memory-spaces-frontend": "node scripts/memory-spaces-frontend-contract.mjs",
     "check:polar-billing-schema": "node scripts/polar-billing-schema-contract.mjs",
     "check:polar-billing-frontend": "node scripts/polar-billing-frontend-contract.mjs",
+    "check:seo-domain": "node scripts/seo-domain-contract.mjs",
     "check:couple-breakup": "node scripts/couple-breakup-contract.mjs",
     "check:dark-mode": "node scripts/dark-mode-contract.mjs",
     "check:map-streak-safe-top": "node scripts/map-streak-safe-top-contract.mjs",

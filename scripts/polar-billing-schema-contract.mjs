@@ -4,6 +4,9 @@ import assert from "node:assert/strict";
 
 const migrationPath = resolve("supabase/migration_polar_billing.sql");
 const webhookPath = resolve("supabase/functions/polar-webhook/index.ts");
+const checkoutPath = resolve("supabase/functions/create-polar-checkout/index.ts");
+const portalPath = resolve("supabase/functions/create-customer-portal/index.ts");
+const appUrlPath = resolve("supabase/functions/_shared/app-url.ts");
 
 assert.ok(
   existsSync(migrationPath),
@@ -13,9 +16,24 @@ assert.ok(
   existsSync(webhookPath),
   "supabase/functions/polar-webhook/index.ts must exist.",
 );
+assert.ok(
+  existsSync(checkoutPath),
+  "supabase/functions/create-polar-checkout/index.ts must exist.",
+);
+assert.ok(
+  existsSync(portalPath),
+  "supabase/functions/create-customer-portal/index.ts must exist.",
+);
+assert.ok(
+  existsSync(appUrlPath),
+  "supabase/functions/_shared/app-url.ts must exist.",
+);
 
 const sql = readFileSync(migrationPath, "utf8");
 const webhook = readFileSync(webhookPath, "utf8");
+const checkoutFunction = readFileSync(checkoutPath, "utf8");
+const portalFunction = readFileSync(portalPath, "utf8");
+const appUrlShared = readFileSync(appUrlPath, "utf8");
 
 function bodyOf(functionName) {
   const pattern = new RegExp(
@@ -122,4 +140,24 @@ assert.match(
   webhook,
   /external_customer_id|externalCustomerId|external_id|externalId/i,
   "Polar webhook must resolve first subscription events from external customer id.",
+);
+assert.match(
+  appUrlShared,
+  /APP_ALLOWED_ORIGINS/i,
+  "Polar return URL helper must support allowed app origins.",
+);
+assert.match(
+  appUrlShared,
+  /POLAR_SERVER[\s\S]*production/i,
+  "Polar return URL helper must only trust local dev origins outside production.",
+);
+assert.match(
+  checkoutFunction,
+  /resolveTrustedAppUrl\(body\.app_url\)/i,
+  "Polar checkout must prefer the current client app_url when it is trusted.",
+);
+assert.match(
+  portalFunction,
+  /resolveTrustedAppUrl\(body\.app_url\)/i,
+  "Customer portal must prefer the current client app_url when it is trusted.",
 );

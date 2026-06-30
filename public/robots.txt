@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://pinly-app.vercel.app/sitemap.xml
+Sitemap: https://pinly.tech/sitemap.xml

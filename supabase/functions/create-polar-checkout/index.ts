@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { adminClient, requireAuthUser } from "../_shared/auth-user.ts";
+import { resolveTrustedAppUrl } from "../_shared/app-url.ts";
 import { corsHeaders, jsonResponse } from "../_shared/billing-cors.ts";
 import { polarJson, productIdFor } from "../_shared/polar-client.ts";
 
@@ -11,6 +12,7 @@ type CheckoutResponse = {
 type CheckoutBody = {
   plan?: unknown;
   cycle?: unknown;
+  app_url?: unknown;
 };
 
 function normalizePlan(value: unknown): "plus" | "pro" | null {
@@ -19,18 +21,6 @@ function normalizePlan(value: unknown): "plus" | "pro" | null {
 
 function normalizeCycle(value: unknown): "monthly" | "annual" | null {
   return value === "monthly" || value === "annual" ? value : null;
-}
-
-function appUrlFrom(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-    return url.toString().replace(/\/$/, "");
-  } catch {
-    return null;
-  }
 }
 
 function isAuthError(err: unknown) {
@@ -59,7 +49,7 @@ serve(async (req) => {
       return jsonResponse({ error: "Invalid plan or billing cycle" }, 400);
     }
 
-    const appUrl = appUrlFrom(Deno.env.get("APP_URL"));
+    const appUrl = resolveTrustedAppUrl(body.app_url);
     if (!appUrl) {
       return jsonResponse({ error: "Unable to create checkout" }, 500);
     }

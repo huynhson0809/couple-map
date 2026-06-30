@@ -212,8 +212,9 @@ export function SettingsPage() {
     try {
       await openCustomerPortal();
     } catch {
-      setPlanActionBusy(false);
       setShowPricing(true);
+    } finally {
+      setPlanActionBusy(false);
     }
   }
 
