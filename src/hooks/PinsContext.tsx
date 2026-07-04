@@ -156,7 +156,7 @@ export function PinsProvider({
   }, [spaceId]);
 
   useCoupleRealtime({
-    coupleId: spaceId,
+    spaceId,
     onInsert: async (pin) => {
       invalidateStatsCache();
       let pinWithRelations = pin;

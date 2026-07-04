@@ -171,11 +171,12 @@ export function MapPage() {
   const { user } = useAuth();
   const { t, lang } = useI18n();
   const { couple, profile, partner } = useCoupleCtx();
-  const { capabilities } = useSpaceCtx();
+  const { activeSpace, capabilities } = useSpaceCtx();
+  const currentSpaceId = activeSpace?.id ?? couple?.id ?? null;
   const duoEnabled = capabilities.canUseDuoFeatures;
   const { pins, deletePin, fetchPins, onViewportChange, loadPinById } =
     usePinsCtx();
-  const { items: bucketItems } = useBucket(couple?.id, user?.id);
+  const { items: bucketItems } = useBucket(currentSpaceId, user?.id);
   const { getCurrentPosition } = useGeo();
   const { canCreatePin, canUseMapStyle, canUseMap3D } = useSubscription();
   const { styleUrl } = useMapStyle(canUseMapStyle);
@@ -611,9 +612,9 @@ export function MapPage() {
         onClose={closeNewPinSheet}
         title={t("pin.newMemory")}
       >
-        {newPinCoords && couple && user && (
+        {newPinCoords && currentSpaceId && user && (
           <CreatePinForm
-            spaceId={couple.id}
+            spaceId={currentSpaceId}
             userId={user.id}
             coords={newPinCoords}
             onCreated={() => {

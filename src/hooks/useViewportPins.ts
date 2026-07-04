@@ -13,7 +13,7 @@ const DEBOUNCE_MS = 300;
 const BUFFER = 0.3; // 30% padding beyond viewport
 const PAGE_SIZE = 100; // Load pins in pages when viewport expands
 const PIN_SELECT_WITH_CATEGORIES =
-  "id, couple_id, created_by, title, note, lat, lng, address, city, country, category, marker_emoji, marker_image_url, is_favorite, created_at, updated_at, categories:pin_categories(pin_id,couple_id,category_id,position,created_at)";
+  "id, couple_id, space_id, created_by, title, note, lat, lng, address, city, country, category, marker_emoji, marker_image_url, is_favorite, created_at, updated_at, categories:pin_categories(pin_id,couple_id,category_id,position,created_at)";
 
 function expandBounds(vp: Viewport): Viewport {
   const latSpan = vp.north - vp.south;
@@ -67,7 +67,7 @@ export function useViewportPins(spaceId: string | null | undefined) {
         const { data, error } = await supabase
           .from("pins")
           .select(PIN_SELECT_WITH_CATEGORIES)
-          .eq("couple_id", spaceId)
+          .eq("space_id", spaceId)
           .gte("lat", expanded.south)
           .lte("lat", expanded.north)
           .gte("lng", expanded.west)
@@ -128,7 +128,7 @@ export function useViewportPins(spaceId: string | null | undefined) {
     const { data, error } = await supabase
       .from("pins")
       .select(PIN_SELECT_WITH_CATEGORIES)
-      .eq("couple_id", spaceId)
+      .eq("space_id", spaceId)
       .order("position", { referencedTable: "categories", ascending: true })
       .order("created_at", { ascending: false });
     if (!error && data) {
@@ -146,7 +146,7 @@ export function useViewportPins(spaceId: string | null | undefined) {
       const { data, error } = await supabase
         .from("pins")
         .select(PIN_SELECT_WITH_CATEGORIES)
-        .eq("couple_id", spaceId)
+        .eq("space_id", spaceId)
         .eq("id", id)
         .order("position", { referencedTable: "categories", ascending: true })
         .maybeSingle();

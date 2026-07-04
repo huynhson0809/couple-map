@@ -1,4 +1,6 @@
 import { uploadToCloudinary, type CloudinaryUploadResult } from "./cloudinary";
+import { formatErrorMessage } from "./errorMessage";
+import { toPinImageRows } from "./pinMediaUpload";
 import { supabase } from "./supabase";
 
 const DB_NAME = "pinly-pending-uploads";
@@ -12,6 +14,11 @@ export interface PendingUpload {
   file: File;
   sortOrder: number;
 }
+
+type PendingUploadResult = CloudinaryUploadResult & {
+  pendingId: string;
+  sortOrder: number;
+};
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -32,18 +39,21 @@ export async function savePendingUploads(
   coupleId: string,
   files: File[],
   startOrder = 0,
-): Promise<void> {
+): Promise<string[]> {
   const db = await openDB();
   const tx = db.transaction(STORE_NAME, "readwrite");
   const store = tx.objectStore(STORE_NAME);
+  const ids: string[] = [];
   for (let i = 0; i < files.length; i++) {
+    const id = `${pinId}_${Date.now()}_${i}`;
     const entry: PendingUpload = {
-      id: `${pinId}_${Date.now()}_${i}`,
+      id,
       pinId,
       coupleId,
       file: files[i],
       sortOrder: startOrder + i,
     };
+    ids.push(id);
     store.put(entry);
   }
   await new Promise<void>((resolve, reject) => {
@@ -51,6 +61,7 @@ export async function savePendingUploads(
     tx.onerror = () => reject(tx.error);
   });
   db.close();
+  return ids;
 }
 
 export async function getPendingUploads(): Promise<PendingUpload[]> {
@@ -81,6 +92,40 @@ export async function removePendingUpload(id: string): Promise<void> {
   db.close();
 }
 
+export async function removePendingUploads(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const db = await openDB();
+  const tx = db.transaction(STORE_NAME, "readwrite");
+  const store = tx.objectStore(STORE_NAME);
+  for (const id of ids) {
+    store.delete(id);
+  }
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
+async function insertPendingUploadRows(
+  pinId: string,
+  results: PendingUploadResult[],
+) {
+  if (results.length === 0) return;
+  const rows = toPinImageRows(pinId, results, 0).map((row, index) => ({
+    ...row,
+    sort_order: results[index].sortOrder,
+  }));
+  const { error } = await supabase.from("pin_images").insert(rows);
+  if (error) {
+    throw new Error(
+      formatErrorMessage(error, {
+        fallback: "Failed to attach uploaded media to memory.",
+      }),
+    );
+  }
+}
+
 export async function clearPendingUploadsForPin(pinId: string): Promise<void> {
   const all = await getPendingUploads();
   const toRemove = all.filter((u) => u.pinId === pinId);
@@ -100,7 +145,7 @@ export async function clearPendingUploadsForPin(pinId: string): Promise<void> {
 
 /**
  * Process all pending uploads from IndexedDB.
- * Uploads each file to Cloudinary, inserts pin_images row, then removes from queue.
+ * Uploads files to Cloudinary, inserts pin_images rows, then removes successful rows from the queue.
  */
 export async function processPendingUploads(
   onProgress?: (pinId: string, pct: number) => void,
@@ -120,17 +165,25 @@ export async function processPendingUploads(
   for (const [pinId, entries] of byPin) {
     let completed = 0;
     const total = entries.length;
-    const results: (CloudinaryUploadResult & { sortOrder: number })[] = [];
+    const results: PendingUploadResult[] = [];
 
     for (const entry of entries) {
       try {
         const result = await uploadToCloudinary(entry.file, {
           folder: `pinly/${entry.coupleId}`,
         });
-        results.push({ ...result, sortOrder: entry.sortOrder });
-        await removePendingUpload(entry.id);
+        results.push({
+          ...result,
+          pendingId: entry.id,
+          sortOrder: entry.sortOrder,
+        });
       } catch (err) {
-        console.warn("Pending upload failed for", entry.id, err);
+        console.warn(
+          "Pending upload failed for",
+          entry.id,
+          formatErrorMessage(err),
+          err,
+        );
         // Leave in queue for next retry
       }
       completed++;
@@ -138,16 +191,16 @@ export async function processPendingUploads(
     }
 
     if (results.length > 0) {
-      const rows = results.map((r) => ({
-        pin_id: pinId,
-        cloudinary_url: r.url,
-        cloudinary_public_id: r.publicId,
-        width: r.width,
-        height: r.height,
-        sort_order: r.sortOrder,
-      }));
-      const { error } = await supabase.from("pin_images").insert(rows);
-      if (error) console.warn("Failed to insert pin_images:", error);
+      try {
+        await insertPendingUploadRows(pinId, results);
+        await removePendingUploads(results.map((result) => result.pendingId));
+      } catch (error) {
+        console.warn(
+          "Failed to insert pending upload rows:",
+          formatErrorMessage(error),
+          error,
+        );
+      }
     }
 
     onDone?.(pinId);

@@ -14,6 +14,7 @@
     "check:map-add-pin-fab": "node scripts/map-add-pin-fab-contract.mjs",
     "check:memory-spaces-schema": "node scripts/memory-spaces-schema-contract.mjs",
     "check:memory-spaces-frontend": "node scripts/memory-spaces-frontend-contract.mjs",
+    "check:create-memory-upload": "node scripts/create-memory-upload-contract.mjs",
     "check:polar-billing-schema": "node scripts/polar-billing-schema-contract.mjs",
     "check:polar-billing-frontend": "node scripts/polar-billing-frontend-contract.mjs",
     "check:seo-domain": "node scripts/seo-domain-contract.mjs",

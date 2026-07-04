@@ -1,4 +1,5 @@
 import { MAX_VIDEO_BYTES, uploadToCloudinary, type CloudinaryUploadResult } from "./cloudinary";
+import { formatErrorMessage } from "./errorMessage";
 
 function waitForNextFrame() {
   if (typeof window === "undefined" || !window.requestAnimationFrame) {
@@ -63,21 +64,30 @@ export async function uploadPinMediaFiles(
       }
     }
 
-    await waitForNextFrame();
-    const preparedFile = originalFile.type.startsWith("image/")
-      ? await compressImageForUpload(originalFile, (pct) =>
-          reportFileProgress(pct * 0.3),
-        )
-      : originalFile;
+    try {
+      await waitForNextFrame();
+      const preparedFile = originalFile.type.startsWith("image/")
+        ? await compressImageForUpload(originalFile, (pct) =>
+            reportFileProgress(pct * 0.3),
+          )
+        : originalFile;
 
-    reportFileProgress(30);
-    await waitForNextFrame();
-    const result = await uploadToCloudinary(preparedFile, {
-      folder,
-      onProgress: (pct) => reportFileProgress(30 + pct * 0.7),
-    });
-    uploads.push(result);
-    reportFileProgress(100, true);
+      reportFileProgress(30);
+      await waitForNextFrame();
+      const result = await uploadToCloudinary(preparedFile, {
+        folder,
+        onProgress: (pct) => reportFileProgress(30 + pct * 0.7),
+      });
+      uploads.push(result);
+      reportFileProgress(100, true);
+    } catch (error) {
+      throw new Error(
+        formatErrorMessage(error, {
+          fallback: `Could not upload ${originalFile.name || "media file"}`,
+        }),
+        { cause: error },
+      );
+    }
   }
 
   report(100, true);

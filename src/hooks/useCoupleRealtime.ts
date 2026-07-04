@@ -3,14 +3,14 @@ import { supabase } from "../lib/supabase";
 import type { Pin } from "../types";
 
 interface Args {
-  coupleId: string | null | undefined;
+  spaceId: string | null | undefined;
   onInsert?: (pin: Pin) => void;
   onUpdate?: (pin: Pin) => void;
   onDelete?: (id: string) => void;
 }
 
 export function useCoupleRealtime({
-  coupleId,
+  spaceId,
   onInsert,
   onUpdate,
   onDelete,
@@ -26,16 +26,16 @@ export function useCoupleRealtime({
   }, [onDelete, onInsert, onUpdate]);
 
   useEffect(() => {
-    if (!coupleId) return;
+    if (!spaceId) return;
     const channel = supabase
-      .channel(`pins:${coupleId}`)
+      .channel(`pins:${spaceId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "pins",
-          filter: `couple_id=eq.${coupleId}`,
+          filter: `space_id=eq.${spaceId}`,
         },
         (payload) => onInsertRef.current?.(payload.new as Pin),
       )
@@ -45,7 +45,7 @@ export function useCoupleRealtime({
           event: "UPDATE",
           schema: "public",
           table: "pins",
-          filter: `couple_id=eq.${coupleId}`,
+          filter: `space_id=eq.${spaceId}`,
         },
         (payload) => onUpdateRef.current?.(payload.new as Pin),
       )
@@ -55,7 +55,7 @@ export function useCoupleRealtime({
           event: "DELETE",
           schema: "public",
           table: "pins",
-          filter: `couple_id=eq.${coupleId}`,
+          filter: `space_id=eq.${spaceId}`,
         },
         (payload) => onDeleteRef.current?.((payload.old as { id: string }).id),
       )
@@ -63,5 +63,5 @@ export function useCoupleRealtime({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [coupleId]);
+  }, [spaceId]);
 }

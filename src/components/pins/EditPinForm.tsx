@@ -16,7 +16,7 @@ import {
 import { toPinImageRows, uploadPinMediaFiles } from "../../lib/pinMediaUpload";
 import {
   savePendingUploads,
-  clearPendingUploadsForPin,
+  removePendingUploads,
 } from "../../lib/pendingUploads";
 import {
   MAX_PIN_CATEGORIES,
@@ -27,6 +27,7 @@ import {
   deletePinMedia,
   type CloudinaryDeleteAsset,
 } from "../../lib/cloudinary-delete";
+import { formatErrorMessage } from "../../lib/errorMessage";
 import type { Pin, PinImage } from "../../types";
 import { useToast } from "../../hooks/ToastContext";
 
@@ -112,6 +113,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const mediaInput = useRef<HTMLInputElement | null>(null);
   const videoInput = useRef<HTMLInputElement | null>(null);
+  const pinSpaceId = pin.space_id ?? pin.couple_id;
 
   async function handleMarkerUpload(file: File | undefined) {
     if (!file) return;
@@ -119,12 +121,12 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     try {
       const compressed = await compressImageForUpload(file);
       const res = await uploadToCloudinary(compressed, {
-        folder: `pinly/${pin.couple_id}`,
+        folder: `pinly/${pinSpaceId}`,
       });
       setMarkerImageUrl(res.url);
       setMarkerEmoji(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatErrorMessage(e));
     } finally {
       setMarkerUploading(false);
     }
@@ -198,7 +200,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
       setCustomTagName("");
       setCustomTagEmoji("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatErrorMessage(e));
     }
   }
 
@@ -215,7 +217,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         setCustomTagEmoji("");
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatErrorMessage(e));
     }
   }
 
@@ -305,8 +307,12 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         await deletePinMedia(mediaToRemove);
       }
     } catch (e) {
-      console.warn("Edit failed:", e);
-      showToast({ type: "error", title: t("toast.actionFailed") });
+      const message = formatErrorMessage(e, {
+        fallback: t("toast.actionFailed"),
+      });
+      console.warn("Edit failed:", message, e);
+      showToast({ type: "error", title: message });
+      setError(message);
       setSaving(false);
       return;
     }
@@ -324,9 +330,14 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     }
 
     // Persist to IndexedDB for resilience, then upload in background
-    await savePendingUploads(pin.id, pin.couple_id, mediaFiles, startOrder);
+    const pendingUploadIds = await savePendingUploads(
+      pin.id,
+      pinSpaceId,
+      mediaFiles,
+      startOrder,
+    );
 
-    void uploadPinMediaFiles(mediaFiles, `pinly/${pin.couple_id}`, (pct) =>
+    void uploadPinMediaFiles(mediaFiles, `pinly/${pinSpaceId}`, (pct) =>
       setUploadProgress(pin.id, pct),
     )
       .then(async (uploads) => {
@@ -338,12 +349,15 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         }
         await fetchPinImages(pin.id);
         bumpPinsVersion();
-        await clearPendingUploadsForPin(pin.id);
+        await removePendingUploads(pendingUploadIds);
         showToast({ type: "success", title: t("toast.memoryUpdated") });
       })
       .catch((err) => {
-        console.warn("Background upload error:", err);
-        showToast({ type: "error", title: t("toast.photoUploadFailed") });
+        const message = formatErrorMessage(err, {
+          fallback: t("toast.photoUploadFailed"),
+        });
+        console.warn("Background upload error:", message, err);
+        showToast({ type: "error", title: message });
       })
       .finally(() => {
         clearUploadProgress(pin.id);

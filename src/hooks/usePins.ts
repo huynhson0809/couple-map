@@ -5,11 +5,12 @@ import { normalizeAddress, normalizeCityName, normalizeCountryName } from '../li
 import { deletePinMedia } from '../lib/cloudinary-delete'
 import { isVideoUrl } from '../lib/cloudinary'
 import { normalizeCategoryIds } from '../lib/pinCategories'
+import { formatErrorMessage } from '../lib/errorMessage'
 import type { Pin, PinImage } from '../types'
 import type { CloudinaryUploadResult } from '../lib/cloudinary'
 
 const PIN_SELECT_WITH_CATEGORIES =
-  'id, couple_id, created_by, title, note, lat, lng, address, city, country, category, marker_emoji, marker_image_url, is_favorite, created_at, updated_at, categories:pin_categories(pin_id,couple_id,category_id,position,created_at)'
+  'id, couple_id, space_id, created_by, title, note, lat, lng, address, city, country, category, marker_emoji, marker_image_url, is_favorite, created_at, updated_at, categories:pin_categories(pin_id,couple_id,category_id,position,created_at)'
 const PIN_SELECT_WITH_IMAGES_AND_CATEGORIES = `${PIN_SELECT_WITH_CATEGORIES}, images:pin_images(*)`
 
 export interface CreatePinInput {
@@ -56,7 +57,7 @@ export function usePins(spaceId: string | null | undefined, userId: string | und
     const { data, error } = await supabase
       .from('pins')
       .select(PIN_SELECT_WITH_CATEGORIES)
-      .eq('couple_id', spaceId)
+      .eq('space_id', spaceId)
       .order('position', { referencedTable: 'categories', ascending: true })
       .order('created_at', { ascending: false })
     if (error) setError(error.message)
@@ -114,7 +115,9 @@ export function usePins(spaceId: string | null | undefined, userId: string | und
           in_city: city,
           in_country: country,
         })
-      if (insErr || !pinId) throw insErr ?? new Error('Failed to create pin')
+      if (insErr || !pinId) {
+        throw new Error(formatErrorMessage(insErr, { fallback: 'Failed to create pin' }))
+      }
 
       if (input.images.length > 0) {
         const rows = input.images.map((img, i) => ({
@@ -128,7 +131,9 @@ export function usePins(spaceId: string | null | undefined, userId: string | und
         const { error: imgErr } = await supabase
           .from('pin_images')
           .insert(rows)
-        if (imgErr) throw imgErr
+        if (imgErr) {
+          throw new Error(formatErrorMessage(imgErr, { fallback: 'Failed to attach memory media' }))
+        }
       }
       const newPin = await fetchPinWithRelations(pinId as string)
       setPins((prev) => [newPin, ...prev])

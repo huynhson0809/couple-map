@@ -31,6 +31,7 @@ export interface PinCategory {
 export interface Pin {
   id: string;
   couple_id: string;
+  space_id: string | null;
   created_by: string;
   title: string;
   note: string | null;

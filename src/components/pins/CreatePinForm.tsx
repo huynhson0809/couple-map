@@ -19,6 +19,7 @@ import { isBuiltInCategory, type Category } from "../../lib/categories";
 import { useCategoriesCtx } from "../../hooks/CategoriesContext";
 import { useI18n } from "../../hooks/I18nContext";
 import { useSubscription } from "../../hooks/useSubscription";
+import { useSpaceCtx } from "../../hooks/SpaceContext";
 import {
   uploadToCloudinary,
   getImageUrl,
@@ -27,7 +28,7 @@ import {
 import { toPinImageRows, uploadPinMediaFiles } from "../../lib/pinMediaUpload";
 import {
   savePendingUploads,
-  clearPendingUploadsForPin,
+  removePendingUploads,
 } from "../../lib/pendingUploads";
 import { MAX_PIN_CATEGORIES } from "../../lib/pinCategories";
 import { reverseGeocode } from "../../lib/geocoding";
@@ -40,6 +41,7 @@ import {
 import { useToast } from "../../hooks/ToastContext";
 import { usePinsCtx } from "../../hooks/PinsContext";
 import { supabase } from "../../lib/supabase";
+import { formatErrorMessage } from "../../lib/errorMessage";
 
 interface Props {
   spaceId: string;
@@ -115,6 +117,8 @@ export function CreatePinForm({
     deleteCustomCategory,
   } = useCategoriesCtx();
   const { t, lang } = useI18n();
+  const { activeSpace } = useSpaceCtx();
+  const activeSpaceId = activeSpace?.id ?? null;
   const { canUploadVideo, canCreateCategory, limits } = useSubscription();
   const { showToast } = useToast();
   const {
@@ -283,7 +287,7 @@ export function CreatePinForm({
       setMarkerImageUrl(res.url);
       setMarkerEmoji(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatErrorMessage(e));
     } finally {
       setMarkerUploading(false);
     }
@@ -366,7 +370,7 @@ export function CreatePinForm({
       setCustomTagName("");
       setCustomTagEmoji("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatErrorMessage(e));
     }
   }
 
@@ -377,7 +381,7 @@ export function CreatePinForm({
         current.filter((categoryId) => categoryId !== id),
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatErrorMessage(e));
     }
   }
 
@@ -434,6 +438,14 @@ export function CreatePinForm({
       setError(t("pin.required"));
       return;
     }
+    if (activeSpaceId !== spaceId) {
+      setError(
+        lang === "vi"
+          ? "Không gian đã thay đổi. Vui lòng mở lại form tạo kỷ niệm."
+          : "The active space changed. Please reopen the create memory form.",
+      );
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -467,26 +479,33 @@ export function CreatePinForm({
 
       // Upload in background after the created-memory UI has had a frame to paint.
       startAfterNextPaint(() => {
-        void savePendingUploads(pin.id, spaceId, mediaFiles)
-          .then(() =>
-            uploadPinMediaFiles(mediaFiles, `pinly/${spaceId}`, (pct) =>
-              setUploadProgress(pin.id, pct),
-            ),
-          )
-          .then(async (uploaded) => {
-            if (uploaded.length > 0) {
-              const { error: imgErr } = await supabase
-                .from("pin_images")
-                .insert(toPinImageRows(pin.id, uploaded));
-              if (imgErr) throw imgErr;
-              await fetchPinImages(pin.id);
-              bumpPinsVersion();
-            }
-            await clearPendingUploadsForPin(pin.id);
-          })
+        void (async () => {
+          const pendingUploadIds = await savePendingUploads(
+            pin.id,
+            spaceId,
+            mediaFiles,
+          );
+          const uploaded = await uploadPinMediaFiles(
+            mediaFiles,
+            `pinly/${spaceId}`,
+            (pct) => setUploadProgress(pin.id, pct),
+          );
+          if (uploaded.length > 0) {
+            const { error: imgErr } = await supabase
+              .from("pin_images")
+              .insert(toPinImageRows(pin.id, uploaded));
+            if (imgErr) throw imgErr;
+            await fetchPinImages(pin.id);
+            bumpPinsVersion();
+          }
+          await removePendingUploads(pendingUploadIds);
+        })()
           .catch((err) => {
-            console.warn("Background upload error:", err);
-            showToast({ type: "error", title: t("toast.photoUploadFailed") });
+            const message = formatErrorMessage(err, {
+              fallback: t("toast.photoUploadFailed"),
+            });
+            console.warn("Background upload error:", message, err);
+            showToast({ type: "error", title: message });
           })
           .finally(() => {
             clearUploadProgress(pin.id);
@@ -494,7 +513,14 @@ export function CreatePinForm({
       });
     } catch (e) {
       setSaving(false);
-      setError(e instanceof Error ? e.message : String(e));
+      setError(
+        formatErrorMessage(e, {
+          fallback:
+            lang === "vi"
+              ? "Không thể tạo kỷ niệm. Vui lòng thử lại."
+              : "Could not create memory. Please try again.",
+        }),
+      );
       showToast({ type: "error", title: t("toast.actionFailed") });
     }
   }

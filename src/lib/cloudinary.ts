@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { formatAsyncErrorMessage, formatErrorMessage } from "./errorMessage";
 
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME as string;
 
@@ -86,7 +87,13 @@ function postCloudinaryFormData(
       const responseText =
         typeof xhr.response === "string" ? xhr.response : xhr.responseText;
       if (xhr.status < 200 || xhr.status >= 300) {
-        reject(new Error(`Cloudinary upload failed: ${responseText}`));
+        reject(
+          new Error(
+            formatErrorMessage(responseText, {
+              fallback: `Cloudinary upload failed with status ${xhr.status}`,
+            }),
+          ),
+        );
         return;
       }
       try {
@@ -137,7 +144,12 @@ async function createUploadSignature(
       contentType: constraints.contentType,
     },
   });
-  if (error) throw new Error(`Cloudinary signature failed: ${error.message}`);
+  if (error) {
+    const message = await formatAsyncErrorMessage(error, {
+      fallback: "Cloudinary signature failed",
+    });
+    throw new Error(`Cloudinary signature failed: ${message}`);
+  }
   if (
     !data?.apiKey ||
     !data?.timestamp ||
