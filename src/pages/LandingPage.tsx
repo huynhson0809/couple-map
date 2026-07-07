@@ -1,5 +1,13 @@
 import { Link } from "react-router-dom";
-import { MapPin, Flame, Camera, Heart, Download, Globe, Lock } from "lucide-react";
+import {
+  MapPin,
+  Flame,
+  Camera,
+  Heart,
+  Download,
+  Globe,
+  Lock,
+} from "lucide-react";
 import { Logo } from "../components/ui/Logo";
 import { useI18n } from "../hooks/I18nContext";
 import { useState } from "react";
@@ -107,12 +115,6 @@ export function LandingPage() {
                   <span className="lp-map-pin one" />
                   <span className="lp-map-pin two" />
                   <span className="lp-map-pin three" />
-                  <span className="lp-memory-chip lp-memory-chip-one">51</span>
-                  <span className="lp-memory-chip lp-memory-chip-two">366</span>
-                  <div className="lp-map-caption">
-                    <MapPin size={14} />
-                    <span>{t("landing.mockupTagline")}</span>
-                  </div>
                 </div>
               </div>
             </div>
