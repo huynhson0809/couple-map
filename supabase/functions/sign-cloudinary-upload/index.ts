@@ -7,27 +7,34 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import {
+  buildCorsHeaders,
+  handleCorsPreflightIfNeeded,
+} from "../_shared/cors.ts";
 
 type UploadResourceType = "image" | "video";
 
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
-const IMAGE_FORMATS = ["jpg", "jpeg", "png", "webp", "gif", "avif", "heic", "heif"];
+const IMAGE_FORMATS = [
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "gif",
+  "avif",
+  "heic",
+  "heif",
+];
 const VIDEO_FORMATS = ["mp4", "mov", "webm", "m4v"];
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...corsHeaders,
+      ...buildCorsHeaders(req),
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
     },
@@ -47,11 +54,13 @@ function getRequiredEnv(name: string) {
 }
 
 function sanitizeFolder(folder: string): string {
-  return folder
-    .split("/")
-    .map((part) => part.trim().replace(/[^a-zA-Z0-9_-]/g, "-"))
-    .filter(Boolean)
-    .join("/") || "pinly";
+  return (
+    folder
+      .split("/")
+      .map((part) => part.trim().replace(/[^a-zA-Z0-9_-]/g, "-"))
+      .filter(Boolean)
+      .join("/") || "pinly"
+  );
 }
 
 async function sha1Hex(input: string) {
@@ -85,7 +94,9 @@ function resolveAllowedFolder(
       ? parts[2]
       : null;
   const requestedSpaceId =
-    normalized === "pinly" ? fallbackSpaceId : legacyBackgroundSpaceId ?? parts[1];
+    normalized === "pinly"
+      ? fallbackSpaceId
+      : (legacyBackgroundSpaceId ?? parts[1]);
 
   if (!requestedSpaceId || !UUID_PATTERN.test(requestedSpaceId)) return null;
 
@@ -109,15 +120,16 @@ function normalizeResourceType(value: unknown): UploadResourceType | null {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: buildCorsHeaders(req) });
   }
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    return jsonResponse(req, { error: "Method not allowed" }, 405);
   }
 
   try {
     const accessToken = getBearerToken(req);
-    if (!accessToken) return jsonResponse({ error: "Missing bearer token" }, 401);
+    if (!accessToken)
+      return jsonResponse(req, { error: "Missing bearer token" }, 401);
 
     const supabaseUrl = getRequiredEnv("SUPABASE_URL");
     const anonKey = getRequiredEnv("SUPABASE_ANON_KEY");
@@ -127,8 +139,10 @@ serve(async (req) => {
     });
     const serviceSupabase = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: authData, error: authError } = await supabase.auth.getUser(accessToken);
-    if (authError || !authData.user?.id) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { data: authData, error: authError } =
+      await supabase.auth.getUser(accessToken);
+    if (authError || !authData.user?.id)
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
 
     const { data: allowed, error: rateError } = await serviceSupabase.rpc(
       "check_edge_rate_limit",
@@ -139,7 +153,8 @@ serve(async (req) => {
       },
     );
     if (rateError) throw rateError;
-    if (allowed === false) return jsonResponse({ error: "Rate limit exceeded" }, 429);
+    if (allowed === false)
+      return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
 
     const { data: profile, error: profileError } = await supabase
       .from("users")
@@ -149,13 +164,14 @@ serve(async (req) => {
     if (profileError) throw profileError;
 
     const body = await req.json().catch(() => ({}));
-    const fallbackSpaceId = profile?.active_space_id ?? profile?.couple_id ?? null;
+    const fallbackSpaceId =
+      profile?.active_space_id ?? profile?.couple_id ?? null;
     const resolvedUpload = resolveAllowedFolder(
       String(body.folder || ""),
       fallbackSpaceId,
     );
     if (!resolvedUpload) {
-      return jsonResponse({ error: "Forbidden upload folder" }, 403);
+      return jsonResponse(req, { error: "Forbidden upload folder" }, 403);
     }
 
     const { data: membership, error: membershipError } = await serviceSupabase
@@ -168,31 +184,33 @@ serve(async (req) => {
 
     if (membershipError) {
       console.error("Space membership lookup error:", membershipError.message);
-      return jsonResponse({ error: "Unable to verify space access" }, 500);
+      return jsonResponse(req, { error: "Unable to verify space access" }, 500);
     }
     if (!membership?.length) {
-      return jsonResponse({ error: "Forbidden upload folder" }, 403);
+      return jsonResponse(req, { error: "Forbidden upload folder" }, 403);
     }
 
     const resourceType = normalizeResourceType(body.resourceType);
-    if (!resourceType) return jsonResponse({ error: "Invalid resource type" }, 400);
+    if (!resourceType)
+      return jsonResponse(req, { error: "Invalid resource type" }, 400);
 
     const fileSize = Number(body.fileSize);
     if (!Number.isFinite(fileSize) || fileSize <= 0) {
-      return jsonResponse({ error: "Invalid file size" }, 400);
+      return jsonResponse(req, { error: "Invalid file size" }, 400);
     }
 
     const contentType = String(body.contentType || "").toLowerCase();
     if (resourceType === "image" && !contentType.startsWith("image/")) {
-      return jsonResponse({ error: "Invalid image content type" }, 400);
+      return jsonResponse(req, { error: "Invalid image content type" }, 400);
     }
     if (resourceType === "video" && !contentType.startsWith("video/")) {
-      return jsonResponse({ error: "Invalid video content type" }, 400);
+      return jsonResponse(req, { error: "Invalid video content type" }, 400);
     }
 
-    const maxFileSize = resourceType === "video" ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+    const maxFileSize =
+      resourceType === "video" ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
     if (fileSize > maxFileSize) {
-      return jsonResponse({ error: "File too large", maxFileSize }, 413);
+      return jsonResponse(req, { error: "File too large", maxFileSize }, 413);
     }
 
     const { data: effectivePlan, error: planError } = await serviceSupabase.rpc(
@@ -201,12 +219,12 @@ serve(async (req) => {
     );
     if (planError) {
       console.error("Plan lookup error:", planError.message);
-      return jsonResponse({ error: "Unable to verify plan" }, 500);
+      return jsonResponse(req, { error: "Unable to verify plan" }, 500);
     }
 
     const canUploadVideo = effectivePlan === "pro";
     if (resourceType === "video" && !canUploadVideo) {
-      return jsonResponse({ error: "Video upload requires Pro" }, 403);
+      return jsonResponse(req, { error: "Video upload requires Pro" }, 403);
     }
 
     const cloudName = getRequiredEnv("CLOUDINARY_CLOUD_NAME");
@@ -214,7 +232,9 @@ serve(async (req) => {
     const apiSecret = getRequiredEnv("CLOUDINARY_API_SECRET");
     const timestamp = Math.floor(Date.now() / 1000);
     const allowedFormats =
-      resourceType === "video" ? VIDEO_FORMATS.join(",") : IMAGE_FORMATS.join(",");
+      resourceType === "video"
+        ? VIDEO_FORMATS.join(",")
+        : IMAGE_FORMATS.join(",");
     const signatureParams = {
       allowed_formats: allowedFormats,
       folder: resolvedUpload.folder,
@@ -222,7 +242,7 @@ serve(async (req) => {
     };
     const signature = await signCloudinaryParams(signatureParams, apiSecret);
 
-    return jsonResponse({
+    return jsonResponse(req, {
       cloudName,
       apiKey,
       timestamp,
@@ -234,6 +254,6 @@ serve(async (req) => {
     });
   } catch (err) {
     console.error("sign-cloudinary-upload error:", err);
-    return jsonResponse({ error: "Internal server error" }, 500);
+    return jsonResponse(req, { error: "Internal server error" }, 500);
   }
 });

@@ -5,6 +5,10 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+import {
+  buildCorsHeaders,
+  handleCorsPreflightIfNeeded,
+} from "../_shared/cors.ts";
 
 interface CoordinatePoint {
   lat: number;
@@ -23,14 +27,8 @@ interface StatsData {
   points: CoordinatePoint[];
 }
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-pinly-space-id",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-};
-
 function jsonResponse(
+  req: Request,
   body: unknown,
   status = 200,
   headers: Record<string, string> = {},
@@ -38,7 +36,7 @@ function jsonResponse(
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...corsHeaders,
+      ...buildCorsHeaders(req, "x-pinly-space-id"),
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
       ...headers,
@@ -164,10 +162,12 @@ async function fetchStatsData(
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, {
+      headers: buildCorsHeaders(req, "x-pinly-space-id"),
+    });
   }
   if (req.method !== "GET") {
-    return jsonResponse({ error: "Method not allowed" }, 405, {
+    return jsonResponse(req, { error: "Method not allowed" }, 405, {
       Allow: "GET, OPTIONS",
     });
   }
@@ -175,7 +175,7 @@ serve(async (req) => {
   // Auth: get user from JWT
   const authHeader = req.headers.get("Authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
-  if (!token) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!token) return jsonResponse(req, { error: "Unauthorized" }, 401);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -186,7 +186,8 @@ serve(async (req) => {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser(token);
-  if (authError || !user) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (authError || !user)
+    return jsonResponse(req, { error: "Unauthorized" }, 401);
 
   const { data: allowed, error: rateError } = await supabase.rpc(
     "check_edge_rate_limit",
@@ -196,12 +197,13 @@ serve(async (req) => {
       max_requests: 60,
     },
   );
-  if (rateError) return jsonResponse({ error: "Rate limit unavailable" }, 500);
+  if (rateError)
+    return jsonResponse(req, { error: "Rate limit unavailable" }, 500);
   if (allowed === false)
-    return jsonResponse({ error: "Rate limit exceeded" }, 429);
+    return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
 
   const spaceId = req.headers.get("X-Pinly-Space-Id")?.trim();
-  if (!spaceId) return jsonResponse({ error: "No space found" }, 404);
+  if (!spaceId) return jsonResponse(req, { error: "No space found" }, 404);
 
   const { data: membership, error: membershipError } = await supabase
     .from("space_members")
@@ -212,9 +214,9 @@ serve(async (req) => {
     .maybeSingle();
 
   if (membershipError) {
-    return jsonResponse({ error: "Could not verify space access" }, 500);
+    return jsonResponse(req, { error: "Could not verify space access" }, 500);
   }
-  if (!membership) return jsonResponse({ error: "Space not found" }, 404);
+  if (!membership) return jsonResponse(req, { error: "Space not found" }, 404);
 
   const { data: space, error: spaceError } = await supabase
     .from("spaces")
@@ -222,13 +224,15 @@ serve(async (req) => {
     .eq("id", spaceId)
     .single();
 
-  if (spaceError) return jsonResponse({ error: "Could not load space" }, 500);
+  if (spaceError)
+    return jsonResponse(req, { error: "Could not load space" }, 500);
 
   let stats: StatsData;
   try {
     stats = await fetchStatsData(supabase, spaceId);
   } catch (err) {
     return jsonResponse(
+      req,
       { error: err instanceof Error ? err.message : "Could not load stats" },
       500,
     );
@@ -263,6 +267,7 @@ serve(async (req) => {
   }
 
   return jsonResponse(
+    req,
     {
       totalPins: stats.summary.totalPins,
       cities: stats.summary.cityList.length,

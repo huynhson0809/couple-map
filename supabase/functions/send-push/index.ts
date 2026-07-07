@@ -8,13 +8,10 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import webpush from "npm:web-push@3.6.7";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-send-push-secret",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import {
+  buildCorsHeaders,
+  handleCorsPreflightIfNeeded,
+} from "../_shared/cors.ts";
 
 type EventType =
   | "memory_added"
@@ -38,10 +35,13 @@ type EventContext = {
   reaction: string;
 };
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: {
+      ...buildCorsHeaders(req, "x-send-push-secret"),
+      "Content-Type": "application/json",
+    },
   });
 }
 
@@ -144,9 +144,7 @@ async function resolveDuoRecipientForPin(
     return null;
   }
 
-  const recipient = members.find(
-    (member) => member.user_id !== pin.created_by,
-  );
+  const recipient = members.find((member) => member.user_id !== pin.created_by);
   return recipient?.user_id ?? null;
 }
 
@@ -372,10 +370,12 @@ async function claimNotificationEvent(
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", {
+      headers: buildCorsHeaders(req, "x-send-push-secret"),
+    });
   }
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    return jsonResponse(req, { error: "Method not allowed" }, 405);
   }
 
   try {
@@ -383,7 +383,7 @@ serve(async (req) => {
     const record = body?.record as Record<string, unknown> | undefined;
     const eventType = eventTypeFromBody(body?.event_type || body?.type);
     if (!record || typeof record !== "object") {
-      return jsonResponse({ error: "Invalid payload" }, 400);
+      return jsonResponse(req, { error: "Invalid payload" }, 400);
     }
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -406,7 +406,7 @@ serve(async (req) => {
     );
 
     if (!trustedWebhook && !authenticatedUserId) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
 
     webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
@@ -420,7 +420,7 @@ serve(async (req) => {
     );
 
     if (!context.recipientId || context.recipientId === context.actorId) {
-      return jsonResponse({ message: "No recipient" });
+      return jsonResponse(req, { message: "No recipient" });
     }
 
     const { data: allowed, error: rateError } = await supabase.rpc(
@@ -433,11 +433,11 @@ serve(async (req) => {
     );
     if (rateError) throw rateError;
     if (allowed === false)
-      return jsonResponse({ error: "Rate limit exceeded" }, 429);
+      return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
 
     const claimed = await claimNotificationEvent(supabase, context);
     if (!claimed) {
-      return jsonResponse({ message: "Duplicate notification skipped" });
+      return jsonResponse(req, { message: "Duplicate notification skipped" });
     }
 
     const { data: pref } = await supabase
@@ -447,7 +447,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (pref && pref[context.notificationKind] === false) {
-      return jsonResponse({ message: "Notification disabled" });
+      return jsonResponse(req, { message: "Notification disabled" });
     }
 
     const { data: subscriptions } = await supabase
@@ -456,7 +456,9 @@ serve(async (req) => {
       .eq("user_id", context.recipientId);
 
     if (!subscriptions || subscriptions.length === 0) {
-      return jsonResponse({ message: "No push subscriptions for recipient" });
+      return jsonResponse(req, {
+        message: "No push subscriptions for recipient",
+      });
     }
 
     const { data: creator } = await supabase
@@ -475,25 +477,25 @@ serve(async (req) => {
         ? `💞 ${creatorName} đã bày tỏ cảm xúc`
         : context.eventType === "favorite"
           ? `⭐ ${creatorName} đã đánh dấu yêu thích`
-        : context.eventType === "comment"
-          ? `💬 ${creatorName} đã bình luận`
-          : context.eventType === "comment_reply"
-            ? `↩️ ${creatorName} đã trả lời bình luận`
-            : context.eventType === "comment_reaction"
-              ? `💞 ${creatorName} đã bày tỏ cảm xúc với bình luận`
-              : `📍 ${creatorName} đã ghim`;
+          : context.eventType === "comment"
+            ? `💬 ${creatorName} đã bình luận`
+            : context.eventType === "comment_reply"
+              ? `↩️ ${creatorName} đã trả lời bình luận`
+              : context.eventType === "comment_reaction"
+                ? `💞 ${creatorName} đã bày tỏ cảm xúc với bình luận`
+                : `📍 ${creatorName} đã ghim`;
 
     const notificationBody =
       context.eventType === "reaction"
         ? `${context.reaction} · ${context.pinTitle}`
         : context.eventType === "favorite"
           ? context.pinTitle
-        : context.eventType === "comment" ||
-            context.eventType === "comment_reply"
-          ? bodyPreview
-          : context.eventType === "comment_reaction"
-            ? `${context.reaction} · ${bodyPreview}`
-            : context.pinTitle;
+          : context.eventType === "comment" ||
+              context.eventType === "comment_reply"
+            ? bodyPreview
+            : context.eventType === "comment_reaction"
+              ? `${context.reaction} · ${bodyPreview}`
+              : context.pinTitle;
 
     const notificationPayload = JSON.stringify({
       title,
@@ -526,7 +528,7 @@ serve(async (req) => {
     }
 
     const sent = results.filter((r) => r.status === "fulfilled").length;
-    return jsonResponse({
+    return jsonResponse(req, {
       message: "Push sent",
       sent,
       total: subscriptions.length,
@@ -538,6 +540,7 @@ serve(async (req) => {
         : 500;
     console.error("send-push error:", err);
     return jsonResponse(
+      req,
       {
         error:
           status === 500 ? "Internal server error" : (err as Error).message,

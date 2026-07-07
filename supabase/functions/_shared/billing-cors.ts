@@ -1,11 +1,11 @@
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, polar-webhook-signature",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { buildCorsHeaders } from "./cors.ts";
+
+export function getCorsHeaders(req: Request) {
+  return buildCorsHeaders(req, "polar-webhook-signature");
+}
 
 export function jsonResponse(
+  req: Request,
   body: unknown,
   status = 200,
   headers: Record<string, string> = {},
@@ -13,7 +13,7 @@ export function jsonResponse(
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...corsHeaders,
+      ...getCorsHeaders(req),
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
       ...headers,

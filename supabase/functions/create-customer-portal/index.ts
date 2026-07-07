@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { requireAuthUser } from "../_shared/auth-user.ts";
 import { resolveTrustedAppUrl } from "../_shared/app-url.ts";
-import { corsHeaders, jsonResponse } from "../_shared/billing-cors.ts";
+import { getCorsHeaders, jsonResponse } from "../_shared/billing-cors.ts";
 import { polarJson } from "../_shared/polar-client.ts";
 
 type CustomerSessionResponse = {
@@ -20,18 +20,18 @@ function isAuthError(err: unknown) {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response(null, { status: 204, headers: getCorsHeaders(req) });
   }
 
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405, {
-      "Allow": "POST, OPTIONS",
+    return jsonResponse(req, { error: "Method not allowed" }, 405, {
+      Allow: "POST, OPTIONS",
     });
   }
 
   try {
     const { user } = await requireAuthUser(req);
-    const body = await req.json().catch(() => ({} as CustomerPortalBody));
+    const body = await req.json().catch(() => ({}) as CustomerPortalBody);
     const appUrl = resolveTrustedAppUrl(body.app_url);
 
     if (!appUrl) {
@@ -49,16 +49,16 @@ serve(async (req) => {
       },
     );
 
-    return jsonResponse({
+    return jsonResponse(req, {
       url: session.customer_portal_url,
       customer_session_id: session.id,
     });
   } catch (err) {
     console.error("create-customer-portal error:", err);
     if (isAuthError(err)) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
 
-    return jsonResponse({ error: "Unable to open customer portal" }, 500);
+    return jsonResponse(req, { error: "Unable to open customer portal" }, 500);
   }
 });

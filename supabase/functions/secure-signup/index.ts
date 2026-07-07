@@ -4,13 +4,10 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import {
+  buildCorsHeaders,
+  handleCorsPreflightIfNeeded,
+} from "../_shared/cors.ts";
 
 const TERMS_VERSION = "2026-06-07";
 const PRIVACY_VERSION = "2026-06-07";
@@ -22,10 +19,10 @@ type SignupConsent = {
   source?: string;
 };
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
   });
 }
 
@@ -39,7 +36,7 @@ function isValidSignupConsent(consent: SignupConsent | null | undefined) {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: buildCorsHeaders(req) });
   }
 
   try {
@@ -47,18 +44,23 @@ serve(async (req) => {
       await req.json();
 
     if (!email || !password) {
-      return jsonResponse({ error: "Email and password are required" }, 400);
+      return jsonResponse(
+        req,
+        { error: "Email and password are required" },
+        400,
+      );
     }
 
     if (password.length < 6) {
       return jsonResponse(
+        req,
         { error: "Password must be at least 6 characters" },
         400,
       );
     }
 
     if (!isValidSignupConsent(consent)) {
-      return jsonResponse({ error: "Missing required consent" }, 400);
+      return jsonResponse(req, { error: "Missing required consent" }, 400);
     }
 
     const supabaseAdmin = createClient(
@@ -75,7 +77,7 @@ serve(async (req) => {
 
     if (emailExists) {
       // Email already confirmed - return success silently (prevents enumeration)
-      return jsonResponse({ success: true });
+      return jsonResponse(req, { success: true });
     }
 
     // Use anon client for signUp/resend - this triggers Supabase's email sending
@@ -120,9 +122,9 @@ serve(async (req) => {
       console.error("Signup error:", error.message);
     }
 
-    return jsonResponse({ success: true });
+    return jsonResponse(req, { success: true });
   } catch (err) {
     console.error("Unexpected error:", err);
-    return jsonResponse({ error: "Internal server error" }, 500);
+    return jsonResponse(req, { error: "Internal server error" }, 500);
   }
 });

@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { adminClient, requireAuthUser } from "../_shared/auth-user.ts";
 import { resolveTrustedAppUrl } from "../_shared/app-url.ts";
-import { corsHeaders, jsonResponse } from "../_shared/billing-cors.ts";
+import { getCorsHeaders, jsonResponse } from "../_shared/billing-cors.ts";
 import { polarJson, productIdFor } from "../_shared/polar-client.ts";
 
 type CheckoutResponse = {
@@ -30,28 +30,28 @@ function isAuthError(err: unknown) {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response(null, { status: 204, headers: getCorsHeaders(req) });
   }
 
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405, {
-      "Allow": "POST, OPTIONS",
+    return jsonResponse(req, { error: "Method not allowed" }, 405, {
+      Allow: "POST, OPTIONS",
     });
   }
 
   try {
     const { user } = await requireAuthUser(req);
-    const body = await req.json().catch(() => ({} as CheckoutBody));
+    const body = await req.json().catch(() => ({}) as CheckoutBody);
     const plan = normalizePlan(body.plan);
     const cycle = normalizeCycle(body.cycle);
 
     if (!plan || !cycle) {
-      return jsonResponse({ error: "Invalid plan or billing cycle" }, 400);
+      return jsonResponse(req, { error: "Invalid plan or billing cycle" }, 400);
     }
 
     const appUrl = resolveTrustedAppUrl(body.app_url);
     if (!appUrl) {
-      return jsonResponse({ error: "Unable to create checkout" }, 500);
+      return jsonResponse(req, { error: "Unable to create checkout" }, 500);
     }
 
     const productId = productIdFor(plan, cycle);
@@ -77,24 +77,26 @@ serve(async (req) => {
       }),
     });
 
-    const { error } = await adminClient().from("billing_profiles").upsert(
-      {
-        user_id: user.id,
-        email: customerEmail ?? null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" },
-    );
+    const { error } = await adminClient()
+      .from("billing_profiles")
+      .upsert(
+        {
+          user_id: user.id,
+          email: customerEmail ?? null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      );
 
     if (error) throw error;
 
-    return jsonResponse({ url: checkout.url, checkout_id: checkout.id });
+    return jsonResponse(req, { url: checkout.url, checkout_id: checkout.id });
   } catch (err) {
     console.error("create-polar-checkout error:", err);
     if (isAuthError(err)) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
 
-    return jsonResponse({ error: "Unable to create checkout" }, 500);
+    return jsonResponse(req, { error: "Unable to create checkout" }, 500);
   }
 });

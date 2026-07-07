@@ -9,13 +9,10 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import {
+  buildCorsHeaders,
+  handleCorsPreflightIfNeeded,
+} from "../_shared/cors.ts";
 
 type CloudinaryResourceType = "image" | "video";
 
@@ -40,11 +37,11 @@ function getBearerToken(req: Request) {
   return match?.[1] ?? null;
 }
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...corsHeaders,
+      ...buildCorsHeaders(req),
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
     },
@@ -98,9 +95,9 @@ async function listCloudinaryResourcesByPrefix({
         Authorization: cloudinaryAuthHeader(apiKey, apiSecret),
       },
     });
-    const json = (await res.json().catch(() => null)) as
-      | CloudinaryListResponse
-      | null;
+    const json = (await res
+      .json()
+      .catch(() => null)) as CloudinaryListResponse | null;
 
     if (!res.ok) {
       throw new Error(
@@ -147,9 +144,9 @@ async function destroyCloudinaryAsset({
     `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/destroy`,
     { method: "POST", body },
   );
-  const json = (await res.json().catch(() => null)) as
-    | CloudinaryDestroyResponse
-    | null;
+  const json = (await res
+    .json()
+    .catch(() => null)) as CloudinaryDestroyResponse | null;
   if (!res.ok) {
     throw new Error(
       `Cloudinary delete failed for ${publicId}: ${JSON.stringify(json)}`,
@@ -195,9 +192,12 @@ async function assertSpaceDeleteAllowed(
 
   if (memberError) throw memberError;
   if (!ownerMember) {
-    throw Object.assign(new Error("Only active space owners can delete spaces"), {
-      status: 403,
-    });
+    throw Object.assign(
+      new Error("Only active space owners can delete spaces"),
+      {
+        status: 403,
+      },
+    );
   }
 }
 
@@ -242,9 +242,10 @@ async function deleteCloudinaryResourcesByPrefix({
         result.status === "rejected"
           ? {
               publicId: batch[batchIndex],
-              error: result.reason instanceof Error
-                ? result.reason.message
-                : String(result.reason),
+              error:
+                result.reason instanceof Error
+                  ? result.reason.message
+                  : String(result.reason),
             }
           : null,
       )
@@ -262,16 +263,16 @@ async function deleteCloudinaryResourcesByPrefix({
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: buildCorsHeaders(req) });
   }
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    return jsonResponse(req, { error: "Method not allowed" }, 405);
   }
 
   try {
     const accessToken = getBearerToken(req);
     if (!accessToken) {
-      return jsonResponse({ error: "Missing bearer token" }, 401);
+      return jsonResponse(req, { error: "Missing bearer token" }, 401);
     }
 
     const body = await req.json().catch(() => ({}));
@@ -279,7 +280,7 @@ serve(async (req) => {
       .trim()
       .toUpperCase();
     if (confirmText !== "KET THUC") {
-      return jsonResponse({ error: "Invalid confirmation" }, 400);
+      return jsonResponse(req, { error: "Invalid confirmation" }, 400);
     }
 
     const supabaseUrl = getRequiredEnv("SUPABASE_URL");
@@ -295,7 +296,7 @@ serve(async (req) => {
     const userId = authData.user?.id;
     if (authError) console.warn("getUser failed:", authError.message);
     if (!userId) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
 
     const { data: allowed, error: rateError } = await serviceSupabase.rpc(
@@ -308,7 +309,7 @@ serve(async (req) => {
     );
     if (rateError) throw rateError;
     if (allowed === false) {
-      return jsonResponse({ error: "Rate limit exceeded" }, 429);
+      return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
     }
 
     const { data: profile, error: profileError } = await serviceSupabase
@@ -319,7 +320,7 @@ serve(async (req) => {
     if (profileError) throw profileError;
     const coupleId = profile?.couple_id;
     if (!coupleId) {
-      return jsonResponse({ error: "No active couple" }, 403);
+      return jsonResponse(req, { error: "No active couple" }, 403);
     }
 
     const { data: couple, error: coupleError } = await serviceSupabase
@@ -329,7 +330,7 @@ serve(async (req) => {
       .single();
     if (coupleError) throw coupleError;
     if (couple?.user_a !== userId && couple?.user_b !== userId) {
-      return jsonResponse({ error: "Not a couple member" }, 403);
+      return jsonResponse(req, { error: "Not a couple member" }, 403);
     }
 
     await assertSpaceDeleteAllowed(serviceSupabase, coupleId, userId);
@@ -369,6 +370,7 @@ serve(async (req) => {
         error: finalizeError.message,
       });
       return jsonResponse(
+        req,
         {
           error:
             "Could not finish resetting the couple. Please contact support.",
@@ -377,20 +379,24 @@ serve(async (req) => {
       );
     }
 
-    return jsonResponse({ ok: true, cleanup, result });
+    return jsonResponse(req, { ok: true, cleanup, result });
   } catch (err) {
     console.error("breakup-couple error:", err);
     const message = err instanceof Error ? err.message : String(err);
     const status = (err as { status?: unknown })?.status;
     if (typeof status === "number") {
-      return jsonResponse({ error: message }, status);
+      return jsonResponse(req, { error: message }, status);
     }
     if (message.includes("Cloudinary")) {
       return jsonResponse(
-        { error: "Could not delete all media. Please try again.", details: message },
+        req,
+        {
+          error: "Could not delete all media. Please try again.",
+          details: message,
+        },
         502,
       );
     }
-    return jsonResponse({ error: message }, 500);
+    return jsonResponse(req, { error: message }, 500);
   }
 });

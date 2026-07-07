@@ -8,13 +8,10 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import {
+  buildCorsHeaders,
+  handleCorsPreflightIfNeeded,
+} from "../_shared/cors.ts";
 
 interface DeleteAsset {
   id: string;
@@ -30,11 +27,11 @@ function getBearerToken(req: Request) {
   return match?.[1] ?? null;
 }
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...corsHeaders,
+      ...buildCorsHeaders(req),
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
     },
@@ -87,16 +84,16 @@ async function destroyCloudinaryAsset(asset: DeleteAsset) {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: buildCorsHeaders(req) });
   }
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    return jsonResponse(req, { error: "Method not allowed" }, 405);
   }
 
   try {
     const accessToken = getBearerToken(req);
     if (!accessToken) {
-      return jsonResponse({ error: "Missing bearer token" }, 401);
+      return jsonResponse(req, { error: "Missing bearer token" }, 401);
     }
 
     const supabaseUrl = getRequiredEnv("SUPABASE_URL");
@@ -112,7 +109,7 @@ serve(async (req) => {
     const userId = authData.user?.id;
     if (authError) console.warn("getUser failed:", authError.message);
     if (!userId) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
 
     const { data: allowed, error: rateError } = await serviceSupabase.rpc(
@@ -125,7 +122,7 @@ serve(async (req) => {
     );
     if (rateError) throw rateError;
     if (allowed === false) {
-      return jsonResponse({ error: "Rate limit exceeded" }, 429);
+      return jsonResponse(req, { error: "Rate limit exceeded" }, 429);
     }
 
     const { data: profile, error: profileError } = await supabase
@@ -135,7 +132,7 @@ serve(async (req) => {
       .single();
     if (profileError) throw profileError;
     const coupleId = profile?.couple_id;
-    if (!coupleId) return jsonResponse({ error: "No couple" }, 403);
+    if (!coupleId) return jsonResponse(req, { error: "No couple" }, 403);
 
     const body = await req.json().catch(() => ({}));
     const assets = Array.isArray(body.assets)
@@ -143,13 +140,16 @@ serve(async (req) => {
       : [];
     if (assets.length > MAX_ASSETS_PER_REQUEST) {
       return jsonResponse(
-        { error: `Too many assets. Max ${MAX_ASSETS_PER_REQUEST} per request.` },
+        req,
+        {
+          error: `Too many assets. Max ${MAX_ASSETS_PER_REQUEST} per request.`,
+        },
         413,
       );
     }
     const ids = assets.map((asset) => asset.id).filter(Boolean);
     if (ids.length === 0) {
-      return jsonResponse({ deleted: 0 });
+      return jsonResponse(req, { deleted: 0 });
     }
 
     const { data: rows, error: rowsError } = await supabase
@@ -161,7 +161,7 @@ serve(async (req) => {
     const allowedRows = rows ?? [];
     const allowedIds = new Set(allowedRows.map((row) => row.id));
     if (allowedIds.size !== ids.length) {
-      return jsonResponse({ error: "Forbidden media id" }, 403);
+      return jsonResponse(req, { error: "Forbidden media id" }, 403);
     }
 
     const missingCloudinaryPublicIds: string[] = [];
@@ -174,7 +174,7 @@ serve(async (req) => {
       const allowedPrefix = `pinly/${coupleId}/`;
       const publicId = String(row.cloudinary_public_id);
       if (!publicId.startsWith(allowedPrefix)) {
-        return jsonResponse({ error: "Forbidden media folder" }, 403);
+        return jsonResponse(req, { error: "Forbidden media folder" }, 403);
       }
       const isVideo = String(row.cloudinary_url).includes("/video/upload/");
       verifiedAssets.push({
@@ -193,15 +193,17 @@ serve(async (req) => {
           ? {
               id: verifiedAssets[index].id,
               publicId: verifiedAssets[index].publicId,
-              error: result.reason instanceof Error
-                ? result.reason.message
-                : String(result.reason),
+              error:
+                result.reason instanceof Error
+                  ? result.reason.message
+                  : String(result.reason),
             }
-          : null
+          : null,
       )
       .filter(Boolean);
     if (cloudinaryErrors.length > 0) {
       return jsonResponse(
+        req,
         { error: "Cloudinary delete failed", details: cloudinaryErrors },
         502,
       );
@@ -213,18 +215,18 @@ serve(async (req) => {
       .in("id", Array.from(allowedIds));
     if (deleteError) throw deleteError;
 
-    return jsonResponse({
-        deleted: allowedIds.size,
-        skippedCloudinary: missingCloudinaryPublicIds.map((id) => ({
-          id,
-          reason: "Missing Cloudinary public id",
-        })),
-        cloudinary: cloudinarySettled.map((result) =>
-          result.status === "fulfilled" ? result.value : null
-        ),
-      });
+    return jsonResponse(req, {
+      deleted: allowedIds.size,
+      skippedCloudinary: missingCloudinaryPublicIds.map((id) => ({
+        id,
+        reason: "Missing Cloudinary public id",
+      })),
+      cloudinary: cloudinarySettled.map((result) =>
+        result.status === "fulfilled" ? result.value : null,
+      ),
+    });
   } catch (err) {
     console.error("delete-pin-media error:", err);
-    return jsonResponse({ error: (err as Error).message }, 500);
+    return jsonResponse(req, { error: (err as Error).message }, 500);
   }
 });

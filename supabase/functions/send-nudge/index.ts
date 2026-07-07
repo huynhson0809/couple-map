@@ -8,18 +8,15 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import webpush from "npm:web-push@3.6.7";
+import {
+  buildCorsHeaders,
+  handleCorsPreflightIfNeeded,
+} from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
   });
 }
 
@@ -194,16 +191,16 @@ async function insertNudgeNotification(
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response(null, { status: 204, headers: buildCorsHeaders(req) });
   }
 
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    return jsonResponse(req, { error: "Method not allowed" }, 405);
   }
 
   const token = getBearerToken(req);
   if (!token) {
-    return jsonResponse({ error: "Missing authorization" }, 401);
+    return jsonResponse(req, { error: "Missing authorization" }, 401);
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -218,22 +215,19 @@ serve(async (req: Request) => {
     error: authError,
   } = await supabase.auth.getUser(token);
   if (authError || !user) {
-    return jsonResponse({ error: "Unauthorized" }, 401);
+    return jsonResponse(req, { error: "Unauthorized" }, 401);
   }
 
   const requestBody = await req.json().catch(() => ({}));
   let target: NudgeTarget;
   try {
     const requestedCoupleId = requireUuid(requestBody.coupleId, "couple id");
-    target = await loadDuoSpaceForNudge(
-      supabase,
-      requestedCoupleId,
-      user.id,
-    );
+    target = await loadDuoSpaceForNudge(supabase, requestedCoupleId, user.id);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const status = (err as { status?: unknown })?.status;
     return jsonResponse(
+      req,
       { error: message },
       typeof status === "number" ? status : 500,
     );
@@ -246,7 +240,7 @@ serve(async (req: Request) => {
   const partnerId =
     senderSlot === "user_a" ? coupleRow.user_b : coupleRow.user_a;
   if (!partnerId) {
-    return jsonResponse({ error: "Partner not found" }, 404);
+    return jsonResponse(req, { error: "Partner not found" }, 404);
   }
 
   const { data: streak, error: streakError } = await supabase.rpc(
@@ -256,28 +250,28 @@ serve(async (req: Request) => {
 
   if (streakError || !streak) {
     console.error("Nudge streak check error:", streakError?.message);
-    return jsonResponse({ error: "Could not check streak status" }, 500);
+    return jsonResponse(req, { error: "Could not check streak status" }, 500);
   }
 
   const streakRow = (Array.isArray(streak) ? streak[0] : streak) as
     | CoupleStreakRow
     | undefined;
   if (!streakRow) {
-    return jsonResponse({ error: "Could not check streak status" }, 500);
+    return jsonResponse(req, { error: "Could not check streak status" }, 500);
   }
 
   const senderPosted = hasPostedToday(streakRow, senderSlot);
   const partnerPosted = hasPostedToday(streakRow, partnerSlot);
 
   if (streakRow.today_completed || partnerPosted) {
-    return jsonResponse({
+    return jsonResponse(req, {
       sent: false,
       reason: "partner_already_posted",
     });
   }
 
   if (!senderPosted) {
-    return jsonResponse({
+    return jsonResponse(req, {
       sent: false,
       reason: "sender_not_posted",
     });
@@ -305,7 +299,11 @@ serve(async (req: Request) => {
   }
 
   if (existing) {
-    return jsonResponse({ error: "already_nudged_today", sent: false }, 429);
+    return jsonResponse(
+      req,
+      { error: "already_nudged_today", sent: false },
+      429,
+    );
   }
 
   // Check partner's notification preferences
@@ -318,7 +316,10 @@ serve(async (req: Request) => {
   if (pref && pref.streak_reminders === false) {
     // Still log the nudge to prevent re-attempts, but don't send
     await logNudge(supabase, coupleRow.id, user.id, vnToday);
-    return jsonResponse({ sent: false, reason: "partner_disabled_reminders" });
+    return jsonResponse(req, {
+      sent: false,
+      reason: "partner_disabled_reminders",
+    });
   }
 
   // Get sender's display name
@@ -351,7 +352,7 @@ serve(async (req: Request) => {
 
   if (rows.length === 0) {
     await logNudge(supabase, coupleRow.id, user.id, vnToday);
-    return jsonResponse({
+    return jsonResponse(req, {
       sent: true,
       inAppSent: true,
       pushCount: 0,
@@ -373,11 +374,12 @@ serve(async (req: Request) => {
   // Configure web push
   const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
   const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
-  const vapidSubject = Deno.env.get("VAPID_SUBJECT") ?? "mailto:hello@pinly.app";
+  const vapidSubject =
+    Deno.env.get("VAPID_SUBJECT") ?? "mailto:hello@pinly.app";
   if (!vapidPublicKey || !vapidPrivateKey) {
     console.error("Nudge push skipped: missing VAPID keys");
     await logNudge(supabase, coupleRow.id, user.id, vnToday);
-    return jsonResponse({
+    return jsonResponse(req, {
       sent: true,
       inAppSent: true,
       pushCount: 0,
@@ -426,7 +428,7 @@ serve(async (req: Request) => {
 
   await logNudge(supabase, coupleRow.id, user.id, vnToday);
 
-  return jsonResponse({
+  return jsonResponse(req, {
     sent: true,
     inAppSent: true,
     pushCount: sent,

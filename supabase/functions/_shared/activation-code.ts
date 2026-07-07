@@ -1,5 +1,5 @@
 import { adminClient, requireAuthUser } from "./auth-user.ts";
-import { corsHeaders, jsonResponse } from "./billing-cors.ts";
+import { getCorsHeaders, jsonResponse } from "./billing-cors.ts";
 
 type ActivateBody = {
   code?: unknown;
@@ -50,12 +50,12 @@ export async function handleActivateCodeRequest(
   logLabel: string,
 ) {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response(null, { status: 204, headers: getCorsHeaders(req) });
   }
 
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405, {
-      "Allow": "POST, OPTIONS",
+    return jsonResponse(req, { error: "Method not allowed" }, 405, {
+      Allow: "POST, OPTIONS",
     });
   }
 
@@ -72,18 +72,20 @@ export async function handleActivateCodeRequest(
       },
     );
 
-    if (rateError) return jsonResponse({ error: "Rate limit unavailable" }, 500);
-    if (allowed === false) return jsonResponse({ error: "Too many attempts" }, 429);
+    if (rateError)
+      return jsonResponse(req, { error: "Rate limit unavailable" }, 500);
+    if (allowed === false)
+      return jsonResponse(req, { error: "Too many attempts" }, 429);
 
-    const body = await req.json().catch(() => ({} as ActivateBody));
+    const body = await req.json().catch(() => ({}) as ActivateBody);
     const normalizedCode = normalizeCode(body.code);
 
     if (!normalizedCode) {
-      return jsonResponse({ error: "Code is required" }, 400);
+      return jsonResponse(req, { error: "Code is required" }, 400);
     }
 
     if (normalizedCode === "too_long") {
-      return jsonResponse({ error: "Code is too long" }, 400);
+      return jsonResponse(req, { error: "Code is too long" }, 400);
     }
 
     const { data, error } = await supabaseAdmin.rpc("activate_account_code", {
@@ -97,11 +99,12 @@ export async function handleActivateCodeRequest(
     const result = asResult(data);
     if (!result) {
       console.error(`${logLabel} invalid RPC result`);
-      return jsonResponse({ error: "Internal server error" }, 500);
+      return jsonResponse(req, { error: "Internal server error" }, 500);
     }
 
     if (result.success !== true) {
       return jsonResponse(
+        req,
         { error: stringFrom(result.error) ?? "Internal server error" },
         statusFrom(result.status),
       );
@@ -113,10 +116,10 @@ export async function handleActivateCodeRequest(
 
     if (!plan || !expiresAt || !message) {
       console.error(`${logLabel} incomplete RPC success result`);
-      return jsonResponse({ error: "Internal server error" }, 500);
+      return jsonResponse(req, { error: "Internal server error" }, 500);
     }
 
-    return jsonResponse({
+    return jsonResponse(req, {
       success: true,
       plan,
       expires_at: expiresAt,
@@ -125,9 +128,9 @@ export async function handleActivateCodeRequest(
   } catch (err) {
     console.error(`${logLabel} error:`, err);
     if (isAuthError(err)) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
 
-    return jsonResponse({ error: "Internal server error" }, 500);
+    return jsonResponse(req, { error: "Internal server error" }, 500);
   }
 }

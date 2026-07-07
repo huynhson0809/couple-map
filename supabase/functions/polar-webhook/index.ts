@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { Webhooks } from "npm:@polar-sh/supabase";
 import { adminClient } from "../_shared/auth-user.ts";
-import { corsHeaders, jsonResponse } from "../_shared/billing-cors.ts";
+import { getCorsHeaders, jsonResponse } from "../_shared/billing-cors.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -173,7 +173,11 @@ function subscriptionStatus(eventType: string, data: JsonRecord) {
   return null;
 }
 
-function eventIdFrom(payload: PolarPayload, eventType: string, data: JsonRecord) {
+function eventIdFrom(
+  payload: PolarPayload,
+  eventType: string,
+  data: JsonRecord,
+) {
   const payloadRecord = payload as JsonRecord;
   const explicitId = readString(payloadRecord, ["id", "event_id", "eventId"]);
   if (explicitId) return explicitId;
@@ -187,10 +191,7 @@ function eventIdFrom(payload: PolarPayload, eventType: string, data: JsonRecord)
   throw new Error("missing_polar_event_id");
 }
 
-async function resolveUserId(
-  data: JsonRecord,
-  polarCustomerId: string | null,
-) {
+async function resolveUserId(data: JsonRecord, polarCustomerId: string | null) {
   const userId = metadataUserId(data) ?? externalCustomerIdFrom(data);
   if (userId) return userId;
   if (!polarCustomerId) return null;
@@ -247,10 +248,9 @@ async function handlePayload(payload: PolarPayload) {
       const email = customerEmailFrom(data);
       if (email) billingProfile.email = email;
 
-      const { error } = await supabase.from("billing_profiles").upsert(
-        billingProfile,
-        { onConflict: "user_id" },
-      );
+      const { error } = await supabase
+        .from("billing_profiles")
+        .upsert(billingProfile, { onConflict: "user_id" });
       if (error) throw error;
     }
 
@@ -328,31 +328,31 @@ const polarWebhook = Webhooks({
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response(null, { status: 204, headers: getCorsHeaders(req) });
   }
 
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405, {
-      "Allow": "POST, OPTIONS",
+    return jsonResponse(req, { error: "Method not allowed" }, 405, {
+      Allow: "POST, OPTIONS",
     });
   }
 
   try {
     const response = await polarWebhook(req);
     if (!response.ok) {
-      return jsonResponse({ error: "Invalid webhook" }, 400);
+      return jsonResponse(req, { error: "Invalid webhook" }, 400);
     }
 
     return new Response(response.body, {
       status: response.status,
       headers: {
-        ...corsHeaders,
+        ...getCorsHeaders(req),
         "Content-Type":
           response.headers.get("Content-Type") ?? "application/json",
       },
     });
   } catch (err) {
     console.error("polar-webhook error:", err);
-    return jsonResponse({ error: "Invalid webhook" }, 400);
+    return jsonResponse(req, { error: "Invalid webhook" }, 400);
   }
 });
