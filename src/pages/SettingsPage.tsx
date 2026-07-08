@@ -121,6 +121,7 @@ export function SettingsPage() {
   );
   const [showPricing, setShowPricing] = useState(false);
   const [planActionBusy, setPlanActionBusy] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
   const [upgradeFeature, setUpgradeFeature] = useState<string | null>(null);
   const [annivDate, setAnnivDate] = useState(couple?.anniversary_date ?? "");
   const [annivSaving, setAnnivSaving] = useState(false);
@@ -209,10 +210,15 @@ export function SettingsPage() {
     }
 
     setPlanActionBusy(true);
+    setPortalError(null);
     try {
       await openCustomerPortal();
     } catch {
-      setShowPricing(true);
+      setPortalError(
+        lang === "vi"
+          ? "Không thể mở trang quản lý gói. Vui lòng thử lại."
+          : "Unable to open subscription portal. Please try again.",
+      );
     } finally {
       setPlanActionBusy(false);
     }
@@ -246,9 +252,7 @@ export function SettingsPage() {
       >
         <div className="setting-plan-overview">
           <div className="setting-plan-main">
-            <span className="setting-plan-name">
-              {accountPlanName}
-            </span>
+            <span className="setting-plan-name">{accountPlanName}</span>
             <div className="setting-plan-actions">
               {accountPlan === "free" ? (
                 <Button
@@ -288,6 +292,9 @@ export function SettingsPage() {
               )}
             </div>
           </div>
+          {portalError && (
+            <span className="setting-plan-error">{portalError}</span>
+          )}
           {accountPlan !== "free" && (
             <span className="muted setting-plan-meta">
               {subscription
@@ -304,13 +311,15 @@ export function SettingsPage() {
                 : `Maps created: ${ownedSpaceCount}/${ownedSpaceLimit}`}
             </span>
           )}
-          {!subscriptionLoading && spacePlan !== accountPlan && spaceOwnerId && (
-            <span className="muted setting-plan-meta">
-              {lang === "vi"
-                ? `Space này dùng gói owner: ${effectiveSpacePlanName}`
-                : `This space uses owner plan: ${effectiveSpacePlanName}`}
-            </span>
-          )}
+          {!subscriptionLoading &&
+            spacePlan !== accountPlan &&
+            spaceOwnerId && (
+              <span className="muted setting-plan-meta">
+                {lang === "vi"
+                  ? `Space này dùng gói owner: ${effectiveSpacePlanName}`
+                  : `This space uses owner plan: ${effectiveSpacePlanName}`}
+              </span>
+            )}
           {quotaReached && (
             <span className="muted setting-plan-meta">
               {lang === "vi"
@@ -604,80 +613,80 @@ export function SettingsPage() {
         </div>
         {duoFeaturesEnabled && (
           <div className="notif-pref-list">
-          <div className="notif-pref-row">
-            <span>
-              <strong>{t("notif.memoryAdded")}</strong>
-              <small>{t("notif.memoryAddedHint")}</small>
-            </span>
-            <Switch
-              aria-label={t("notif.memoryAdded")}
-              checked={notifPrefs.prefs.memory_added}
-              disabled={notifPrefs.loading}
-              onChange={(e) =>
-                notifPrefs.updatePrefs({ memory_added: e.target.checked })
-              }
-            />
-          </div>
-          <div className="notif-pref-row">
-            <span>
-              <strong>{t("notif.reactions")}</strong>
-              <small>{t("notif.reactionsHint")}</small>
-            </span>
-            <Switch
-              aria-label={t("notif.reactions")}
-              checked={notifPrefs.prefs.reactions}
-              disabled={notifPrefs.loading}
-              onChange={(e) =>
-                notifPrefs.updatePrefs({ reactions: e.target.checked })
-              }
-            />
-          </div>
-          <div className="notif-pref-row">
-            <span>
-              <strong>{t("notif.comments")}</strong>
-              <small>{t("notif.commentsHint")}</small>
-            </span>
-            <Switch
-              aria-label={t("notif.comments")}
-              checked={notifPrefs.prefs.comments}
-              disabled={notifPrefs.loading}
-              onChange={(e) =>
-                notifPrefs.updatePrefs({ comments: e.target.checked })
-              }
-            />
-          </div>
-          <div className="notif-pref-row">
-            <span>
-              <strong>{t("notif.streakReminders")}</strong>
-              <small>{t("notif.streakRemindersHint")}</small>
-            </span>
-            <Switch
-              aria-label={t("notif.streakReminders")}
-              checked={notifPrefs.prefs.streak_reminders}
-              disabled={notifPrefs.loading}
-              onChange={(e) =>
-                notifPrefs.updatePrefs({
-                  streak_reminders: e.target.checked,
-                })
-              }
-            />
-          </div>
-          <div className="notif-pref-row">
-            <span>
-              <strong>{t("notif.streakEmailReminders")}</strong>
-              <small>{t("notif.streakEmailRemindersHint")}</small>
-            </span>
-            <Switch
-              aria-label={t("notif.streakEmailReminders")}
-              checked={notifPrefs.prefs.streak_email_reminders}
-              disabled={notifPrefs.loading}
-              onChange={(e) =>
-                notifPrefs.updatePrefs({
-                  streak_email_reminders: e.target.checked,
-                })
-              }
-            />
-          </div>
+            <div className="notif-pref-row">
+              <span>
+                <strong>{t("notif.memoryAdded")}</strong>
+                <small>{t("notif.memoryAddedHint")}</small>
+              </span>
+              <Switch
+                aria-label={t("notif.memoryAdded")}
+                checked={notifPrefs.prefs.memory_added}
+                disabled={notifPrefs.loading}
+                onChange={(e) =>
+                  notifPrefs.updatePrefs({ memory_added: e.target.checked })
+                }
+              />
+            </div>
+            <div className="notif-pref-row">
+              <span>
+                <strong>{t("notif.reactions")}</strong>
+                <small>{t("notif.reactionsHint")}</small>
+              </span>
+              <Switch
+                aria-label={t("notif.reactions")}
+                checked={notifPrefs.prefs.reactions}
+                disabled={notifPrefs.loading}
+                onChange={(e) =>
+                  notifPrefs.updatePrefs({ reactions: e.target.checked })
+                }
+              />
+            </div>
+            <div className="notif-pref-row">
+              <span>
+                <strong>{t("notif.comments")}</strong>
+                <small>{t("notif.commentsHint")}</small>
+              </span>
+              <Switch
+                aria-label={t("notif.comments")}
+                checked={notifPrefs.prefs.comments}
+                disabled={notifPrefs.loading}
+                onChange={(e) =>
+                  notifPrefs.updatePrefs({ comments: e.target.checked })
+                }
+              />
+            </div>
+            <div className="notif-pref-row">
+              <span>
+                <strong>{t("notif.streakReminders")}</strong>
+                <small>{t("notif.streakRemindersHint")}</small>
+              </span>
+              <Switch
+                aria-label={t("notif.streakReminders")}
+                checked={notifPrefs.prefs.streak_reminders}
+                disabled={notifPrefs.loading}
+                onChange={(e) =>
+                  notifPrefs.updatePrefs({
+                    streak_reminders: e.target.checked,
+                  })
+                }
+              />
+            </div>
+            <div className="notif-pref-row">
+              <span>
+                <strong>{t("notif.streakEmailReminders")}</strong>
+                <small>{t("notif.streakEmailRemindersHint")}</small>
+              </span>
+              <Switch
+                aria-label={t("notif.streakEmailReminders")}
+                checked={notifPrefs.prefs.streak_email_reminders}
+                disabled={notifPrefs.loading}
+                onChange={(e) =>
+                  notifPrefs.updatePrefs({
+                    streak_email_reminders: e.target.checked,
+                  })
+                }
+              />
+            </div>
           </div>
         )}
       </SettingSection>

@@ -18,6 +18,20 @@ export function getPolarAccessToken() {
   return token;
 }
 
+export class PolarApiError extends Error {
+  path: string;
+  status: number;
+  body: unknown;
+
+  constructor(path: string, status: number, body: unknown) {
+    super(`polar_api_${status}`);
+    this.name = "PolarApiError";
+    this.path = path;
+    this.status = status;
+    this.body = body;
+  }
+}
+
 export async function polarJson<T>(
   path: string,
   init: RequestInit & { body?: BodyInit | null },
@@ -49,7 +63,7 @@ export async function polarJson<T>(
       status: res.status,
       body: data ?? text,
     });
-    throw new Error(`polar_api_${res.status}`);
+    throw new PolarApiError(path, res.status, data ?? text);
   }
 
   if (parseError) {

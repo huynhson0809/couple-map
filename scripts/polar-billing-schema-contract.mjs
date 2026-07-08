@@ -161,3 +161,23 @@ assert.match(
   /resolveTrustedAppUrl\(body\.app_url\)/i,
   "Customer portal must prefer the current client app_url when it is trusted.",
 );
+assert.match(
+  portalFunction,
+  /billing_profiles[\s\S]*polar_customer_id/i,
+  "Customer portal must read the stored Polar customer id from billing_profiles.",
+);
+assert.match(
+  portalFunction,
+  /customer_id:\s*billingProfile\.polar_customer_id/i,
+  "Customer portal must create sessions with Polar customer_id when available.",
+);
+assert.match(
+  portalFunction,
+  /\/v1\/customers\/\?email=/i,
+  "Customer portal must recover stale Polar customer ids by looking up customers by email.",
+);
+assert.match(
+  portalFunction,
+  /upsert\([\s\S]*polar_customer_id/i,
+  "Customer portal must persist a recovered Polar customer id.",
+);
