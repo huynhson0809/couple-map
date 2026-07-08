@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Crown, Sparkles, X, Zap } from "lucide-react";
+import { Check, Crown, KeyRound, Sparkles, X, Zap } from "lucide-react";
 import { useSubscription, PLAN_LIMITS } from "../hooks/useSubscription";
 import { useI18n } from "../hooks/I18nContext";
 import type { PlanType } from "../types";
@@ -300,12 +300,17 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
           </button>
 
           {showActivationCode && (
-            <>
-              <h3>{lang === "vi" ? "Kích hoạt gói" : "Activate plan"}</h3>
+            <div className="pricing-activate-panel">
+              <div className="pricing-activate-heading">
+                <span className="pricing-activate-icon">
+                  <KeyRound size={16} aria-hidden="true" />
+                </span>
+                <h3>{lang === "vi" ? "Kích hoạt gói" : "Activate plan"}</h3>
+              </div>
               <p className="muted">
                 {lang === "vi"
-                  ? "Liên hệ để nhận mã kích hoạt, sau đó nhập mã bên dưới."
-                  : "Contact us to get an activation code, then enter it below."}
+                  ? "Dành cho mã đã được Pinly cấp. Nhập mã để kích hoạt gói trên tài khoản này."
+                  : "For codes issued by Pinly. Enter your code to activate this account."}
               </p>
               <div className="pricing-activate-input">
                 <input
@@ -338,23 +343,7 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
                   {activateResult.message}
                 </div>
               )}
-              <div className="pricing-contact-buttons">
-                <a
-                  href="https://zalo.me/0965125914"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="pricing-contact-btn pricing-contact-zalo"
-                >
-                  💬 Zalo
-                </a>
-                <a
-                  href="mailto:huynhngocson8902@gmail.com"
-                  className="pricing-contact-btn pricing-contact-email"
-                >
-                  ✉️ Email
-                </a>
-              </div>
-            </>
+            </div>
           )}
         </div>
       )}

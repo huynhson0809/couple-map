@@ -67,7 +67,7 @@ const privacyVi: LegalContent = {
       body: [
         "Dữ liệu tài khoản được lưu khi tài khoản còn tồn tại. Kỷ niệm và media được lưu đến khi bạn xóa hoặc khi tài khoản/không gian được dọn dẹp theo quy trình của Pinly.",
         "Một số nhật ký kỹ thuật có thể được lưu trong thời gian giới hạn để bảo mật, vận hành và chẩn đoán lỗi.",
-        "Bạn có thể liên hệ hỗ trợ qua kênh Zalo hoặc email được hiển thị trong ứng dụng.",
+        "Bạn có thể liên hệ hỗ trợ qua kênh hỗ trợ chính thức được hiển thị trong ứng dụng.",
       ],
     },
   ],
@@ -125,7 +125,7 @@ const privacyEn: LegalContent = {
       body: [
         "Account data is kept while the account exists. Memories and media are kept until deleted or until account/space cleanup under Pinly's operating process.",
         "Some technical records may be retained for a limited time for security, operations, and issue diagnosis.",
-        "Contact support through the Zalo or email channel shown in the app.",
+        "Contact support through the official support channel shown in the app.",
       ],
     },
   ],

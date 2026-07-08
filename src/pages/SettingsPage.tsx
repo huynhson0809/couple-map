@@ -136,6 +136,8 @@ export function SettingsPage() {
   const mapStylePreviewCenter = { lat: 10.8231, lng: 106.6297 };
   const breakupConfirmValid =
     breakupConfirmText.trim().toUpperCase() === BREAKUP_CONFIRM_TEXT;
+  const subscriptionSource =
+    subscription && "source" in subscription ? subscription.source : null;
 
   async function saveAnniversary() {
     if (!annivDate || !canManageSpaceDetails) return;
@@ -204,7 +206,8 @@ export function SettingsPage() {
   async function handleManagePlan() {
     if (subscriptionLoading || planActionBusy) return;
 
-    if (accountPlan === "free") {
+    if (accountPlan === "free" || subscriptionSource !== "polar") {
+      setPortalError(null);
       setShowPricing(true);
       return;
     }
@@ -234,6 +237,33 @@ export function SettingsPage() {
   const effectiveSpacePlanName =
     spacePlan === "free" ? "FREE" : spacePlan === "plus" ? "PLUS" : "PRO";
   const quotaReached = !subscriptionLoading && !canCreateSpace;
+  const planManagedByPolar = subscriptionSource === "polar";
+  const planActionLabel =
+    accountPlan === "free"
+      ? lang === "vi"
+        ? "Nâng cấp"
+        : "Upgrade"
+      : planManagedByPolar
+        ? lang === "vi"
+          ? "Quản lý gói"
+          : "Manage plan"
+        : lang === "vi"
+          ? "Gia hạn qua Polar"
+          : "Renew with Polar";
+  const planSourceLabel =
+    subscriptionSource === "activation_code"
+      ? lang === "vi"
+        ? "Kích hoạt bằng mã"
+        : "Activated by code"
+      : subscriptionSource === "manual"
+        ? lang === "vi"
+          ? "Cấp thủ công"
+          : "Granted manually"
+        : subscriptionSource === "polar"
+          ? lang === "vi"
+            ? "Thanh toán qua Polar"
+            : "Managed by Polar"
+          : null;
 
   return (
     <div className="page page-settings">
@@ -267,9 +297,7 @@ export function SettingsPage() {
                     ? lang === "vi"
                       ? "Đang mở..."
                       : "Opening..."
-                    : lang === "vi"
-                      ? "Nâng cấp"
-                      : "Upgrade"}
+                    : planActionLabel}
                 </Button>
               ) : (
                 <Button
@@ -285,9 +313,7 @@ export function SettingsPage() {
                     ? lang === "vi"
                       ? "Đang mở..."
                       : "Opening..."
-                    : lang === "vi"
-                      ? "Quản lý gói"
-                      : "Manage plan"}
+                    : planActionLabel}
                 </Button>
               )}
             </div>
@@ -303,6 +329,9 @@ export function SettingsPage() {
                   ? "Đang hoạt động"
                   : "Active"}
             </span>
+          )}
+          {accountPlan !== "free" && planSourceLabel && (
+            <span className="muted setting-plan-meta">{planSourceLabel}</span>
           )}
           {!subscriptionLoading && (
             <span className="muted setting-plan-meta">

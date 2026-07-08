@@ -85,6 +85,11 @@ assert.match(
   /Có mã kích hoạt|activation code/i,
   "Activation code UI must remain available as secondary UI.",
 );
+assert.doesNotMatch(
+  pricingPage,
+  /Zalo|pricing-contact-zalo|pricing-contact-buttons/i,
+  "Activation code UI must not show Zalo/contact buttons.",
+);
 
 assert.match(
   settingsPage,
@@ -95,6 +100,31 @@ assert.match(
   settingsPage,
   /openCustomerPortal|customer portal|Quản lý gói/i,
   "Settings must open the Polar customer portal for plan management.",
+);
+assert.match(
+  settingsPage,
+  /subscriptionSource\s*===\s*"polar"/,
+  "Settings must only open the Polar customer portal for Polar-managed subscriptions.",
+);
+assert.match(
+  managePlanBlock,
+  /subscriptionSource\s*!==\s*"polar"[\s\S]*setShowPricing\(true\)/,
+  "Settings must route activation-code and manual plans to Polar checkout instead of customer portal.",
+);
+assert.match(
+  settingsPage,
+  /activation_code[\s\S]*(Kích hoạt bằng mã|Activated by code)/,
+  "Settings must explain when the current plan came from an activation code.",
+);
+assert.match(
+  settingsPage,
+  /manual[\s\S]*(Cấp thủ công|Granted manually)/,
+  "Settings must explain when the current plan was manually granted.",
+);
+assert.match(
+  settingsPage,
+  /Gia hạn qua Polar|Renew with Polar/,
+  "Settings must offer a Polar renewal CTA for non-Polar paid plans.",
 );
 assert.match(
   settingsPage,
