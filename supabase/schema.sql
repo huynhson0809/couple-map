@@ -427,6 +427,7 @@ as $$
       and (in_creator_id is null or p.created_by = in_creator_id)
       and (
         nullif(trim(coalesce(in_address, '')), '') is null
+        or p.title ilike '%' || trim(in_address) || '%'
         or p.address ilike '%' || trim(in_address) || '%'
         or p.city ilike '%' || trim(in_address) || '%'
         or p.country ilike '%' || trim(in_address) || '%'

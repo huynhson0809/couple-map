@@ -202,7 +202,7 @@ const dict = {
     "notif.disable": "Disable notifications",
     "notif.denied": "Permission denied — enable in browser settings",
     "notif.granted": "Notifications on",
-    "notif.pushHint": "Get notified when another member pins a memory",
+    "notif.pushHint": "Get reminders about memories and your daily streak",
     "notif.newMemory": "added a new memory",
     "notif.memoryAdded": "New memories",
     "notif.memoryAddedHint": "When another member adds a memory",
@@ -231,6 +231,17 @@ const dict = {
     "notif.minutesAgo": "m ago",
     "notif.hoursAgo": "h ago",
     "notif.daysAgo": "d ago",
+    "notif.supportReply": "Pinly replied to your support request",
+    "notif.spaceQuotaWarning": "Choose maps to keep editable",
+    "notif.spaceQuotaWarningBody":
+      "Your plan now includes fewer maps. Choose which ones stay editable before the grace period ends.",
+    "notif.spaceQuotaRestricted": "Some maps are now read-only",
+    "notif.spaceQuotaRestrictedBody":
+      "Maps over your current plan limit are kept safely in read-only mode.",
+    "notif.spaceQuotaRestored": "Your maps are editable again",
+    "notif.spaceQuotaRestoredBody":
+      "Your remaining maps are within the current plan limit.",
+    "notif.inSpace": "In {{name}}",
     "notif.sectionNew": "New",
     "notif.sectionToday": "Today",
     "notif.sectionEarlier": "Earlier",
@@ -256,8 +267,8 @@ const dict = {
     "timeline.toDate": "To",
     "timeline.creator": "Creator",
     "timeline.creatorAll": "Everyone",
-    "timeline.address": "Address",
-    "timeline.addressPlaceholder": "Search city, street, place…",
+    "timeline.address": "Title or location",
+    "timeline.addressPlaceholder": "Search title, city, street, place…",
     "timeline.clearFilters": "Clear filters",
     "timeline.noResults": "No memories match these filters.",
 
@@ -333,6 +344,24 @@ const dict = {
     "settings.joinSpaceSuccess": "Joined map.",
     "settings.spaceQuotaCreateOnly":
       "You have reached your map creation limit. You can still join maps you are invited to.",
+    "settings.spaceQuotaGraceTitle": "Choose the maps to keep editable",
+    "settings.spaceQuotaGraceBody":
+      "Your current plan includes {{limit}} owned map(s). All maps stay editable during the 7-day grace period.",
+    "settings.spaceQuotaDeadline": "Choose before {{date}}",
+    "settings.spaceQuotaReadOnlyTitle": "Some maps are read-only",
+    "settings.spaceQuotaReadOnlyBody":
+      "Nothing was deleted. Upgrade your plan or delete extra maps to unlock editing again.",
+    "settings.spaceQuotaSave": "Save selection",
+    "settings.spaceQuotaSaved": "Saved",
+    "settings.spaceReadOnly": "Read-only",
+    "settings.spaceKeepEditable": "Keep editable",
+    "settings.spaceWillReadOnly": "Will become read-only",
+    "settings.spaceAddSelection": "Keep {{name}} editable",
+    "settings.spaceRemoveSelection": "Remove {{name}} from the selection",
+    "settings.spaceReadOnlyBannerTitle": "This map is read-only",
+    "settings.spaceReadOnlyBannerBody":
+      "Memories are safe. The map owner can upgrade or reduce owned maps to edit it again.",
+    "settings.spaceReadOnlyManage": "Manage maps",
     "settings.spaceInvite": "Invite someone",
     "settings.spaceInviteConfirm": "Share this map",
     "settings.spaceInviteShareAll":
@@ -377,6 +406,72 @@ const dict = {
     "settings.legal": "Legal",
     "settings.legalDesc":
       "Review Pinly's Terms and Privacy Policy, including how photos and videos are handled.",
+    "settings.supportTitle": "Help & support",
+    "settings.supportDesc":
+      "Find quick answers or send a request directly to the Pinly team.",
+    "settings.supportFaq": "FAQ",
+    "settings.supportFaqHint": "Answers to common questions",
+    "settings.supportContact": "Contact admin",
+    "settings.supportContactHint": "Ask about your account or plan",
+    "settings.supportReportBug": "Report a bug",
+    "settings.supportReportBugHint": "Tell us when something is not working",
+
+    "support.modalTitle": "Pinly Support",
+    "support.modalHint": "Answers and help, all in one place.",
+    "support.close": "Close support",
+    "support.tabFaq": "FAQ",
+    "support.tabContact": "Admin",
+    "support.tabBug": "Report",
+    "support.faqSpaceLimitQ": "Does joining a map use my map limit?",
+    "support.faqSpaceLimitA":
+      "No. Your plan only limits maps you create. You can still join a map when someone invites you.",
+    "support.faqInviteQ": "What can invited members see?",
+    "support.faqInviteA":
+      "An invited member can see the memories already saved in that shared map, as well as new memories added later.",
+    "support.faqPlanQ": "Why has my plan not changed after payment?",
+    "support.faqPlanA":
+      "Payment confirmation can take a short moment. Return to Settings after checkout; Pinly refreshes your plan automatically. Contact support if it still has not changed after a few minutes.",
+    "support.faqPrivacyQ": "Who can see my memories?",
+    "support.faqPrivacyA":
+      "Only members of the map can access its memories. Personal maps stay private until you choose to invite someone.",
+    "support.faqDeleteQ": "How do I delete a map and its data?",
+    "support.faqDeleteA":
+      "In Settings, use the delete button on a map you own. The map and its memories are permanently removed after confirmation.",
+    "support.contactTitle": "Contact the Pinly team",
+    "support.contactHint":
+      "Ask about your account, plan, payment, or anything not covered in the FAQ.",
+    "support.bugTitle": "Report a problem",
+    "support.bugHint":
+      "Describe what happened and what you expected to happen. Clear steps help us fix it faster.",
+    "support.subject": "Subject",
+    "support.subjectPlaceholder": "A short summary",
+    "support.message": "Details",
+    "support.contactMessagePlaceholder":
+      "What do you need help with? Include any useful details.",
+    "support.bugMessagePlaceholder":
+      "What did you do, what happened, and what should have happened?",
+    "support.technicalNote":
+      "Pinly will attach your browser, screen size, current page, and active map ID. Your memories and media are not attached.",
+    "support.accountEmail": "Reply account",
+    "support.submit": "Send request",
+    "support.submitting": "Sending…",
+    "support.submitSuccess": "Your request was sent.",
+    "support.ticketReference": "Reference",
+    "support.submitError": "Could not send your request. Please try again.",
+    "support.rateLimitError":
+      "You have sent several requests recently. Please wait a moment before sending another.",
+    "support.validationSubject": "Please enter a subject of at least 3 characters.",
+    "support.validationMessage": "Please add at least 20 characters of detail.",
+    "support.recent": "Your recent requests",
+    "support.recentEmpty": "You have not sent any support requests yet.",
+    "support.loading": "Loading requests…",
+    "support.loadError": "Recent requests could not be loaded right now.",
+    "support.statusOpen": "Open",
+    "support.statusInProgress": "In progress",
+    "support.statusResolved": "Resolved",
+    "support.statusClosed": "Closed",
+    "support.adminReply": "Pinly replied",
+    "support.waitingReply": "The Pinly team has not replied yet.",
 
     "common.you": "You",
     "common.partner": "Member",
@@ -640,7 +735,7 @@ const dict = {
     "notif.disable": "Tắt thông báo",
     "notif.denied": "Bị chặn — bật lại trong cài đặt trình duyệt",
     "notif.granted": "Thông báo đang bật",
-    "notif.pushHint": "Nhận thông báo khi thành viên khác ghim kỷ niệm mới",
+    "notif.pushHint": "Nhận lời nhắc về kỷ niệm và chuỗi mỗi ngày",
     "notif.newMemory": "vừa thêm 1 kỷ niệm",
     "notif.memoryAdded": "Kỷ niệm mới",
     "notif.memoryAddedHint": "Khi thành viên khác thêm kỷ niệm",
@@ -669,6 +764,17 @@ const dict = {
     "notif.minutesAgo": " phút trước",
     "notif.hoursAgo": " giờ trước",
     "notif.daysAgo": " ngày trước",
+    "notif.supportReply": "Pinly đã phản hồi yêu cầu hỗ trợ của bạn",
+    "notif.spaceQuotaWarning": "Chọn bản đồ được tiếp tục chỉnh sửa",
+    "notif.spaceQuotaWarningBody":
+      "Gói hiện tại có ít bản đồ hơn trước. Hãy chọn các bản đồ cần giữ quyền chỉnh sửa trước khi hết thời gian gia hạn.",
+    "notif.spaceQuotaRestricted": "Một số bản đồ đã chuyển sang chỉ xem",
+    "notif.spaceQuotaRestrictedBody":
+      "Các bản đồ vượt giới hạn gói vẫn được giữ an toàn ở chế độ chỉ xem.",
+    "notif.spaceQuotaRestored": "Bạn có thể chỉnh sửa bản đồ trở lại",
+    "notif.spaceQuotaRestoredBody":
+      "Số bản đồ còn lại đã nằm trong giới hạn của gói hiện tại.",
+    "notif.inSpace": "Trong {{name}}",
     "notif.sectionNew": "Mới",
     "notif.sectionToday": "Hôm nay",
     "notif.sectionEarlier": "Trước đó",
@@ -693,8 +799,8 @@ const dict = {
     "timeline.toDate": "Đến ngày",
     "timeline.creator": "Người tạo",
     "timeline.creatorAll": "Tất cả",
-    "timeline.address": "Địa chỉ",
-    "timeline.addressPlaceholder": "Tìm thành phố, đường, địa điểm…",
+    "timeline.address": "Tên hoặc địa điểm",
+    "timeline.addressPlaceholder": "Tìm tên kỷ niệm, thành phố, đường, địa điểm…",
     "timeline.clearFilters": "Xóa lọc",
     "timeline.noResults": "Không có kỷ niệm nào khớp bộ lọc.",
 
@@ -770,6 +876,24 @@ const dict = {
     "settings.joinSpaceSuccess": "Đã tham gia bản đồ.",
     "settings.spaceQuotaCreateOnly":
       "Bạn đã đạt giới hạn tạo bản đồ. Bạn vẫn có thể tham gia bản đồ được mời.",
+    "settings.spaceQuotaGraceTitle": "Chọn bản đồ được tiếp tục chỉnh sửa",
+    "settings.spaceQuotaGraceBody":
+      "Gói hiện tại cho phép sở hữu {{limit}} bản đồ. Trong 7 ngày gia hạn, mọi bản đồ vẫn chỉnh sửa được.",
+    "settings.spaceQuotaDeadline": "Hãy chọn trước {{date}}",
+    "settings.spaceQuotaReadOnlyTitle": "Một số bản đồ đang ở chế độ chỉ xem",
+    "settings.spaceQuotaReadOnlyBody":
+      "Không dữ liệu nào bị xoá. Hãy nâng cấp gói hoặc xoá bớt bản đồ để mở lại quyền chỉnh sửa.",
+    "settings.spaceQuotaSave": "Lưu lựa chọn",
+    "settings.spaceQuotaSaved": "Đã lưu",
+    "settings.spaceReadOnly": "Chỉ xem",
+    "settings.spaceKeepEditable": "Giữ quyền chỉnh sửa",
+    "settings.spaceWillReadOnly": "Sẽ chuyển sang chỉ xem",
+    "settings.spaceAddSelection": "Giữ quyền chỉnh sửa cho {{name}}",
+    "settings.spaceRemoveSelection": "Bỏ {{name}} khỏi lựa chọn",
+    "settings.spaceReadOnlyBannerTitle": "Bản đồ này đang ở chế độ chỉ xem",
+    "settings.spaceReadOnlyBannerBody":
+      "Mọi kỷ niệm vẫn an toàn. Chủ bản đồ có thể nâng cấp hoặc giảm số bản đồ sở hữu để chỉnh sửa trở lại.",
+    "settings.spaceReadOnlyManage": "Quản lý bản đồ",
     "settings.spaceInvite": "Mời người khác",
     "settings.spaceInviteConfirm": "Chia sẻ bản đồ này",
     "settings.spaceInviteShareAll":
@@ -814,6 +938,72 @@ const dict = {
     "settings.legal": "Pháp lý",
     "settings.legalDesc":
       "Xem lại Điều khoản và Chính sách quyền riêng tư của Pinly, bao gồm cách xử lý ảnh và video.",
+    "settings.supportTitle": "Trợ giúp & hỗ trợ",
+    "settings.supportDesc":
+      "Tìm câu trả lời nhanh hoặc gửi yêu cầu trực tiếp đến đội ngũ Pinly.",
+    "settings.supportFaq": "Câu hỏi thường gặp",
+    "settings.supportFaqHint": "Giải đáp nhanh các thắc mắc phổ biến",
+    "settings.supportContact": "Liên hệ admin",
+    "settings.supportContactHint": "Hỏi về tài khoản hoặc gói dịch vụ",
+    "settings.supportReportBug": "Báo cáo lỗi",
+    "settings.supportReportBugHint": "Báo cho Pinly khi có tính năng không hoạt động",
+
+    "support.modalTitle": "Hỗ trợ Pinly",
+    "support.modalHint": "Câu trả lời và hỗ trợ, gói gọn tại một nơi.",
+    "support.close": "Đóng hỗ trợ",
+    "support.tabFaq": "FAQ",
+    "support.tabContact": "Admin",
+    "support.tabBug": "Báo lỗi",
+    "support.faqSpaceLimitQ": "Tham gia bản đồ có tính vào giới hạn không?",
+    "support.faqSpaceLimitA":
+      "Không. Gói của bạn chỉ giới hạn số bản đồ do bạn tạo. Bạn vẫn có thể tham gia bản đồ khi được người khác mời.",
+    "support.faqInviteQ": "Người được mời có thể xem những gì?",
+    "support.faqInviteA":
+      "Thành viên được mời có thể xem các kỷ niệm đã lưu trong bản đồ chung và cả những kỷ niệm được thêm về sau.",
+    "support.faqPlanQ": "Vì sao thanh toán xong mà gói chưa đổi?",
+    "support.faqPlanA":
+      "Xác nhận thanh toán có thể mất một chút thời gian. Khi quay lại Cài đặt, Pinly sẽ tự làm mới gói. Hãy liên hệ hỗ trợ nếu sau vài phút gói vẫn chưa thay đổi.",
+    "support.faqPrivacyQ": "Ai có thể xem kỷ niệm của tôi?",
+    "support.faqPrivacyA":
+      "Chỉ thành viên trong bản đồ mới truy cập được các kỷ niệm bên trong. Bản đồ cá nhân luôn riêng tư cho đến khi bạn chủ động mời người khác.",
+    "support.faqDeleteQ": "Làm sao xoá bản đồ và dữ liệu bên trong?",
+    "support.faqDeleteA":
+      "Trong Cài đặt, nhấn nút xoá trên bản đồ do bạn sở hữu. Sau khi xác nhận, bản đồ và toàn bộ kỷ niệm bên trong sẽ bị xoá vĩnh viễn.",
+    "support.contactTitle": "Liên hệ đội ngũ Pinly",
+    "support.contactHint":
+      "Hỏi về tài khoản, gói dịch vụ, thanh toán hoặc vấn đề chưa có trong mục câu hỏi thường gặp.",
+    "support.bugTitle": "Báo cáo sự cố",
+    "support.bugHint":
+      "Mô tả điều đã xảy ra và kết quả bạn mong đợi. Các bước rõ ràng sẽ giúp Pinly sửa lỗi nhanh hơn.",
+    "support.subject": "Tiêu đề",
+    "support.subjectPlaceholder": "Tóm tắt ngắn vấn đề",
+    "support.message": "Nội dung chi tiết",
+    "support.contactMessagePlaceholder":
+      "Bạn cần hỗ trợ việc gì? Hãy thêm các thông tin liên quan.",
+    "support.bugMessagePlaceholder":
+      "Bạn đã thao tác gì, lỗi xảy ra thế nào và kết quả đúng nên là gì?",
+    "support.technicalNote":
+      "Pinly sẽ đính kèm trình duyệt, kích thước màn hình, trang hiện tại và ID bản đồ đang dùng. Kỷ niệm và media của bạn không được đính kèm.",
+    "support.accountEmail": "Tài khoản nhận phản hồi",
+    "support.submit": "Gửi yêu cầu",
+    "support.submitting": "Đang gửi…",
+    "support.submitSuccess": "Yêu cầu của bạn đã được gửi.",
+    "support.ticketReference": "Mã tham chiếu",
+    "support.submitError": "Chưa thể gửi yêu cầu. Vui lòng thử lại.",
+    "support.rateLimitError":
+      "Bạn vừa gửi nhiều yêu cầu. Vui lòng đợi một lát trước khi gửi thêm.",
+    "support.validationSubject": "Vui lòng nhập tiêu đề có ít nhất 3 ký tự.",
+    "support.validationMessage": "Vui lòng mô tả chi tiết ít nhất 20 ký tự.",
+    "support.recent": "Yêu cầu gần đây",
+    "support.recentEmpty": "Bạn chưa gửi yêu cầu hỗ trợ nào.",
+    "support.loading": "Đang tải yêu cầu…",
+    "support.loadError": "Hiện chưa tải được các yêu cầu gần đây.",
+    "support.statusOpen": "Đã tiếp nhận",
+    "support.statusInProgress": "Đang xử lý",
+    "support.statusResolved": "Đã giải quyết",
+    "support.statusClosed": "Đã đóng",
+    "support.adminReply": "Phản hồi từ Pinly",
+    "support.waitingReply": "Đội ngũ Pinly chưa phản hồi yêu cầu này.",
 
     "common.you": "Bạn",
     "common.partner": "Thành viên",
@@ -896,7 +1086,7 @@ type Keys = keyof (typeof dict)["en"];
 interface Ctx {
   lang: Lang;
   setLang: (l: Lang) => void;
-  t: (k: Keys) => string;
+  t: (k: Keys, values?: Record<string, string | number>) => string;
 }
 
 const I18nCtx = createContext<Ctx | null>(null);
@@ -912,7 +1102,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = lang;
   }, [lang]);
 
-  const t = (k: Keys) => dict[lang][k] ?? k;
+  const t = (k: Keys, values?: Record<string, string | number>) => {
+    let value: string = dict[lang][k] ?? k;
+    for (const [name, replacement] of Object.entries(values ?? {})) {
+      value = value.split(`{{${name}}}`).join(String(replacement));
+    }
+    return value;
+  };
   return (
     <I18nCtx.Provider value={{ lang, setLang: setLangState, t }}>
       {children}

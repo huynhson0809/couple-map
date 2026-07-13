@@ -89,6 +89,13 @@ interface SubscriptionContextValue {
   ownedSpaceCount: number;
   ownedSpaceLimit: number;
   canCreateSpace: boolean;
+  spaceQuotaOverLimit: boolean;
+  spaceQuotaGraceActive: boolean;
+  spaceQuotaGraceEndsAt: string | null;
+  spaceQuotaSelectedIds: string[];
+  spaceQuotaRestrictedIds: string[];
+  spaceQuotaResolved: boolean;
+  currentSpaceWritable: boolean;
   subscription: ActiveSubscription | null;
   loading: boolean;
   limits: (typeof PLAN_LIMITS)[PlanType];
@@ -102,6 +109,7 @@ interface SubscriptionContextValue {
   canCreateCollection: (currentCount: number) => boolean;
   hasWatermark: boolean;
   refetch: () => Promise<void>;
+  saveSpaceQuotaSelection: (spaceIds: string[]) => Promise<void>;
   checkout: (
     plan: Exclude<PlanType, "free">,
     cycle: BillingCycle,
@@ -121,10 +129,20 @@ type SubscriptionContextPayload = {
   plan?: string | null;
   account_plan?: string | null;
   space_plan?: string | null;
+  space_plan_period_end?: string | null;
   space_owner_id?: string | null;
   owned_space_count?: number | null;
   owned_space_limit?: number | null;
   can_create_space?: boolean | null;
+  current_space_writable?: boolean | null;
+  space_quota?: {
+    over_limit?: boolean | null;
+    grace_active?: boolean | null;
+    grace_ends_at?: string | null;
+    selected_space_ids?: unknown;
+    restricted_space_ids?: unknown;
+    resolved?: boolean | null;
+  } | null;
   subscription?: AccountSubscription | Subscription | null;
   limits?: {
     ownedSpaces?: number | null;
@@ -143,6 +161,14 @@ const DEFAULT_SUBSCRIPTION_CONTEXT = {
   ownedSpaceCount: 0,
   ownedSpaceLimit: PLAN_LIMITS.free.ownedSpaces,
   canCreateSpace: true,
+  spaceQuotaOverLimit: false,
+  spaceQuotaGraceActive: false,
+  spaceQuotaGraceEndsAt: null as string | null,
+  spaceQuotaSelectedIds: [] as string[],
+  spaceQuotaRestrictedIds: [] as string[],
+  spaceQuotaResolved: false,
+  currentSpaceWritable: true,
+  spacePlanPeriodEnd: null as string | null,
   subscription: null as ActiveSubscription | null,
   canUseMap3D: false,
 };
@@ -153,6 +179,11 @@ function readBoolean(value: unknown): boolean | null {
 
 function readNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
 }
 
 function normalizePlan(plan: string | null | undefined): PlanType {
@@ -177,6 +208,14 @@ function normalizeSubscriptionContext(data: unknown): {
   ownedSpaceCount: number;
   ownedSpaceLimit: number;
   canCreateSpace: boolean;
+  spaceQuotaOverLimit: boolean;
+  spaceQuotaGraceActive: boolean;
+  spaceQuotaGraceEndsAt: string | null;
+  spaceQuotaSelectedIds: string[];
+  spaceQuotaRestrictedIds: string[];
+  spaceQuotaResolved: boolean;
+  currentSpaceWritable: boolean;
+  spacePlanPeriodEnd: string | null;
   subscription: ActiveSubscription | null;
   canUseMap3D: boolean;
 } {
@@ -193,6 +232,7 @@ function normalizeSubscriptionContext(data: unknown): {
   const entitlementFromTopLevel = readBoolean(payload.map3d);
   const canUseMap3D =
     entitlementFromObject ?? entitlementFromTopLevel ?? plan !== "free";
+  const quota = payload.space_quota;
 
   return {
     plan,
@@ -205,6 +245,19 @@ function normalizeSubscriptionContext(data: unknown): {
     canCreateSpace:
       readBoolean(payload.can_create_space) ??
       ownedSpaceCount < ownedSpaceLimit,
+    spaceQuotaOverLimit: readBoolean(quota?.over_limit) ?? false,
+    spaceQuotaGraceActive: readBoolean(quota?.grace_active) ?? false,
+    spaceQuotaGraceEndsAt:
+      typeof quota?.grace_ends_at === "string" ? quota.grace_ends_at : null,
+    spaceQuotaSelectedIds: readStringArray(quota?.selected_space_ids),
+    spaceQuotaRestrictedIds: readStringArray(quota?.restricted_space_ids),
+    spaceQuotaResolved: readBoolean(quota?.resolved) ?? false,
+    currentSpaceWritable:
+      readBoolean(payload.current_space_writable) ?? true,
+    spacePlanPeriodEnd:
+      typeof payload.space_plan_period_end === "string"
+        ? payload.space_plan_period_end
+        : null,
     subscription: normalizeActiveSubscription(payload.subscription, accountPlan),
     canUseMap3D,
   };
@@ -254,6 +307,22 @@ export function SubscriptionProvider({
     PLAN_LIMITS.free.ownedSpaces,
   );
   const [canCreateSpace, setCanCreateSpace] = useState(true);
+  const [spaceQuotaOverLimit, setSpaceQuotaOverLimit] = useState(false);
+  const [spaceQuotaGraceActive, setSpaceQuotaGraceActive] = useState(false);
+  const [spaceQuotaGraceEndsAt, setSpaceQuotaGraceEndsAt] = useState<
+    string | null
+  >(null);
+  const [spaceQuotaSelectedIds, setSpaceQuotaSelectedIds] = useState<string[]>(
+    [],
+  );
+  const [spaceQuotaRestrictedIds, setSpaceQuotaRestrictedIds] = useState<
+    string[]
+  >([]);
+  const [spaceQuotaResolved, setSpaceQuotaResolved] = useState(false);
+  const [currentSpaceWritable, setCurrentSpaceWritable] = useState(true);
+  const [spacePlanPeriodEnd, setSpacePlanPeriodEnd] = useState<string | null>(
+    null,
+  );
   const [subscription, setSubscription] = useState<ActiveSubscription | null>(
     null,
   );
@@ -270,6 +339,26 @@ export function SubscriptionProvider({
     setOwnedSpaceCount(DEFAULT_SUBSCRIPTION_CONTEXT.ownedSpaceCount);
     setOwnedSpaceLimit(DEFAULT_SUBSCRIPTION_CONTEXT.ownedSpaceLimit);
     setCanCreateSpace(DEFAULT_SUBSCRIPTION_CONTEXT.canCreateSpace);
+    setSpaceQuotaOverLimit(
+      DEFAULT_SUBSCRIPTION_CONTEXT.spaceQuotaOverLimit,
+    );
+    setSpaceQuotaGraceActive(
+      DEFAULT_SUBSCRIPTION_CONTEXT.spaceQuotaGraceActive,
+    );
+    setSpaceQuotaGraceEndsAt(
+      DEFAULT_SUBSCRIPTION_CONTEXT.spaceQuotaGraceEndsAt,
+    );
+    setSpaceQuotaSelectedIds(
+      DEFAULT_SUBSCRIPTION_CONTEXT.spaceQuotaSelectedIds,
+    );
+    setSpaceQuotaRestrictedIds(
+      DEFAULT_SUBSCRIPTION_CONTEXT.spaceQuotaRestrictedIds,
+    );
+    setSpaceQuotaResolved(DEFAULT_SUBSCRIPTION_CONTEXT.spaceQuotaResolved);
+    setCurrentSpaceWritable(
+      DEFAULT_SUBSCRIPTION_CONTEXT.currentSpaceWritable,
+    );
+    setSpacePlanPeriodEnd(DEFAULT_SUBSCRIPTION_CONTEXT.spacePlanPeriodEnd);
     setSubscription(DEFAULT_SUBSCRIPTION_CONTEXT.subscription);
     setMap3dEntitled(DEFAULT_SUBSCRIPTION_CONTEXT.canUseMap3D);
   }, []);
@@ -313,10 +402,68 @@ export function SubscriptionProvider({
     setOwnedSpaceCount(context.ownedSpaceCount);
     setOwnedSpaceLimit(context.ownedSpaceLimit);
     setCanCreateSpace(context.canCreateSpace);
+    setSpaceQuotaOverLimit(context.spaceQuotaOverLimit);
+    setSpaceQuotaGraceActive(context.spaceQuotaGraceActive);
+    setSpaceQuotaGraceEndsAt(context.spaceQuotaGraceEndsAt);
+    setSpaceQuotaSelectedIds(context.spaceQuotaSelectedIds);
+    setSpaceQuotaRestrictedIds(context.spaceQuotaRestrictedIds);
+    setSpaceQuotaResolved(context.spaceQuotaResolved);
+    setCurrentSpaceWritable(context.currentSpaceWritable);
+    setSpacePlanPeriodEnd(context.spacePlanPeriodEnd);
     setSubscription(context.subscription);
     setMap3dEntitled(context.canUseMap3D);
     finishPlanLoad();
   }, [finishPlanLoad, resetSubscriptionContext, spaceId]);
+
+  useEffect(() => {
+    if (!spaceQuotaGraceEndsAt || !spaceQuotaGraceActive) return;
+
+    let timer: number | null = null;
+    const schedule = () => {
+      const remaining =
+        new Date(spaceQuotaGraceEndsAt).getTime() - Date.now() + 1000;
+      if (remaining <= 0) {
+        void fetchPlan();
+        return;
+      }
+      timer = window.setTimeout(
+        schedule,
+        Math.min(remaining, 2_000_000_000),
+      );
+    };
+    schedule();
+
+    return () => {
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [fetchPlan, spaceQuotaGraceActive, spaceQuotaGraceEndsAt]);
+
+  useEffect(() => {
+    const periodEnds = [subscription?.current_period_end, spacePlanPeriodEnd]
+      .filter((value): value is string => typeof value === "string")
+      .map((value) => new Date(value).getTime())
+      .filter(Number.isFinite);
+    if (periodEnds.length === 0) return;
+
+    const nextPeriodEnd = Math.min(...periodEnds);
+    let timer: number | null = null;
+    const schedule = () => {
+      const remaining = nextPeriodEnd - Date.now() + 1000;
+      if (remaining <= 0) {
+        void fetchPlan();
+        return;
+      }
+      timer = window.setTimeout(
+        schedule,
+        Math.min(remaining, 2_000_000_000),
+      );
+    };
+    schedule();
+
+    return () => {
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [fetchPlan, spacePlanPeriodEnd, subscription?.current_period_end]);
 
   useEffect(() => {
     const requestId = ++requestIdRef.current;
@@ -518,6 +665,18 @@ export function SubscriptionProvider({
     [fetchPlan],
   );
 
+  const saveSpaceQuotaSelection = useCallback(
+    async (spaceIds: string[]) => {
+      const { error } = await supabase.rpc(
+        "set_owned_space_quota_selection",
+        { p_space_ids: spaceIds },
+      );
+      if (error) throw error;
+      await fetchPlan();
+    },
+    [fetchPlan],
+  );
+
   const canUseMapStyle = useCallback(
     (styleId: string) => {
       if (loading) return true; // Don't gate while plan is loading
@@ -539,21 +698,31 @@ export function SubscriptionProvider({
     ownedSpaceCount,
     ownedSpaceLimit,
     canCreateSpace,
+    spaceQuotaOverLimit,
+    spaceQuotaGraceActive,
+    spaceQuotaGraceEndsAt,
+    spaceQuotaSelectedIds,
+    spaceQuotaRestrictedIds,
+    spaceQuotaResolved,
+    currentSpaceWritable,
     subscription,
     loading,
     limits,
     isPremium: plan !== "free",
-    canUploadVideo: limits.video,
+    canUploadVideo: currentSpaceWritable && limits.video,
     canUseMapStyle,
     canUseMap3D: loading ? true : map3dEntitled,
-    canCreatePin: (currentCount: number) => currentCount < limits.pins,
-    canAddPhoto: (currentCount: number) => currentCount < limits.photosPerPin,
+    canCreatePin: (currentCount: number) =>
+      currentSpaceWritable && currentCount < limits.pins,
+    canAddPhoto: (currentCount: number) =>
+      currentSpaceWritable && currentCount < limits.photosPerPin,
     canCreateCategory: (currentCount: number) =>
-      currentCount < limits.customCategories,
+      currentSpaceWritable && currentCount < limits.customCategories,
     canCreateCollection: (currentCount: number) =>
-      currentCount < limits.collections,
+      currentSpaceWritable && currentCount < limits.collections,
     hasWatermark: limits.shareCardWatermark,
     refetch: fetchPlan,
+    saveSpaceQuotaSelection,
     checkout,
     openCustomerPortal,
     activateCode,

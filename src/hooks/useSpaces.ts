@@ -42,6 +42,10 @@ function normalizeSpaceError(error: unknown) {
     return new Error("space_quota_reached");
   }
 
+  if (code === "PSQ01" || message.includes("map is read-only")) {
+    return new Error("space_read_only");
+  }
+
   if (message.includes("space_delete_last_space")) {
     return new Error("space_delete_last_space");
   }
@@ -170,7 +174,7 @@ export function useSpaces(userId: string | undefined) {
       const { data, error } = await supabase.rpc("create_or_get_space_invite", {
         space_id: spaceId,
       });
-      if (error) throw error;
+      if (error) throw normalizeSpaceError(error);
       const inviteCode = assertInviteCode(data);
       await refresh({ silent: true });
       return inviteCode;

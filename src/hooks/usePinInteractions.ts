@@ -19,6 +19,7 @@ function sendInteractionPush(
 export function usePinInteractions(
   pinId: string,
   userId: string | undefined,
+  writable = true,
 ) {
   const [reactions, setReactions] = useState<PinReaction[]>([])
   const [comments, setComments] = useState<PinComment[]>([])
@@ -108,6 +109,7 @@ export function usePinInteractions(
 
   const setReaction = useCallback(async (reaction: ReactionType) => {
     if (!userId) throw new Error('Not signed in')
+    if (!writable) throw new Error('space_read_only')
     const previousReactions = reactions
     if (myReaction === reaction) {
       setReactions((prev) => prev.filter((r) => r.user_id !== userId))
@@ -144,10 +146,11 @@ export function usePinInteractions(
     }
     setReactions((prev) => [...prev.filter((r) => r.user_id !== userId), data as PinReaction])
     sendInteractionPush('reaction', data as Record<string, unknown>)
-  }, [myReaction, pinId, reactions, userId])
+  }, [myReaction, pinId, reactions, userId, writable])
 
   const addComment = useCallback(async (body: string, parentCommentId?: string | null) => {
     if (!userId) throw new Error('Not signed in')
+    if (!writable) throw new Error('space_read_only')
     const trimmed = body.trim()
     if (!trimmed) return
     const { data, error: insertErr } = await supabase
@@ -164,15 +167,17 @@ export function usePinInteractions(
       parent_comment_id: parentCommentId ?? null,
       body: trimmed,
     })
-  }, [pinId, userId])
+  }, [pinId, userId, writable])
 
   const deleteComment = useCallback(async (id: string) => {
+    if (!writable) throw new Error('space_read_only')
     const { error: deleteErr } = await supabase.from('pin_comments').delete().eq('id', id)
     if (deleteErr) throw deleteErr
     setComments((prev) => prev.filter((c) => c.id !== id))
-  }, [])
+  }, [writable])
 
   const updateComment = useCallback(async (id: string, body: string) => {
+    if (!writable) throw new Error('space_read_only')
     const trimmed = body.trim()
     if (!trimmed) return
     const { data, error: updateErr } = await supabase
@@ -183,10 +188,11 @@ export function usePinInteractions(
       .single()
     if (updateErr) throw updateErr
     setComments((prev) => prev.map((c) => (c.id === id ? (data as PinComment) : c)))
-  }, [])
+  }, [writable])
 
   const setCommentReaction = useCallback(async (commentId: string, reaction: ReactionType = 'love') => {
     if (!userId) throw new Error('Not signed in')
+    if (!writable) throw new Error('space_read_only')
     const current = commentReactions.find((item) => item.comment_id === commentId && item.user_id === userId)
     if (current?.reaction === reaction) {
       const { error: deleteErr } = await supabase
@@ -213,7 +219,7 @@ export function usePinInteractions(
       data as PinCommentReaction,
     ])
     sendInteractionPush('comment_reaction', data as Record<string, unknown>)
-  }, [commentReactions, userId])
+  }, [commentReactions, userId, writable])
 
   return {
     reactions,

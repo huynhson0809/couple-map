@@ -83,3 +83,13 @@ assert.match(
   /\.page-timeline\.timeline-filters-open\s+\.timeline-view-switch[\s\S]{0,260}pointer-events:\s*none/,
   "hidden timeline view switch should not steal taps from the filter popover",
 );
+assert.match(
+  styles,
+  /\[data-theme=["']dark["']\]\s+\.timeline-filter-toggle,\s*\[data-theme=["']dark["']\]\s+\.timeline-filter-reset\s*\{[\s\S]{0,560}color:\s*#f7f8ff/i,
+  "dark timeline filter controls should use high-contrast foreground text",
+);
+assert.match(
+  styles,
+  /\[data-theme=["']dark["']\]\s+\.timeline-filter-toggle:focus-visible,\s*\[data-theme=["']dark["']\]\s+\.timeline-filter-reset:focus-visible[\s\S]{0,180}outline:/i,
+  "dark timeline filter controls should keep a visible keyboard focus ring",
+);

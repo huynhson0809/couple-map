@@ -10,7 +10,6 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import {
   buildCorsHeaders,
-  handleCorsPreflightIfNeeded,
 } from "../_shared/cors.ts";
 
 interface DeleteAsset {
@@ -127,12 +126,24 @@ serve(async (req) => {
 
     const { data: profile, error: profileError } = await supabase
       .from("users")
-      .select("couple_id")
+      .select("couple_id, active_space_id")
       .eq("id", userId)
       .single();
     if (profileError) throw profileError;
-    const coupleId = profile?.couple_id;
+    const coupleId = profile?.active_space_id ?? profile?.couple_id;
     if (!coupleId) return jsonResponse(req, { error: "No couple" }, 403);
+
+    const { data: spaceWritable, error: writableError } =
+      await serviceSupabase.rpc("is_space_writable", {
+        p_space_id: coupleId,
+      });
+    if (writableError) {
+      console.error("Space write access lookup error:", writableError.message);
+      return jsonResponse(req, { error: "Unable to verify space access" }, 500);
+    }
+    if (spaceWritable === false) {
+      return jsonResponse(req, { error: "Space is read-only" }, 403);
+    }
 
     const body = await req.json().catch(() => ({}));
     const assets = Array.isArray(body.assets)

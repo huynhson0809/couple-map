@@ -23,6 +23,7 @@ import { useI18n } from "../hooks/I18nContext";
 import { useStreak } from "../hooks/useStreak";
 import { useNudge } from "../hooks/useNudge";
 import { useStatsApi } from "../hooks/useStatsApi";
+import { useSubscription } from "../hooks/useSubscription";
 import { Button } from "../components/ui/Button";
 import { BottomSheet } from "../components/ui/BottomSheet";
 import { StreakCard } from "../components/streak/StreakCard";
@@ -32,10 +33,13 @@ export function WishlistPage() {
   const { user } = useAuth();
   const { couple, profile, partner } = useCoupleCtx();
   const { activeSpace, capabilities } = useSpaceCtx();
+  const { currentSpaceWritable } = useSubscription();
   const duoEnabled = capabilities.canUseDuoFeatures;
   const { items, addItem, removeItem, markDone, markDream } = useBucket(
     couple?.id,
     user?.id,
+    undefined,
+    currentSpaceWritable,
   );
   const { t } = useI18n();
   const streak = useStreak(couple, profile?.id ?? user?.id, duoEnabled);
@@ -84,6 +88,7 @@ export function WishlistPage() {
   }
 
   function openAdd() {
+    if (!currentSpaceWritable) return;
     resetForm();
     setAdding(true);
   }
@@ -94,6 +99,10 @@ export function WishlistPage() {
   }
 
   async function handleSave() {
+    if (!currentSpaceWritable) {
+      setError(t("settings.spaceReadOnlyBannerTitle"));
+      return;
+    }
     if (!selected) {
       setError(t("wish.pickFirst"));
       return;
@@ -261,6 +270,7 @@ export function WishlistPage() {
 
       <Button
         onClick={openAdd}
+        disabled={!currentSpaceWritable}
         leadingIcon={<Plus size={18} />}
         className="wish-add-btn"
       >
@@ -307,6 +317,7 @@ export function WishlistPage() {
                         title={t("wish.markVisited")}
                         aria-label={t("wish.markVisited")}
                         aria-pressed={false}
+                        disabled={!currentSpaceWritable}
                       >
                         <Check size={18} />
                       </button>
@@ -316,6 +327,7 @@ export function WishlistPage() {
                         onClick={() => removeItem(b.id)}
                         title={t("wish.delete")}
                         aria-label={t("wish.delete")}
+                        disabled={!currentSpaceWritable}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -359,6 +371,7 @@ export function WishlistPage() {
                         title={t("wish.markDreaming")}
                         aria-label={t("wish.markDreaming")}
                         aria-pressed={true}
+                        disabled={!currentSpaceWritable}
                       >
                         <Undo2 size={17} />
                       </button>
@@ -368,6 +381,7 @@ export function WishlistPage() {
                         onClick={() => removeItem(b.id)}
                         title={t("wish.delete")}
                         aria-label={t("wish.delete")}
+                        disabled={!currentSpaceWritable}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -473,7 +487,7 @@ export function WishlistPage() {
             <Button
               type="button"
               onClick={handleSave}
-              disabled={busy || !selected}
+              disabled={busy || !selected || !currentSpaceWritable}
               className="wish-submit-btn"
               style={{ flex: 1 }}
             >

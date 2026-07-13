@@ -108,7 +108,18 @@ export function CreatePinForm({
   onCreated,
   onCancel,
 }: Props) {
-  const { createPin } = usePins(spaceId, userId);
+  const {
+    canUploadVideo,
+    canCreateCategory,
+    limits,
+    currentSpaceWritable,
+    loading: subscriptionLoading,
+  } = useSubscription();
+  const { createPin } = usePins(
+    spaceId,
+    userId,
+    subscriptionLoading || currentSpaceWritable,
+  );
   const {
     allCategories,
     customCategories,
@@ -119,7 +130,6 @@ export function CreatePinForm({
   const { t, lang } = useI18n();
   const { activeSpace } = useSpaceCtx();
   const activeSpaceId = activeSpace?.id ?? null;
-  const { canUploadVideo, canCreateCategory, limits } = useSubscription();
   const { showToast } = useToast();
   const {
     setUploadProgress,
@@ -239,6 +249,10 @@ export function CreatePinForm({
   }, [address, addressEdited, pinCoords.lat, pinCoords.lng]);
 
   function addFiles(list: FileList | null, kind: "image" | "video") {
+    if (!currentSpaceWritable) {
+      setError(t("settings.spaceReadOnlyBannerTitle"));
+      return;
+    }
     const incoming = Array.from(list ?? []).filter((file) => {
       if (file.size <= 0) return false;
       return kind === "video"
@@ -278,6 +292,10 @@ export function CreatePinForm({
 
   async function handleMarkerUpload(file: File | undefined) {
     if (!file) return;
+    if (!currentSpaceWritable) {
+      setError(t("settings.spaceReadOnlyBannerTitle"));
+      return;
+    }
     setMarkerUploading(true);
     try {
       const compressed = await compressImageForUpload(file);
@@ -344,6 +362,10 @@ export function CreatePinForm({
 
   async function handleSaveCustomTag() {
     if (!customTagName.trim()) return;
+    if (!currentSpaceWritable) {
+      setError(t("settings.spaceReadOnlyBannerTitle"));
+      return;
+    }
     // Gate: check custom category limit (only for new categories, not edits)
     if (!editingTagId && !canCreateCategory(customCategories.length)) {
       setError(
@@ -434,6 +456,10 @@ export function CreatePinForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!currentSpaceWritable) {
+      setError(t("settings.spaceReadOnlyBannerTitle"));
+      return;
+    }
     if (!title.trim()) {
       setError(t("pin.required"));
       return;
@@ -799,7 +825,9 @@ export function CreatePinForm({
               if (cameraInput.current) cameraInput.current.value = "";
               cameraInput.current?.click();
             }}
-            disabled={files.length >= limits.photosPerPin}
+            disabled={
+              !currentSpaceWritable || files.length >= limits.photosPerPin
+            }
           >
             <Camera size={20} /> {t("pin.takePhoto")}
           </button>
@@ -810,7 +838,9 @@ export function CreatePinForm({
               if (libraryInput.current) libraryInput.current.value = "";
               libraryInput.current?.click();
             }}
-            disabled={files.length >= limits.photosPerPin}
+            disabled={
+              !currentSpaceWritable || files.length >= limits.photosPerPin
+            }
           >
             <ImagePlus size={20} /> {t("pin.fromLibrary")}
           </button>
@@ -829,7 +859,9 @@ export function CreatePinForm({
               if (videoInput.current) videoInput.current.value = "";
               videoInput.current?.click();
             }}
-            disabled={files.length >= limits.photosPerPin}
+            disabled={
+              !currentSpaceWritable || files.length >= limits.photosPerPin
+            }
           >
             <Video size={20} /> {t("pin.addVideo")} {!canUploadVideo && "🔒"}
           </button>

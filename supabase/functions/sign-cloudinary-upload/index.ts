@@ -9,7 +9,6 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import {
   buildCorsHeaders,
-  handleCorsPreflightIfNeeded,
 } from "../_shared/cors.ts";
 
 type UploadResourceType = "image" | "video";
@@ -188,6 +187,18 @@ serve(async (req) => {
     }
     if (!membership?.length) {
       return jsonResponse(req, { error: "Forbidden upload folder" }, 403);
+    }
+
+    const { data: spaceWritable, error: writableError } =
+      await serviceSupabase.rpc("is_space_writable", {
+        p_space_id: resolvedUpload.spaceId,
+      });
+    if (writableError) {
+      console.error("Space write access lookup error:", writableError.message);
+      return jsonResponse(req, { error: "Unable to verify space access" }, 500);
+    }
+    if (spaceWritable === false) {
+      return jsonResponse(req, { error: "Space is read-only" }, 403);
     }
 
     const resourceType = normalizeResourceType(body.resourceType);

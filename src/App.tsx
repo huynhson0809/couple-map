@@ -10,6 +10,7 @@ import { BottomNav } from "./components/ui/BottomNav";
 import { UpdatePrompt } from "./components/ui/UpdatePrompt";
 import { AnniversaryPrompt } from "./components/onboard/AnniversaryPrompt";
 import { NotificationToast } from "./components/ui/NotificationToast";
+import { LockKeyhole } from "lucide-react";
 import { DesktopGate } from "./components/ui/DesktopGate";
 import { Logo } from "./components/ui/Logo";
 import { getImageUrl } from "./lib/cloudinary";
@@ -19,11 +20,11 @@ import { SpaceProvider, useSpaceCtx } from "./hooks/SpaceContext";
 import { PinsProvider } from "./hooks/PinsContext";
 import { CategoriesProvider } from "./hooks/CategoriesContext";
 import { ThemeProvider } from "./hooks/ThemeContext";
-import { I18nProvider } from "./hooks/I18nContext";
+import { I18nProvider, useI18n } from "./hooks/I18nContext";
 import { ToastProvider } from "./hooks/ToastContext";
 import { usePushSubscription } from "./hooks/usePushSubscription";
 import { NotificationFeedProvider } from "./hooks/NotificationFeedContext";
-import { SubscriptionProvider } from "./hooks/useSubscription";
+import { SubscriptionProvider, useSubscription } from "./hooks/useSubscription";
 import { lazy, Suspense, useEffect, useRef, type ReactNode } from "react";
 
 const LoginPage = lazy(() =>
@@ -100,6 +101,11 @@ const SettingsPage = lazy(() =>
     default: module.SettingsPage,
   })),
 );
+const AdminSupportPage = lazy(() =>
+  import("./pages/AdminSupportPage").then((module) => ({
+    default: module.AdminSupportPage,
+  })),
+);
 
 function AppStatusScreen({
   title,
@@ -135,6 +141,9 @@ function PairedShell() {
   const backgroundImageUrl = bgUrl ? getImageUrl(bgUrl, 1200) : undefined;
   const backgroundPreloadRef = useRef<HTMLImageElement | null>(null);
   const push = usePushSubscription(profile?.id);
+  const { currentSpaceWritable, loading: subscriptionLoading } =
+    useSubscription();
+  const { t } = useI18n();
 
   // Listen for SW notification click messages
   useEffect(() => {
@@ -189,9 +198,27 @@ function PairedShell() {
   return (
     <NotificationFeedProvider>
       <div
-        className={`app-shell ${isMap ? "shell-map" : "shell-page"} ${bgUrl ? "has-bg" : ""}`}
+        className={`app-shell ${isMap ? "shell-map" : "shell-page"} ${bgUrl ? "has-bg" : ""} ${!subscriptionLoading && !currentSpaceWritable ? "space-read-only" : ""}`}
         style={shellStyle}
       >
+        {!subscriptionLoading && !currentSpaceWritable && (
+          <div className="space-read-only-banner" role="status">
+            <span className="space-read-only-banner-icon" aria-hidden="true">
+              <LockKeyhole size={17} />
+            </span>
+            <span className="space-read-only-banner-copy">
+              <strong>{t("settings.spaceReadOnlyBannerTitle")}</strong>
+              <span>{t("settings.spaceReadOnlyBannerBody")}</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => navigate("/settings")}
+              className="space-read-only-banner-action"
+            >
+              {t("settings.spaceReadOnlyManage")}
+            </button>
+          </div>
+        )}
         <Routes>
           <Route path="/" element={<MapPage />} />
           <Route path="/timeline" element={<TimelinePage />} />
@@ -298,6 +325,14 @@ function AppRoutes() {
     <Routes>
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
+      <Route
+        path="/admin/support"
+        element={
+          <ConsentGate userId={user.id}>
+            <AdminSupportPage userId={user.id} userEmail={user.email} />
+          </ConsentGate>
+        }
+      />
       <Route
         path="*"
         element={

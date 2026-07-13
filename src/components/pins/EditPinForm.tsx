@@ -75,7 +75,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     deleteCustomCategory,
   } = useCategoriesCtx();
   const { t, lang } = useI18n();
-  const { canUploadVideo } = useSubscription();
+  const { canUploadVideo, currentSpaceWritable } = useSubscription();
   const { showToast } = useToast();
   const [title, setTitle] = useState(pin.title);
   const [note, setNote] = useState(pin.note ?? "");
@@ -117,6 +117,10 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
 
   async function handleMarkerUpload(file: File | undefined) {
     if (!file) return;
+    if (!currentSpaceWritable) {
+      setError(t("settings.spaceReadOnlyBannerTitle"));
+      return;
+    }
     setMarkerUploading(true);
     try {
       const compressed = await compressImageForUpload(file);
@@ -183,6 +187,10 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
 
   async function handleSaveCustomTag() {
     if (!customTagName.trim()) return;
+    if (!currentSpaceWritable) {
+      setError(t("settings.spaceReadOnlyBannerTitle"));
+      return;
+    }
     const id =
       editingTagId ??
       `custom_${typeof crypto.randomUUID === "function" ? crypto.randomUUID() : Date.now()}`;
@@ -205,6 +213,10 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   }
 
   async function handleDeleteCustomTag(id: string) {
+    if (!currentSpaceWritable) {
+      setError(t("settings.spaceReadOnlyBannerTitle"));
+      return;
+    }
     try {
       await deleteCustomCategory(id);
       setSelectedCategoryIds((current) =>
@@ -223,6 +235,10 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
 
   // --- Media helpers ---
   function handleRemoveExisting(img: PinImage) {
+    if (!currentSpaceWritable) {
+      setError(t("settings.spaceReadOnlyBannerTitle"));
+      return;
+    }
     setRemovedImages((prev) => [
       ...prev,
       {
@@ -235,6 +251,10 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   }
 
   function handleAddMedia(files: FileList | null, kind: "image" | "video") {
+    if (!currentSpaceWritable) {
+      setError(t("settings.spaceReadOnlyBannerTitle"));
+      return;
+    }
     if (kind === "video" && !canUploadVideo) {
       setError(lang === "vi" ? "Video cần gói Pro" : "Video requires Pro plan");
       return;
@@ -278,6 +298,10 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!currentSpaceWritable) {
+      setError(t("settings.spaceReadOnlyBannerTitle"));
+      return;
+    }
     if (!title.trim()) {
       setError(t("pin.required"));
       return;
@@ -586,6 +610,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
           <button
             type="button"
             className="photo-btn small"
+            disabled={!currentSpaceWritable}
             onClick={() => {
               if (mediaInput.current) mediaInput.current.value = "";
               mediaInput.current?.click();
@@ -596,6 +621,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
           <button
             type="button"
             className="photo-btn small"
+            disabled={!currentSpaceWritable}
             onClick={() => {
               if (!canUploadVideo) {
                 setError(
@@ -653,7 +679,11 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         >
           {t("pin.cancel")}
         </Button>
-        <Button type="submit" disabled={saving} style={{ flex: 1 }}>
+        <Button
+          type="submit"
+          disabled={saving || !currentSpaceWritable}
+          style={{ flex: 1 }}
+        >
           {saving ? t("pin.saving") : t("pin.save")}
         </Button>
       </div>

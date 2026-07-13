@@ -156,8 +156,10 @@ begin
           -- Yesterday or today is last completed → streak alive (open day)
           null;
         elsif days_since <= (grace_budget - v_grace_used + 1) then
-          -- Within grace window → streak alive, consume grace
-          v_grace_used := v_grace_used + (days_since - 1);
+          -- Keep the streak alive while the day is still open. Grace is only
+          -- charged after the next completed day, so repeated refreshes are
+          -- idempotent and cannot consume the same protection more than once.
+          null;
         else
           -- Grace exhausted → streak breaks
           final_current := 0;
@@ -166,18 +168,8 @@ begin
     end if;
   end if;
 
-  -- Best is max of longest real run and current (which includes grace continuity)
+  -- A personal record is historical and must never decrease after a break.
   final_best := greatest(longest_run, final_current, coalesce(existing.best_count, 0));
-  -- But never let best be inflated above what pins can prove + grace
-  -- Keep it simple: best = max(real_longest, current)
-  final_best := greatest(longest_run, final_current);
-
-  -- Use existing best if larger (don't downgrade)
-  if coalesce(existing.best_count, 0) > final_best
-    and coalesce(existing.best_count, 0) <= final_current + grace_budget
-  then
-    final_best := existing.best_count;
-  end if;
 
   insert into public.couple_streaks (
     couple_id, current_count, best_count, last_completed_date,
@@ -201,7 +193,7 @@ begin
   )
   on conflict (couple_id) do update
     set current_count = excluded.current_count,
-        best_count = excluded.best_count,
+        best_count = greatest(public.couple_streaks.best_count, excluded.best_count),
         last_completed_date = excluded.last_completed_date,
         today_date = excluded.today_date,
         today_user_a_posted = excluded.today_user_a_posted,

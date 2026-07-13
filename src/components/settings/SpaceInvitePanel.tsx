@@ -2,6 +2,7 @@ import { UserPlus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "../../hooks/I18nContext";
 import { useSpaceCtx } from "../../hooks/SpaceContext";
+import { useSubscription } from "../../hooks/useSubscription";
 import type { Space } from "../../types";
 import { Button } from "../ui/Button";
 import { GlassSurface } from "../ui/GlassSurface";
@@ -16,14 +17,17 @@ function formatSpaceError(err: unknown) {
 
 export function SpaceInvitePanel() {
   const { activeSpace, capabilities, createOrGetInvite } = useSpaceCtx();
+  const { currentSpaceWritable } = useSubscription();
 
   if (!activeSpace || !capabilities.canInviteInCurrentUi) return null;
+  if (!currentSpaceWritable && !activeSpace.invite_code) return null;
 
   return (
     <SpaceInvitePanelContent
       key={activeSpace.id}
       activeSpace={activeSpace}
       createOrGetInvite={createOrGetInvite}
+      currentSpaceWritable={currentSpaceWritable}
     />
   );
 }
@@ -31,9 +35,11 @@ export function SpaceInvitePanel() {
 function SpaceInvitePanelContent({
   activeSpace,
   createOrGetInvite,
+  currentSpaceWritable,
 }: {
   activeSpace: Space;
   createOrGetInvite: (spaceId: string) => Promise<string>;
+  currentSpaceWritable: boolean;
 }) {
   const { t } = useI18n();
   const [inviteCode, setInviteCode] = useState<string | null>(activeSpace.invite_code ?? null);
@@ -160,6 +166,7 @@ function SpaceInvitePanelContent({
             size="sm"
             onClick={() => void revealInvite()}
             loading={busy}
+            disabled={!currentSpaceWritable}
             leadingIcon={<UserPlus size={16} />}
             className="space-invite-action"
           >

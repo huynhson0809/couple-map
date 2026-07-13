@@ -7,9 +7,14 @@ import {
   Flame,
   Heart,
   MapPin,
+  CircleHelp,
+  CircleCheckBig,
+  Clock3,
+  LockKeyhole,
 } from "lucide-react";
 import { useNotifFeed } from "../hooks/NotificationFeedContext";
 import { useI18n } from "../hooks/I18nContext";
+import { useSpaceCtx } from "../hooks/SpaceContext";
 import { Button } from "../components/ui/Button";
 import { SegmentedControl } from "../components/ui/SegmentedControl";
 import type { AppNotification } from "../types";
@@ -43,8 +48,29 @@ function notifTitle(n: AppNotification, t: Translate): string {
       return `${name} ${t("notif.actionReaction")}`;
     case "comment":
       return `${name} ${t("notif.actionComment")}`;
+    case "support_reply":
+      return t("notif.supportReply");
+    case "space_quota_warning":
+      return t("notif.spaceQuotaWarning");
+    case "space_quota_restricted":
+      return t("notif.spaceQuotaRestricted");
+    case "space_quota_restored":
+      return t("notif.spaceQuotaRestored");
     default:
       return n.title;
+  }
+}
+
+function notifBody(n: AppNotification, t: Translate): string | null {
+  switch (n.type) {
+    case "space_quota_warning":
+      return t("notif.spaceQuotaWarningBody");
+    case "space_quota_restricted":
+      return t("notif.spaceQuotaRestrictedBody");
+    case "space_quota_restored":
+      return t("notif.spaceQuotaRestoredBody");
+    default:
+      return n.body;
   }
 }
 
@@ -79,6 +105,14 @@ function notifIcon(type: AppNotification["type"]) {
       return <Flame size={18} />;
     case "streak_broken":
       return <Flame size={18} />;
+    case "support_reply":
+      return <CircleHelp size={18} />;
+    case "space_quota_warning":
+      return <Clock3 size={18} />;
+    case "space_quota_restricted":
+      return <LockKeyhole size={18} />;
+    case "space_quota_restored":
+      return <CircleCheckBig size={18} />;
     default:
       return <Bell size={18} />;
   }
@@ -98,6 +132,14 @@ function notifTone(type: AppNotification["type"]) {
       return "streak-success";
     case "streak_broken":
       return "streak-danger";
+    case "support_reply":
+      return "support";
+    case "space_quota_warning":
+      return "quota-warning";
+    case "space_quota_restricted":
+      return "quota-danger";
+    case "space_quota_restored":
+      return "quota-success";
     default:
       return "neutral";
   }
@@ -147,7 +189,9 @@ function groupByTime(
 export function NotificationsPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const { spaces, activeSpace, setActiveSpace } = useSpaceCtx();
   const [tab, setTab] = useState<"all" | "unread">("all");
+  const [openingId, setOpeningId] = useState<string | null>(null);
   const {
     notifications,
     unreadCount,
@@ -175,13 +219,34 @@ export function NotificationsPage() {
     }
   }, [loading, hasMore, fetchMore]);
 
-  function handleNotifClick(n: AppNotification) {
-    if (!n.read) markAsRead(n.id);
-    const pinId = n.data?.pin_id as string | undefined;
-    if (pinId && ["new_pin", "reaction", "comment"].includes(n.type)) {
-      navigate("/timeline", { state: { openPinId: pinId } });
-    } else if (n.type === "streak_reminder" || n.type === "streak_broken") {
-      navigate("/wishlist");
+  async function handleNotifClick(n: AppNotification) {
+    if (openingId) return;
+    setOpeningId(n.id);
+    try {
+      if (!n.read) await markAsRead(n.id);
+
+      const targetSpace = n.space_id
+        ? spaces.find((space) => space.id === n.space_id)
+        : null;
+      if (targetSpace && targetSpace.id !== activeSpace?.id) {
+        await setActiveSpace(targetSpace.id);
+      }
+
+      const pinId = n.data?.pin_id as string | undefined;
+      if (pinId && ["new_pin", "reaction", "comment"].includes(n.type)) {
+        navigate("/timeline", { state: { openPinId: pinId } });
+      } else if (
+        n.type === "streak_reminder" ||
+        n.type === "streak_broken"
+      ) {
+        navigate("/wishlist");
+      } else if (n.type === "support_reply") {
+        navigate("/settings", { state: { openSupport: "contact" } });
+      } else if (n.type.startsWith("space_quota_")) {
+        navigate("/settings");
+      }
+    } finally {
+      setOpeningId(null);
     }
   }
 
@@ -234,11 +299,16 @@ export function NotificationsPage() {
             <div className="notif-section-label">{section.label}</div>
             {section.items.map((n) => {
               const title = notifTitle(n, t);
+              const body = notifBody(n, t);
+              const spaceName =
+                n.space_name ??
+                spaces.find((space) => space.id === n.space_id)?.name ??
+                null;
               const relativeTime = timeAgo(n.created_at, t);
               const ariaLabel = [
                 !n.read ? t("notif.unread") : undefined,
                 title,
-                n.body,
+                body,
                 relativeTime,
               ]
                 .filter((part): part is string => Boolean(part))
@@ -248,9 +318,10 @@ export function NotificationsPage() {
                 <button
                   key={n.id}
                   type="button"
+                  disabled={openingId !== null}
                   aria-label={ariaLabel}
                   className={`notif-item ${n.read ? "" : "unread"}`}
-                  onClick={() => handleNotifClick(n)}
+                  onClick={() => void handleNotifClick(n)}
                 >
                   <span
                     className={`notif-item-icon notif-item-icon-${notifTone(n.type)}`}
@@ -259,8 +330,14 @@ export function NotificationsPage() {
                   </span>
                   <span className="notif-item-content">
                     <span className="notif-item-title">{title}</span>
-                    {n.body && (
-                      <span className="notif-item-body">{n.body}</span>
+                    {body && (
+                      <span className="notif-item-body">{body}</span>
+                    )}
+                    {spaceName && (
+                      <span className="notif-item-space">
+                        <MapPin size={11} aria-hidden="true" />
+                        {t("notif.inSpace", { name: spaceName })}
+                      </span>
                     )}
                     <span className="notif-item-time">{relativeTime}</span>
                   </span>

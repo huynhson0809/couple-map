@@ -46,16 +46,6 @@ function mergeNotifications(
   return Array.from(byId.values()).sort(byNewestFirst);
 }
 
-function notificationBelongsToActiveSpace(
-  notification: AppNotification,
-  activeSpaceId: string,
-) {
-  return (
-    notification.space_id === activeSpaceId ||
-    (notification.space_id === null && notification.couple_id === activeSpaceId)
-  );
-}
-
 export function useNotificationFeed(
   userId: string | undefined,
   activeSpaceId: string | null | undefined,
@@ -128,7 +118,7 @@ export function useNotificationFeed(
 
   const markAsRead = useCallback(
     async (id: string) => {
-      if (!userId || !activeSpaceId) return;
+      if (!userId) return;
       const wasUnread = notificationsRef.current.some(
         (notification) => notification.id === id && !notification.read,
       );
@@ -150,18 +140,15 @@ export function useNotificationFeed(
       );
       if (wasUnread) setUnreadCount((count) => Math.max(0, count - 1));
     },
-    [activeSpaceId, setNotificationState, userId],
+    [setNotificationState, userId],
   );
 
   const markAllAsRead = useCallback(async () => {
-    if (!userId || !activeSpaceId) return;
+    if (!userId) return;
     const { error } = await supabase
       .from("notifications")
       .update({ read: true })
       .eq("user_id", userId)
-      .or(
-        `space_id.eq.${activeSpaceId},and(space_id.is.null,couple_id.eq.${activeSpaceId})`,
-      )
       .eq("read", false);
 
     if (error) return;
@@ -170,7 +157,7 @@ export function useNotificationFeed(
       prev.map((notification) => ({ ...notification, read: true })),
     );
     setUnreadCount(0);
-  }, [activeSpaceId, setNotificationState, userId]);
+  }, [setNotificationState, userId]);
 
   const fetchMore = useCallback(
     () => fetchNotifications(false),
@@ -190,12 +177,12 @@ export function useNotificationFeed(
       loadingRef.current = false;
       setNotifications([]);
       setUnreadCount(0);
-      setHasMore(Boolean(userId && activeSpaceId));
+      setHasMore(Boolean(userId));
       setLoading(false);
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [activeSpaceId, userId]);
+  }, [userId]);
 
   // Initial fetch
   useEffect(() => {
@@ -208,10 +195,10 @@ export function useNotificationFeed(
 
   // Realtime subscription
   useEffect(() => {
-    if (!userId || !activeSpaceId) return;
+    if (!userId) return;
 
     const channel = supabase
-      .channel(`notifications:${userId}:${activeSpaceId}:${instanceId}`)
+      .channel(`notifications:${userId}:${instanceId}`)
       .on(
         "postgres_changes",
         {
@@ -222,7 +209,6 @@ export function useNotificationFeed(
         },
         (payload) => {
           const newNotif = payload.new as AppNotification;
-          if (!notificationBelongsToActiveSpace(newNotif, activeSpaceId)) return;
           const alreadyLoaded = notificationsRef.current.some(
             (notification) => notification.id === newNotif.id,
           );
@@ -239,7 +225,7 @@ export function useNotificationFeed(
     return () => {
       void channel.unsubscribe();
     };
-  }, [activeSpaceId, instanceId, setNotificationState, userId]);
+  }, [instanceId, setNotificationState, userId]);
 
   return {
     notifications,

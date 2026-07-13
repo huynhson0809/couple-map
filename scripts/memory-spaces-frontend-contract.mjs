@@ -163,8 +163,8 @@ assert.doesNotMatch(
 );
 assert.match(
   settingsPage,
-  /capabilities\.canUseDuoFeatures[\s\S]*notif\.streakReminders/,
-  "SettingsPage must only show streak reminder preferences while duo features are enabled.",
+  /duoFeaturesEnabled && \([\s\S]*notif\.comments[\s\S]*<\/>\s*\)\}[\s\S]*notif\.streakReminders/,
+  "SettingsPage must keep member interaction preferences duo-only while showing streak reminders for solo spaces too.",
 );
 assert.match(
   settingsPage,
@@ -220,6 +220,11 @@ assert.match(
   sendStreakReminders,
   /space_members[\s\S]*space_id[\s\S]*status/,
   "send-streak-reminders must inspect space membership before refreshing or sending streak reminders.",
+);
+assert.match(
+  sendStreakReminders,
+  /get_solo_streak_reminder_targets[\s\S]*"solo"/,
+  "send-streak-reminders must also process active one-member spaces through the solo reminder path.",
 );
 
 const useStreak = readFileSync(resolve("src/hooks/useStreak.ts"), "utf8");

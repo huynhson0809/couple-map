@@ -28,6 +28,7 @@ import { usePinsCtx } from "../../hooks/PinsContext";
 import type { ReactionType } from "../../types";
 import { useToast } from "../../hooks/ToastContext";
 import { resolvePinCategories } from "../../lib/pinCategories";
+import { useSubscription } from "../../hooks/useSubscription";
 
 interface Props {
   pin: Pin;
@@ -100,6 +101,7 @@ export function PinDetail({
   const { showToast } = useToast();
   const { allCategories } = useCategoriesCtx();
   const { updatePin, fetchPinImages } = usePinsCtx();
+  const { currentSpaceWritable } = useSubscription();
   const [deleting, setDeleting] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
@@ -140,13 +142,13 @@ export function PinDetail({
     updateComment,
     deleteComment,
     setCommentReaction,
-  } = usePinInteractions(pin.id, currentUserId);
+  } = usePinInteractions(pin.id, currentUserId, currentSpaceWritable);
 
   const isMine = pin.created_by === currentUserId;
   // eslint-disable-next-line react-hooks/purity
   const ageMs = Date.now() - new Date(pin.created_at).getTime();
   const withinEditWindow = ageMs < EDIT_WINDOW_MS;
-  const canEdit = isMine && withinEditWindow;
+  const canEdit = currentSpaceWritable && isMine && withinEditWindow;
   const images = useMemo(() => pin.images ?? [], [pin.images]);
   const [fullImagesLoaded, setFullImagesLoaded] = useState(false);
 
@@ -545,6 +547,7 @@ export function PinDetail({
                           onClick={() =>
                             handleCommentReaction(comment.id, reaction.type)
                           }
+                          disabled={!currentSpaceWritable}
                           aria-label={reaction.label}
                         >
                           {reaction.emoji}
@@ -555,6 +558,7 @@ export function PinDetail({
                   <button
                     type="button"
                     className={`pin-comment-reaction-btn ${myCommentReactionType ? "active" : ""}`}
+                    disabled={!currentSpaceWritable}
                     onPointerDown={(e) =>
                       startCommentReactionPress(comment.id, e)
                     }
@@ -602,6 +606,7 @@ export function PinDetail({
                 </div>
                 <button
                   type="button"
+                  disabled={!currentSpaceWritable}
                   onClick={() =>
                     startReply(
                       comment.id,
@@ -617,7 +622,7 @@ export function PinDetail({
             </>
           )}
         </div>
-        {mine && editingCommentId !== comment.id && (
+        {currentSpaceWritable && mine && editingCommentId !== comment.id && (
           <div className="pin-comment-actions" data-comment-actions>
             <button
               type="button"
@@ -757,7 +762,7 @@ export function PinDetail({
                     <span>{t("pin.edit")}</span>
                   </button>
                 )}
-                {isMine && (
+                {currentSpaceWritable && isMine && (
                   <button
                     type="button"
                     className="danger"
@@ -806,6 +811,7 @@ export function PinDetail({
                     className="reaction-picker-btn"
                     onPointerDown={(e) => e.preventDefault()}
                     onClick={() => handleReaction(reaction.type)}
+                    disabled={!currentSpaceWritable}
                     aria-label={reaction.label}
                   >
                     {reaction.emoji}
@@ -827,6 +833,7 @@ export function PinDetail({
                 )
               }
               onPointerDown={startReactionPress}
+              disabled={!currentSpaceWritable}
               onPointerUp={endReactionPress}
               onPointerCancel={() => {
                 if (longPressTimer.current) {
@@ -859,7 +866,7 @@ export function PinDetail({
               />
             }
             onClick={toggleFavorite}
-            disabled={favoriteBusy}
+            disabled={favoriteBusy || !currentSpaceWritable}
           >
             {displayedFavorite ? t("pin.favorited") : t("pin.favorite")}
           </Button>
@@ -950,10 +957,13 @@ export function PinDetail({
             placeholder={t("pin.commentPlaceholder")}
             maxLength={500}
             enterKeyHint="send"
+            disabled={!currentSpaceWritable}
           />
           <button
             type="submit"
-            disabled={!commentText.trim() || sendingComment}
+            disabled={
+              !currentSpaceWritable || !commentText.trim() || sendingComment
+            }
             aria-label={t("pin.sendComment")}
           >
             <Send size={16} />

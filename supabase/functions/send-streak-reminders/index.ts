@@ -1,6 +1,7 @@
 // Supabase Edge Function: send-streak-reminders
 // Intended schedule: run hourly. The function sends only at 12:00, 20:00, 22:00, and 23:00
-// in Asia/Ho_Chi_Minh when today's couple streak is not completed.
+// in Asia/Ho_Chi_Minh when today's duo streak is incomplete or the active
+// one-member space has no memory yet.
 //
 // Deploy: supabase functions deploy send-streak-reminders --no-verify-jwt
 // Env vars needed: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
@@ -12,13 +13,14 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import webpush from "npm:web-push@3.6.7";
-import {
-  buildCorsHeaders,
-  handleCorsPreflightIfNeeded,
-} from "../_shared/cors.ts";
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 const REMINDER_HOURS = [12, 20, 22, 23];
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";
+const LEGACY_GEMINI_MODELS = new Set([
+  "gemini-2.5-flash",
+  "models/gemini-2.5-flash",
+]);
 const DEFAULT_GEMINI_TIMEOUT_MS = 3500;
 const DEFAULT_RESEND_TIMEOUT_MS = 6000;
 
@@ -62,6 +64,15 @@ type DuoSpaceMemberRow = {
   joined_at: string | null;
 };
 
+type SoloReminderTarget = {
+  space_id: string;
+  couple_id: string;
+  user_id: string;
+  space_name: string;
+};
+
+type ReminderRecipientSlot = "user_a" | "user_b" | "solo";
+
 type GeminiReminderResult =
   | {
       ok: true;
@@ -90,7 +101,7 @@ type GeneratedReminder = {
 
 type DebugRecipient = {
   userId: string;
-  slot: "user_a" | "user_b";
+  slot: ReminderRecipientSlot;
   source: GeneratedReminder["source"];
   state: ReminderState;
   body: string;
@@ -115,6 +126,19 @@ type DebugCouple = {
   todayUserBPosted: boolean;
   logStatus: "created" | "dry_run" | "skipped_duplicate" | "missing_couple";
   recipients: DebugRecipient[];
+};
+
+type DebugSoloSpace = {
+  spaceId: string;
+  coupleId: string;
+  userId: string;
+  spaceName: string;
+  logStatus:
+    | "created"
+    | "dry_run"
+    | "skipped_duplicate"
+    | "already_posted";
+  recipient?: DebugRecipient;
 };
 
 type ReasonCounts = Record<string, number>;
@@ -146,6 +170,23 @@ async function loadDuoSpaceMembersForCouple(
   return members as DuoSpaceMemberRow[];
 }
 
+async function claimReminderWindow(
+  supabase: ReturnType<typeof createClient>,
+  coupleId: string,
+  reminderDate: string,
+  reminderHour: number,
+) {
+  const { error } = await supabase.from("streak_reminder_logs").insert({
+    couple_id: coupleId,
+    reminder_date: reminderDate,
+    reminder_hour: reminderHour,
+  });
+
+  if (!error) return true;
+  if (error.code === "23505") return false;
+  throw error;
+}
+
 function localParts(date = new Date(), timeZone = "Asia/Ho_Chi_Minh") {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -160,6 +201,19 @@ function localParts(date = new Date(), timeZone = "Asia/Ho_Chi_Minh") {
   return {
     date: `${value("year")}-${value("month")}-${value("day")}`,
     hour: Number(value("hour")),
+  };
+}
+
+function addIsoDays(isoDate: string, days: number) {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function vnDayBounds(isoDate: string) {
+  return {
+    start: `${isoDate}T00:00:00+07:00`,
+    end: `${addIsoDays(isoDate, 1)}T00:00:00+07:00`,
   };
 }
 
@@ -491,8 +545,12 @@ async function sendEmailToUser(
 
 function bodyForRecipient(
   streak: CoupleStreakRow,
-  recipientSlot: "user_a" | "user_b",
+  recipientSlot: ReminderRecipientSlot,
 ) {
+  if (recipientSlot === "solo") {
+    return "Hôm nay còn một chỗ trống, ghé Pinly cất lại khoảnh khắc của bạn nhé.";
+  }
+
   const youPosted =
     recipientSlot === "user_a"
       ? streak.today_user_a_posted
@@ -518,6 +576,7 @@ function bodyForRecipient(
 }
 
 type ReminderState =
+  | "solo_missing"
   | "both_missing"
   | "you_missing"
   | "partner_missing"
@@ -525,8 +584,10 @@ type ReminderState =
 
 function reminderState(
   streak: CoupleStreakRow,
-  recipientSlot: "user_a" | "user_b",
+  recipientSlot: ReminderRecipientSlot,
 ): ReminderState {
+  if (recipientSlot === "solo") return "solo_missing";
+
   const youPosted =
     recipientSlot === "user_a"
       ? streak.today_user_a_posted
@@ -552,6 +613,18 @@ function reminderState(
 }
 
 const REMINDER_TEMPLATES: Record<ReminderState, string[]> = {
+  solo_missing: [
+    "Hôm nay có khoảnh khắc nào bạn muốn cất lại cho mai sau không?",
+    "Pinly vẫn để dành một chỗ nhỏ cho câu chuyện của riêng bạn hôm nay.",
+    "Một tấm ảnh hay một dòng ngắn cũng đủ giữ hôm nay ở lại.",
+    "Ngày hôm nay đang trôi qua, cất lại một điều bạn muốn nhớ nhé.",
+    "Pinly mở sẵn bản đồ, chờ bạn ghim một mẩu nhỏ của hôm nay.",
+    "Không cần chuyện lớn, một khoảnh khắc bình thường cũng đáng được giữ lại.",
+    "Hôm nay của bạn có chi tiết nào khiến bạn muốn nhớ lâu hơn không?",
+    "Ghé Pinly một chút, biết đâu hôm nay có điều đáng để cất riêng.",
+    "Bản đồ hôm nay còn trống, bạn đặt vào đó một dấu chân nhé.",
+    "Một ngày sẽ dễ nhớ hơn khi bạn để lại cho mình một chiếc ghim.",
+  ],
   both_missing: [
     "Pinly còn trống hôm nay, hai bạn ghé gửi chút gì vui vui nhé.",
     "Album hôm nay hơi yên, có khoảnh khắc nào muốn khoe không nè?",
@@ -604,6 +677,9 @@ function normalizeReminderText(text: string) {
 }
 
 function statePromptLabel(state: ReminderState) {
+  if (state === "solo_missing") {
+    return "người nhận dùng Pinly một mình và chưa lưu khoảnh khắc hôm nay";
+  }
   if (state === "both_missing") {
     return "cả hai chưa lưu khoảnh khắc hôm nay";
   }
@@ -617,11 +693,17 @@ function statePromptLabel(state: ReminderState) {
 }
 
 function buildGeminiPrompt(state: ReminderState, streak: CoupleStreakRow) {
+  const audienceInstruction =
+    state === "solo_missing"
+      ? "Người nhận dùng app một mình; không nhắc người yêu, partner, hai bạn hay người ấy."
+      : "Space có hai người cùng lưu khoảnh khắc.";
+
   return [
     "Bạn là người viết microcopy cho app Pinly.",
     "Hãy trả về đúng 1 câu push notification tiếng Việt.",
     "Câu dài 12-15 từ, hài hước, ấm áp, tự nhiên.",
-    "App dùng để lưu khoảnh khắc của cặp đôi, không phải task manager.",
+    "App dùng để lưu khoảnh khắc cá nhân hoặc cùng người thân, không phải task manager.",
+    audienceInstruction,
     "Không tạo cảm giác nhiệm vụ, deadline, bắt buộc, KPI.",
     "Không giải thích, không mở đầu bằng lời xác nhận.",
     "Không dùng ngoặc kép, hashtag, markdown, emoji, xuống dòng.",
@@ -641,7 +723,7 @@ function extractGeminiText(data: unknown) {
 
 async function geminiReminderBody(
   streak: CoupleStreakRow,
-  recipientSlot: "user_a" | "user_b",
+  recipientSlot: ReminderRecipientSlot,
 ): Promise<GeminiReminderResult> {
   const apiKey =
     Deno.env.get("GEMINI_API_KEY") ||
@@ -651,7 +733,11 @@ async function geminiReminderBody(
     return { ok: false, reason: "missing_gemini_api_key" };
   }
 
-  const model = Deno.env.get("GEMINI_MODEL") || DEFAULT_GEMINI_MODEL;
+  const configuredModel = Deno.env.get("GEMINI_MODEL")?.trim();
+  const model =
+    configuredModel && !LEGACY_GEMINI_MODELS.has(configuredModel)
+      ? configuredModel
+      : DEFAULT_GEMINI_MODEL;
   const modelPath = model.startsWith("models/") ? model : `models/${model}`;
   const state = reminderState(streak, recipientSlot);
 
@@ -683,7 +769,7 @@ async function geminiReminderBody(
               topP: 0.95,
               maxOutputTokens: 160,
               candidateCount: 1,
-              thinkingConfig: { thinkingBudget: 0 },
+              thinkingConfig: { thinkingLevel: "minimal" },
             },
           }),
         },
@@ -757,7 +843,7 @@ function hashString(input: string) {
 
 function templateReminderBody(
   streak: CoupleStreakRow,
-  recipientSlot: "user_a" | "user_b",
+  recipientSlot: ReminderRecipientSlot,
   recipientId: string,
   reminderDate: string,
   reminderHour: number,
@@ -773,7 +859,7 @@ function templateReminderBody(
 
 async function generateReminderBody(
   streak: CoupleStreakRow,
-  recipientSlot: "user_a" | "user_b",
+  recipientSlot: ReminderRecipientSlot,
   recipientId: string,
   reminderDate: string,
   reminderHour: number,
@@ -960,12 +1046,20 @@ serve(async (req) => {
 
     if (streakError) throw streakError;
 
+    const { data: soloTargetRows, error: soloTargetsError } = await supabase.rpc(
+      "get_solo_streak_reminder_targets",
+      { p_reminder_date: reminderDate },
+    );
+
+    if (soloTargetsError) throw soloTargetsError;
+
     let sent = 0;
     let skipped = 0;
     let emailSent = 0;
     let emailSkipped = 0;
     const emailReasons: ReasonCounts = {};
     const debugCouples: DebugCouple[] = [];
+    const debugSoloSpaces: DebugSoloSpace[] = [];
 
     for (const streak of (streakRows ?? []) as CoupleStreakRow[]) {
       const debugCouple: DebugCouple = {
@@ -978,23 +1072,6 @@ serve(async (req) => {
         logStatus: dryRun ? "dry_run" : "created",
         recipients: [],
       };
-
-      if (!dryRun) {
-        const { error: logError } = await supabase
-          .from("streak_reminder_logs")
-          .insert({
-            couple_id: streak.couple_id,
-            reminder_date: reminderDate,
-            reminder_hour: reminderHour,
-          });
-
-        if (logError) {
-          skipped += 1;
-          debugCouple.logStatus = "skipped_duplicate";
-          debugCouples.push(debugCouple);
-          continue;
-        }
-      }
 
       const duoMembers = await loadDuoSpaceMembersForCouple(
         supabase,
@@ -1025,6 +1102,21 @@ serve(async (req) => {
         debugCouple.logStatus = "missing_couple";
         debugCouples.push(debugCouple);
         continue;
+      }
+
+      if (!dryRun) {
+        const claimed = await claimReminderWindow(
+          supabase,
+          streak.couple_id,
+          reminderDate,
+          reminderHour,
+        );
+        if (!claimed) {
+          skipped += 1;
+          debugCouple.logStatus = "skipped_duplicate";
+          debugCouples.push(debugCouple);
+          continue;
+        }
       }
 
       const recipients: Array<{ userId: string; slot: "user_a" | "user_b" }> = [
@@ -1102,6 +1194,131 @@ serve(async (req) => {
       debugCouples.push(debugCouple);
     }
 
+    const dayBounds = vnDayBounds(reminderDate);
+    for (const target of (soloTargetRows ?? []) as SoloReminderTarget[]) {
+      const debugSolo: DebugSoloSpace = {
+        spaceId: target.space_id,
+        coupleId: target.couple_id,
+        userId: target.user_id,
+        spaceName: target.space_name,
+        logStatus: dryRun ? "dry_run" : "created",
+      };
+
+      // Close the small race between loading candidates and sending the push.
+      const { data: latestPin, error: latestPinError } = await supabase
+        .from("pins")
+        .select("id")
+        .or(
+          `space_id.eq.${target.space_id},couple_id.eq.${target.couple_id}`,
+        )
+        .gte("created_at", dayBounds.start)
+        .lt("created_at", dayBounds.end)
+        .limit(1)
+        .maybeSingle();
+
+      if (latestPinError) throw latestPinError;
+      if (latestPin) {
+        skipped += 1;
+        debugSolo.logStatus = "already_posted";
+        debugSoloSpaces.push(debugSolo);
+        continue;
+      }
+
+      if (!dryRun) {
+        const claimed = await claimReminderWindow(
+          supabase,
+          target.couple_id,
+          reminderDate,
+          reminderHour,
+        );
+        if (!claimed) {
+          skipped += 1;
+          debugSolo.logStatus = "skipped_duplicate";
+          debugSoloSpaces.push(debugSolo);
+          continue;
+        }
+      }
+
+      const soloStreak: CoupleStreakRow = {
+        couple_id: target.couple_id,
+        current_count: 0,
+        today_date: reminderDate,
+        today_user_a_posted: false,
+        today_user_b_posted: false,
+        today_completed: false,
+      };
+      const notificationBody = await generateReminderBody(
+        soloStreak,
+        "solo",
+        target.user_id,
+        reminderDate,
+        reminderHour,
+      );
+      const payload = JSON.stringify({
+        title: "🔥 Pinly nhắc nhẹ",
+        body: notificationBody.body,
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        data: {
+          type: "streak_reminder",
+          mode: "solo",
+          spaceId: target.space_id,
+          url: "/",
+        },
+      });
+
+      console.log("solo streak reminder generated", {
+        dryRun,
+        spaceId: target.space_id,
+        coupleId: target.couple_id,
+        recipientId: target.user_id,
+        source: notificationBody.source,
+        state: notificationBody.state,
+        body: notificationBody.body,
+        gemini: notificationBody.gemini,
+      });
+
+      const result = dryRun
+        ? { sent: 0, skipped: false }
+        : await sendToUser(supabase, target.user_id, payload);
+      sent += result.sent;
+      if (result.skipped) skipped += 1;
+
+      const emailResult = dryRun
+        ? { sent: 0, skipped: false, reason: "dry_run" }
+        : await sendEmailToUser(
+            supabase,
+            target.user_id,
+            "Pinly nhắc nhẹ",
+            notificationBody.body,
+          );
+      emailSent += emailResult.sent;
+      if (emailResult.skipped) {
+        emailSkipped += 1;
+        const reason = emailResult.reason ?? "unknown";
+        emailReasons[reason] = (emailReasons[reason] ?? 0) + 1;
+      }
+
+      debugSolo.recipient = {
+        userId: target.user_id,
+        slot: "solo",
+        source: notificationBody.source,
+        state: notificationBody.state,
+        body: notificationBody.body,
+        gemini: notificationBody.gemini,
+        sent: result.sent,
+        skipped: result.skipped,
+        pushReason: result.reason,
+        emailSent: emailResult.sent,
+        emailSkipped: emailResult.skipped,
+        emailReason: emailResult.reason,
+        emailTo: emailResult.toEmail,
+        emailSource: emailResult.emailSource,
+        dryRun,
+      };
+      debugSoloSpaces.push(debugSolo);
+    }
+
     return new Response(
       JSON.stringify({
         message: "Streak reminders processed",
@@ -1110,12 +1327,15 @@ serve(async (req) => {
         dryRun,
         dryRunSource: envDryRun ? "env" : dryRun ? "request" : null,
         couples: streakRows?.length ?? 0,
+        soloSpaces: soloTargetRows?.length ?? 0,
         sent,
         skipped,
         emailSent,
         emailSkipped,
         emailReasons,
-        ...(includeDebug ? { debug: debugCouples } : {}),
+        ...(includeDebug
+          ? { debug: debugCouples, debugSoloSpaces }
+          : {}),
       }),
       {
         status: 200,

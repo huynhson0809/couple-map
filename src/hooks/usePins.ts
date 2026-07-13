@@ -28,7 +28,11 @@ export interface CreatePinInput {
   images: CloudinaryUploadResult[]
 }
 
-export function usePins(spaceId: string | null | undefined, userId: string | undefined) {
+export function usePins(
+  spaceId: string | null | undefined,
+  userId: string | undefined,
+  writable = true,
+) {
   const [pins, setPins] = useState<Pin[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -80,6 +84,7 @@ export function usePins(spaceId: string | null | undefined, userId: string | und
   const createPin = useCallback(
     async (input: CreatePinInput): Promise<Pin> => {
       if (!spaceId || !userId) throw new Error('Not in a space')
+      if (!writable) throw new Error('space_read_only')
       let address: string | null = null
       let city: string | null = null
       let country: string | null = null
@@ -147,10 +152,11 @@ export function usePins(spaceId: string | null | undefined, userId: string | und
       })
       return newPin
     },
-    [spaceId, fetchPinWithRelations, userId],
+    [spaceId, fetchPinWithRelations, userId, writable],
   )
 
   const deletePin = useCallback(async (id: string) => {
+    if (!writable) throw new Error('space_read_only')
     // Fetch images before deleting so we can clean up Cloudinary
     const { data: images } = await supabase
       .from('pin_images')
@@ -174,7 +180,7 @@ export function usePins(spaceId: string | null | undefined, userId: string | und
     const { error } = await supabase.from('pins').delete().eq('id', id)
     if (error) throw error
     setPins((prev) => prev.filter((p) => p.id !== id))
-  }, [])
+  }, [writable])
 
   const updatePin = useCallback(
     async (
@@ -183,6 +189,7 @@ export function usePins(spaceId: string | null | undefined, userId: string | und
         categoryIds?: string[]
       },
     ) => {
+      if (!writable) throw new Error('space_read_only')
       const { categoryIds, ...pinPatch } = patch
       const categoryIdsForRpc =
         categoryIds !== undefined
@@ -247,7 +254,7 @@ export function usePins(spaceId: string | null | undefined, userId: string | und
       }
       return updatedPin
     },
-    [fetchPinWithRelations, userId],
+    [fetchPinWithRelations, userId, writable],
   )
 
   return { pins, loading, error, fetchPins, fetchPinImages, createPin, updatePin, deletePin, setPins }

@@ -1,5 +1,5 @@
-import { LogIn, Plus, Trash2, X } from "lucide-react";
-import { useState } from "react";
+import { Check, Clock3, LockKeyhole, LogIn, Plus, Trash2, X } from "lucide-react";
+import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "../../hooks/I18nContext";
 import { useSpaceCtx } from "../../hooks/SpaceContext";
@@ -19,9 +19,13 @@ function quotaMessage(lang: string) {
 
 function formatSpaceError(err: unknown, lang: string) {
   if (err instanceof Error) {
-    return err.message === "space_quota_reached"
-      ? quotaMessage(lang)
-      : err.message;
+    if (err.message === "space_quota_reached") return quotaMessage(lang);
+    if (err.message === "space_read_only") {
+      return lang === "vi"
+        ? "Bản đồ này đang ở chế độ chỉ xem. Hãy nâng cấp gói để tiếp tục chỉnh sửa."
+        : "This map is read-only. Upgrade your plan to keep editing.";
+    }
+    return err.message;
   }
   if (err && typeof err === "object" && "message" in err) {
     const message = String((err as { message: unknown }).message);
@@ -45,11 +49,19 @@ export function SpaceSwitcher() {
   } = useSpaceCtx();
   const {
     canCreateSpace,
+    ownedSpaceLimit,
+    spaceQuotaOverLimit,
+    spaceQuotaGraceActive,
+    spaceQuotaGraceEndsAt,
+    spaceQuotaSelectedIds,
+    spaceQuotaRestrictedIds,
+    currentSpaceWritable,
+    saveSpaceQuotaSelection,
     loading: subscriptionLoading,
     refetch: refetchSubscription,
   } = useSubscription();
   const [busy, setBusy] = useState<
-    "switch" | "create" | "join" | "delete" | null
+    "switch" | "create" | "join" | "delete" | "quota" | null
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [joinInviteCode, setJoinInviteCode] = useState("");
@@ -57,11 +69,44 @@ export function SpaceSwitcher() {
   const [deleteTarget, setDeleteTarget] = useState<Space | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [quotaSelectionState, setQuotaSelectionState] = useState<{
+    sourceKey: string;
+    ids: string[];
+  }>({ sourceKey: "", ids: [] });
   const quotaReached = !subscriptionLoading && !canCreateSpace;
   const hasOnlyOneSpace = spaces.length <= 1;
   const canDeleteSpace = !hasOnlyOneSpace;
   const deleteConfirmValid =
     deleteConfirmText.trim().toUpperCase() === DELETE_SPACE_CONFIRM_TEXT;
+  const ownedSpaces = useMemo(
+    () => spaces.filter((space) => space.owner_id === profile?.id),
+    [profile?.id, spaces],
+  );
+  const restrictedSpaceIds = useMemo(
+    () => new Set(spaceQuotaRestrictedIds),
+    [spaceQuotaRestrictedIds],
+  );
+  const savedSelectionKey = [...spaceQuotaSelectedIds].sort().join(":");
+  const quotaSelectionSourceKey = `${spaceQuotaOverLimit}:${ownedSpaceLimit}:${savedSelectionKey}`;
+  const suggestedQuotaSelection = [
+    ...(activeSpace && activeSpace.owner_id === profile?.id
+      ? [activeSpace.id]
+      : []),
+    ...ownedSpaces.map((space) => space.id),
+  ];
+  const quotaSelection = !spaceQuotaOverLimit
+    ? []
+    : quotaSelectionState.sourceKey === quotaSelectionSourceKey
+      ? quotaSelectionState.ids
+      : spaceQuotaSelectedIds.length > 0
+        ? spaceQuotaSelectedIds
+        : Array.from(new Set(suggestedQuotaSelection)).slice(
+            0,
+            ownedSpaceLimit,
+          );
+  const quotaSelectionKey = [...quotaSelection].sort().join(":");
+  const quotaSelectionValid = quotaSelection.length === ownedSpaceLimit;
+  const quotaSelectionChanged = quotaSelectionKey !== savedSelectionKey;
 
   function activeMemberCount(spaceId: string) {
     return members.filter(
@@ -126,6 +171,58 @@ export function SpaceSwitcher() {
     } finally {
       setBusy(null);
     }
+  }
+
+  function toggleQuotaSpace(spaceId: string) {
+    if (!spaceQuotaGraceActive || busy) return;
+    setError(null);
+    setQuotaSelectionState(() => {
+      const current = quotaSelection;
+      if (current.includes(spaceId)) {
+        return {
+          sourceKey: quotaSelectionSourceKey,
+          ids: current.filter((id) => id !== spaceId),
+        };
+      }
+      if (current.length >= ownedSpaceLimit) {
+        return { sourceKey: quotaSelectionSourceKey, ids: current };
+      }
+      return {
+        sourceKey: quotaSelectionSourceKey,
+        ids: [...current, spaceId],
+      };
+    });
+  }
+
+  async function handleSaveQuotaSelection() {
+    if (
+      busy ||
+      !spaceQuotaGraceActive ||
+      !quotaSelectionValid ||
+      !quotaSelectionChanged
+    ) {
+      return;
+    }
+    setBusy("quota");
+    setError(null);
+    try {
+      await saveSpaceQuotaSelection(quotaSelection);
+    } catch (err) {
+      setError(formatSpaceError(err, lang));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function quotaDeadline() {
+    if (!spaceQuotaGraceEndsAt) return "";
+    return new Intl.DateTimeFormat(lang === "vi" ? "vi-VN" : "en-US", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(spaceQuotaGraceEndsAt));
   }
 
   function closeDeleteDialog() {
@@ -241,6 +338,66 @@ export function SpaceSwitcher() {
         <div className="setting-section-title">
           <span>{t("settings.space")}</span>
         </div>
+        {spaceQuotaOverLimit && (
+          <div
+            className={cx(
+              "space-quota-panel",
+              spaceQuotaGraceActive ? "grace" : "restricted",
+            )}
+          >
+            <div className="space-quota-panel-icon" aria-hidden="true">
+              {spaceQuotaGraceActive ? (
+                <Clock3 size={18} />
+              ) : (
+                <LockKeyhole size={18} />
+              )}
+            </div>
+            <div className="space-quota-panel-copy">
+              <strong>
+                {spaceQuotaGraceActive
+                  ? t("settings.spaceQuotaGraceTitle")
+                  : t("settings.spaceQuotaReadOnlyTitle")}
+              </strong>
+              <p>
+                {spaceQuotaGraceActive
+                  ? t("settings.spaceQuotaGraceBody", {
+                      limit: String(ownedSpaceLimit),
+                    })
+                  : t("settings.spaceQuotaReadOnlyBody")}
+              </p>
+              {spaceQuotaGraceActive && (
+                <span className="space-quota-deadline">
+                  {t("settings.spaceQuotaDeadline", {
+                    date: quotaDeadline(),
+                  })}
+                </span>
+              )}
+            </div>
+            {spaceQuotaGraceActive && (
+              <div className="space-quota-panel-actions">
+                <span>
+                  {quotaSelection.length}/{ownedSpaceLimit}
+                </span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  loading={busy === "quota"}
+                  disabled={
+                    busy !== null ||
+                    !quotaSelectionValid ||
+                    !quotaSelectionChanged
+                  }
+                  onClick={() => void handleSaveQuotaSelection()}
+                >
+                  {quotaSelectionChanged
+                    ? t("settings.spaceQuotaSave")
+                    : t("settings.spaceQuotaSaved")}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
         <div className="space-switcher-controls">
           {spaces.length > 0 && activeSpace && (
             <div
@@ -252,11 +409,22 @@ export function SpaceSwitcher() {
                 const active = space.id === activeSpace.id;
                 const memberCount = activeMemberCount(space.id);
                 const owned = isOwnedSpace(space);
+                const quotaSelected = quotaSelection.includes(space.id);
+                const readOnly =
+                  restrictedSpaceIds.has(space.id) ||
+                  (active && !currentSpaceWritable);
+                const selectable =
+                  owned && spaceQuotaOverLimit && spaceQuotaGraceActive;
                 const deleteDisabled = hasOnlyOneSpace || busy !== null;
                 return (
                   <div
                     key={space.id}
-                    className={cx("space-switcher-card", active && "active")}
+                    className={cx(
+                      "space-switcher-card",
+                      active && "active",
+                      readOnly && "read-only",
+                      selectable && quotaSelected && "quota-selected",
+                    )}
                     role="listitem"
                   >
                     <button
@@ -277,7 +445,47 @@ export function SpaceSwitcher() {
                         {" · "}
                         {memberCount}/2
                       </span>
+                      {readOnly && (
+                        <span className="space-switcher-access read-only">
+                          <LockKeyhole size={12} aria-hidden="true" />
+                          {t("settings.spaceReadOnly")}
+                        </span>
+                      )}
+                      {selectable && (
+                        <span className="space-switcher-access">
+                          {quotaSelected
+                            ? t("settings.spaceKeepEditable")
+                            : t("settings.spaceWillReadOnly")}
+                        </span>
+                      )}
                     </button>
+                    {selectable && (
+                      <button
+                        type="button"
+                        className={cx(
+                          "space-quota-select",
+                          quotaSelected && "selected",
+                        )}
+                        aria-label={
+                          quotaSelected
+                            ? t("settings.spaceRemoveSelection", {
+                                name: space.name,
+                              })
+                            : t("settings.spaceAddSelection", {
+                                name: space.name,
+                              })
+                        }
+                        aria-pressed={quotaSelected}
+                        disabled={
+                          busy !== null ||
+                          (!quotaSelected &&
+                            quotaSelection.length >= ownedSpaceLimit)
+                        }
+                        onClick={() => toggleQuotaSpace(space.id)}
+                      >
+                        {quotaSelected && <Check size={15} aria-hidden="true" />}
+                      </button>
+                    )}
                     {owned && (
                       <button
                         type="button"
@@ -355,7 +563,7 @@ export function SpaceSwitcher() {
             <p className="space-join-hint">{t("settings.joinSpaceHint")}</p>
           </form>
         </div>
-        {quotaReached && (
+        {quotaReached && !spaceQuotaOverLimit && (
           <p className="space-quota-note">{quotaMessage(lang)}</p>
         )}
         {joinSuccess && (

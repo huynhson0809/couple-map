@@ -14,6 +14,7 @@ import { useCoupleRealtime } from "./useCoupleRealtime";
 import { supabase } from "../lib/supabase";
 import { invalidateApiCacheByPrefix } from "../lib/apiCache";
 import { processPendingUploads } from "../lib/pendingUploads";
+import { useSubscription } from "./useSubscription";
 import type { Pin, PinImage } from "../types";
 
 type PinsHook = ReturnType<typeof usePins>;
@@ -50,7 +51,10 @@ export function PinsProvider({
   userId: string | undefined;
   children: ReactNode;
 }) {
-  const pinsHook = usePins(spaceId, userId);
+  const { currentSpaceWritable, loading: subscriptionLoading } =
+    useSubscription();
+  const writable = subscriptionLoading || currentSpaceWritable;
+  const pinsHook = usePins(spaceId, userId, writable);
   const viewport = useViewportPins(spaceId);
   const {
     fetchPinImages: fetchPinImagesBase,
@@ -133,7 +137,7 @@ export function PinsProvider({
 
   // Resume any pending uploads from IndexedDB on app start
   useEffect(() => {
-    if (!spaceId) return;
+    if (!spaceId || !writable) return;
     processPendingUploads(
       (pinId, pct) => {
         setUploadingPins((prev) => {
@@ -153,7 +157,7 @@ export function PinsProvider({
       },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spaceId]);
+  }, [spaceId, writable]);
 
   useCoupleRealtime({
     spaceId,

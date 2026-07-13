@@ -6,6 +6,7 @@ export function useBucket(
   spaceId: string | null | undefined,
   userId: string | undefined,
   statusFilter?: BucketListItem['status'],
+  writable = true,
 ) {
   const [items, setItems] = useState<BucketListItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -42,6 +43,7 @@ export function useBucket(
   const addItem = useCallback(
     async (input: { title: string; lat: number; lng: number }) => {
       if (!spaceId || !userId) throw new Error('Not in a space')
+      if (!writable) throw new Error('space_read_only')
       const { data, error } = await supabase
         .from('bucket_list')
         .insert({
@@ -61,16 +63,18 @@ export function useBucket(
       }
       return row
     },
-    [spaceId, statusFilter, userId],
+    [spaceId, statusFilter, userId, writable],
   )
 
   const removeItem = useCallback(async (id: string) => {
+    if (!writable) throw new Error('space_read_only')
     const { error } = await supabase.from('bucket_list').delete().eq('id', id)
     if (error) throw error
     setItems((prev) => prev.filter((b) => b.id !== id))
-  }, [])
+  }, [writable])
 
   const setItemStatus = useCallback(async (id: string, status: BucketListItem['status']) => {
+    if (!writable) throw new Error('space_read_only')
     const { data, error } = await supabase
       .from('bucket_list')
       .update({ status })
@@ -87,7 +91,7 @@ export function useBucket(
       if (!exists) return statusFilter ? [row, ...prev] : prev
       return prev.map((b) => (b.id === id ? row : b))
     })
-  }, [statusFilter])
+  }, [statusFilter, writable])
 
   const markDone = useCallback((id: string) => setItemStatus(id, 'done'), [setItemStatus])
   const markDream = useCallback((id: string) => setItemStatus(id, 'dream'), [setItemStatus])

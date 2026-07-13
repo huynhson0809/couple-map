@@ -154,7 +154,11 @@ export type NotificationType =
   | "comment"
   | "streak_reminder"
   | "streak_complete"
-  | "streak_broken";
+  | "streak_broken"
+  | "support_reply"
+  | "space_quota_warning"
+  | "space_quota_restricted"
+  | "space_quota_restored";
 
 export type PlanType = "free" | "plus" | "pro";
 export type BillingCycle = "monthly" | "annual";
@@ -197,6 +201,7 @@ export interface AppNotification {
   user_id: string;
   couple_id: string | null;
   space_id: string | null;
+  space_name?: string | null;
   type: NotificationType;
   title: string;
   body: string | null;

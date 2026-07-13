@@ -15,9 +15,14 @@ import {
   FileText,
   ShieldCheck,
   HeartCrack,
+  Bug,
+  ChevronRight,
+  CircleHelp,
+  MessageCircle,
+  Inbox,
 } from "lucide-react";
-import { useMemo, useRef, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useCoupleCtx } from "../hooks/CoupleContext";
 import { useSpaceCtx } from "../hooks/SpaceContext";
@@ -33,10 +38,15 @@ import {
 } from "../hooks/useMapStyle";
 import { useMap3DMode } from "../hooks/useMap3DMode";
 import { useSubscription } from "../hooks/useSubscription";
+import { useAdminAccess } from "../hooks/useAdminAccess";
 import { PricingPage } from "./PricingPage";
 import { MapStylePreviewSheet } from "../components/settings/MapStylePreviewSheet";
 import { SpaceInvitePanel } from "../components/settings/SpaceInvitePanel";
 import { SpaceSwitcher } from "../components/settings/SpaceSwitcher";
+import {
+  SupportCenter,
+  type SupportView,
+} from "../components/settings/SupportCenter";
 import { UpgradePrompt } from "../components/ui/UpgradePrompt";
 import { Button } from "../components/ui/Button";
 import { GlassSurface } from "../components/ui/GlassSurface";
@@ -83,10 +93,11 @@ function SettingSection({
 
 export function SettingsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, signOut } = useAuth();
   const { profile, partner, couple, updateCouple, refresh, breakupCouple } =
     useCoupleCtx();
-  const { capabilities } = useSpaceCtx();
+  const { capabilities, activeSpace } = useSpaceCtx();
   const { theme, setTheme } = useTheme();
   const { lang, setLang, t } = useI18n();
   const notif = useNotifications();
@@ -103,12 +114,15 @@ export function SettingsPage() {
     openCustomerPortal,
     canUseMapStyle,
     canUseMap3D,
+    currentSpaceWritable,
     loading: subscriptionLoading,
   } = useSubscription();
   const { styleId, setStyleId } = useMapStyle(canUseMapStyle);
   const { map3DEnabled, setMap3DEnabled } = useMap3DMode(canUseMap3D);
+  const { isAdmin } = useAdminAccess(user?.id);
   const [initialStyle] = useState(styleId);
-  const canManageSpaceDetails = capabilities.canDeleteSpace;
+  const canManageSpaceDetails =
+    capabilities.canDeleteSpace && currentSpaceWritable;
   const duoFeaturesEnabled = capabilities.canUseDuoFeatures;
   const sortedStyles = useMemo(
     () =>
@@ -133,11 +147,24 @@ export function SettingsPage() {
   const [breakupConfirmText, setBreakupConfirmText] = useState("");
   const [breakupBusy, setBreakupBusy] = useState(false);
   const [breakupError, setBreakupError] = useState<string | null>(null);
+  const [supportView, setSupportView] = useState<SupportView | null>(null);
   const mapStylePreviewCenter = { lat: 10.8231, lng: 106.6297 };
   const breakupConfirmValid =
     breakupConfirmText.trim().toUpperCase() === BREAKUP_CONFIRM_TEXT;
   const subscriptionSource =
     subscription && "source" in subscription ? subscription.source : null;
+
+  useEffect(() => {
+    const requestedView = (
+      location.state as { openSupport?: SupportView } | null
+    )?.openSupport;
+    if (!requestedView) return;
+    const timer = window.setTimeout(() => {
+      setSupportView(requestedView);
+      navigate(location.pathname, { replace: true, state: null });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [location.pathname, location.state, navigate]);
 
   async function saveAnniversary() {
     if (!annivDate || !canManageSpaceDetails) return;
@@ -640,84 +667,86 @@ export function SettingsPage() {
             />
           )}
         </div>
-        {duoFeaturesEnabled && (
-          <div className="notif-pref-list">
-            <div className="notif-pref-row">
-              <span>
-                <strong>{t("notif.memoryAdded")}</strong>
-                <small>{t("notif.memoryAddedHint")}</small>
-              </span>
-              <Switch
-                aria-label={t("notif.memoryAdded")}
-                checked={notifPrefs.prefs.memory_added}
-                disabled={notifPrefs.loading}
-                onChange={(e) =>
-                  notifPrefs.updatePrefs({ memory_added: e.target.checked })
-                }
-              />
-            </div>
-            <div className="notif-pref-row">
-              <span>
-                <strong>{t("notif.reactions")}</strong>
-                <small>{t("notif.reactionsHint")}</small>
-              </span>
-              <Switch
-                aria-label={t("notif.reactions")}
-                checked={notifPrefs.prefs.reactions}
-                disabled={notifPrefs.loading}
-                onChange={(e) =>
-                  notifPrefs.updatePrefs({ reactions: e.target.checked })
-                }
-              />
-            </div>
-            <div className="notif-pref-row">
-              <span>
-                <strong>{t("notif.comments")}</strong>
-                <small>{t("notif.commentsHint")}</small>
-              </span>
-              <Switch
-                aria-label={t("notif.comments")}
-                checked={notifPrefs.prefs.comments}
-                disabled={notifPrefs.loading}
-                onChange={(e) =>
-                  notifPrefs.updatePrefs({ comments: e.target.checked })
-                }
-              />
-            </div>
-            <div className="notif-pref-row">
-              <span>
-                <strong>{t("notif.streakReminders")}</strong>
-                <small>{t("notif.streakRemindersHint")}</small>
-              </span>
-              <Switch
-                aria-label={t("notif.streakReminders")}
-                checked={notifPrefs.prefs.streak_reminders}
-                disabled={notifPrefs.loading}
-                onChange={(e) =>
-                  notifPrefs.updatePrefs({
-                    streak_reminders: e.target.checked,
-                  })
-                }
-              />
-            </div>
-            <div className="notif-pref-row">
-              <span>
-                <strong>{t("notif.streakEmailReminders")}</strong>
-                <small>{t("notif.streakEmailRemindersHint")}</small>
-              </span>
-              <Switch
-                aria-label={t("notif.streakEmailReminders")}
-                checked={notifPrefs.prefs.streak_email_reminders}
-                disabled={notifPrefs.loading}
-                onChange={(e) =>
-                  notifPrefs.updatePrefs({
-                    streak_email_reminders: e.target.checked,
-                  })
-                }
-              />
-            </div>
+        <div className="notif-pref-list">
+          {duoFeaturesEnabled && (
+            <>
+              <div className="notif-pref-row">
+                <span>
+                  <strong>{t("notif.memoryAdded")}</strong>
+                  <small>{t("notif.memoryAddedHint")}</small>
+                </span>
+                <Switch
+                  aria-label={t("notif.memoryAdded")}
+                  checked={notifPrefs.prefs.memory_added}
+                  disabled={notifPrefs.loading}
+                  onChange={(e) =>
+                    notifPrefs.updatePrefs({ memory_added: e.target.checked })
+                  }
+                />
+              </div>
+              <div className="notif-pref-row">
+                <span>
+                  <strong>{t("notif.reactions")}</strong>
+                  <small>{t("notif.reactionsHint")}</small>
+                </span>
+                <Switch
+                  aria-label={t("notif.reactions")}
+                  checked={notifPrefs.prefs.reactions}
+                  disabled={notifPrefs.loading}
+                  onChange={(e) =>
+                    notifPrefs.updatePrefs({ reactions: e.target.checked })
+                  }
+                />
+              </div>
+              <div className="notif-pref-row">
+                <span>
+                  <strong>{t("notif.comments")}</strong>
+                  <small>{t("notif.commentsHint")}</small>
+                </span>
+                <Switch
+                  aria-label={t("notif.comments")}
+                  checked={notifPrefs.prefs.comments}
+                  disabled={notifPrefs.loading}
+                  onChange={(e) =>
+                    notifPrefs.updatePrefs({ comments: e.target.checked })
+                  }
+                />
+              </div>
+            </>
+          )}
+          <div className="notif-pref-row">
+            <span>
+              <strong>{t("notif.streakReminders")}</strong>
+              <small>{t("notif.streakRemindersHint")}</small>
+            </span>
+            <Switch
+              aria-label={t("notif.streakReminders")}
+              checked={notifPrefs.prefs.streak_reminders}
+              disabled={notifPrefs.loading}
+              onChange={(e) =>
+                notifPrefs.updatePrefs({
+                  streak_reminders: e.target.checked,
+                })
+              }
+            />
           </div>
-        )}
+          <div className="notif-pref-row">
+            <span>
+              <strong>{t("notif.streakEmailReminders")}</strong>
+              <small>{t("notif.streakEmailRemindersHint")}</small>
+            </span>
+            <Switch
+              aria-label={t("notif.streakEmailReminders")}
+              checked={notifPrefs.prefs.streak_email_reminders}
+              disabled={notifPrefs.loading}
+              onChange={(e) =>
+                notifPrefs.updatePrefs({
+                  streak_email_reminders: e.target.checked,
+                })
+              }
+            />
+          </div>
+        </div>
       </SettingSection>
 
       {couple && canManageSpaceDetails && (
@@ -785,6 +814,82 @@ export function SettingsPage() {
           {bgError && <p className="error">{bgError}</p>}
         </SettingSection>
       )}
+
+      <SettingSection
+        title={t("settings.supportTitle")}
+        icon={<CircleHelp size={14} />}
+        className="setting-section-support"
+      >
+        <p className="muted small settings-support-desc">
+          {t("settings.supportDesc")}
+        </p>
+        <div className="settings-support-actions">
+          <button
+            type="button"
+            className="settings-support-action"
+            onClick={() => setSupportView("faq")}
+          >
+            <span className="settings-support-action-icon" aria-hidden="true">
+              <CircleHelp size={18} />
+            </span>
+            <span className="settings-support-action-copy">
+              <strong>{t("settings.supportFaq")}</strong>
+              <small>{t("settings.supportFaqHint")}</small>
+            </span>
+            <ChevronRight size={18} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="settings-support-action"
+            onClick={() => setSupportView("contact")}
+          >
+            <span className="settings-support-action-icon" aria-hidden="true">
+              <MessageCircle size={18} />
+            </span>
+            <span className="settings-support-action-copy">
+              <strong>{t("settings.supportContact")}</strong>
+              <small>{t("settings.supportContactHint")}</small>
+            </span>
+            <ChevronRight size={18} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="settings-support-action"
+            onClick={() => setSupportView("bug")}
+          >
+            <span className="settings-support-action-icon" aria-hidden="true">
+              <Bug size={18} />
+            </span>
+            <span className="settings-support-action-copy">
+              <strong>{t("settings.supportReportBug")}</strong>
+              <small>{t("settings.supportReportBugHint")}</small>
+            </span>
+            <ChevronRight size={18} aria-hidden="true" />
+          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className="settings-support-action settings-support-admin"
+              onClick={() => navigate("/admin/support")}
+            >
+              <span className="settings-support-action-icon" aria-hidden="true">
+                <Inbox size={18} />
+              </span>
+              <span className="settings-support-action-copy">
+                <strong>
+                  {lang === "vi" ? "Quản lý yêu cầu" : "Manage requests"}
+                </strong>
+                <small>
+                  {lang === "vi"
+                    ? "Mở dashboard hỗ trợ dành cho admin"
+                    : "Open the admin support dashboard"}
+                </small>
+              </span>
+              <ChevronRight size={18} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      </SettingSection>
 
       <SettingSection
         title={t("settings.legal")}
@@ -906,6 +1011,16 @@ export function SettingsPage() {
         <div className="pricing-overlay">
           <PricingPage onClose={() => setShowPricing(false)} />
         </div>
+      )}
+
+      {supportView && user?.id && (
+        <SupportCenter
+          initialView={supportView}
+          userId={user.id}
+          userEmail={user.email}
+          activeSpaceId={activeSpace?.id}
+          onClose={() => setSupportView(null)}
+        />
       )}
 
       {showBreakupConfirm && (
