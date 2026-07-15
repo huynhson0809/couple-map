@@ -1,342 +1,414 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  MapPin,
-  Flame,
-  Camera,
-  Heart,
+  ArrowRight,
+  Compass,
   Download,
-  Globe,
-  Lock,
+  EllipsisVertical,
+  Globe2,
+  LockKeyhole,
+  MapPin,
+  Share,
+  Share2,
+  Smartphone,
+  SquarePlus,
+  UsersRound,
 } from "lucide-react";
+import { LandingMapScene } from "../components/landing/LandingMapScene";
 import { Logo } from "../components/ui/Logo";
 import { useI18n } from "../hooks/I18nContext";
-import { useState } from "react";
 import "./LandingPage.css";
+
+type PrivacyMode = "private" | "shared";
+type InstallPlatform = "ios" | "android";
+
+function ChromeMark({ size = 20 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="4" />
+      <path d="M21.17 8H12" />
+      <path d="m3.95 6.06 4.59 7.94" />
+      <path d="m10.88 21.94 4.58-7.94" />
+    </svg>
+  );
+}
 
 export function LandingPage() {
   const { t, lang, setLang } = useI18n();
-  const [installTab, setInstallTab] = useState<"ios" | "android">("ios");
+  const [privacyMode, setPrivacyMode] = useState<PrivacyMode>("shared");
+  const [installPlatform, setInstallPlatform] =
+    useState<InstallPlatform>("ios");
+
+  useEffect(() => {
+    const revealNodes = Array.from(
+      document.querySelectorAll<HTMLElement>(".lp [data-reveal]"),
+    );
+    if (!revealNodes.length) return undefined;
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      revealNodes.forEach((node) => node.classList.add("is-visible"));
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        });
+      },
+      { threshold: 0.14 },
+    );
+
+    revealNodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, []);
+
+  const installSteps =
+    installPlatform === "ios"
+      ? [
+          {
+            label: t("landing.installIos1"),
+            icon: <Compass size={20} strokeWidth={1.8} aria-hidden="true" />,
+          },
+          {
+            label: t("landing.installIos2"),
+            icon: <Share size={20} strokeWidth={1.8} aria-hidden="true" />,
+          },
+          {
+            label: t("landing.installIos3"),
+            icon: (
+              <SquarePlus size={20} strokeWidth={1.8} aria-hidden="true" />
+            ),
+          },
+        ]
+      : [
+          {
+            label: t("landing.installAndroid1"),
+            icon: <ChromeMark size={20} />,
+          },
+          {
+            label: t("landing.installAndroid2"),
+            icon: (
+              <EllipsisVertical
+                size={20}
+                strokeWidth={2.2}
+                aria-hidden="true"
+              />
+            ),
+          },
+          {
+            label: t("landing.installAndroid3"),
+            icon: (
+              <Smartphone size={20} strokeWidth={1.8} aria-hidden="true" />
+            ),
+          },
+        ];
 
   return (
     <div className="lp">
-      {/* Nav */}
       <header className="lp-nav">
-        <div className="lp-nav-brand">
-          <Logo size={28} />
+        <a className="lp-nav-brand" href="#top" aria-label="Pinly">
+          <Logo size={30} />
           <span>Pinly</span>
-        </div>
-        <div className="lp-nav-links">
-          <a href="#features">{t("landing.featuresTitle")}</a>
+        </a>
+
+        <nav className="lp-nav-links" aria-label={t("landing.navLabel")}>
+          <a href="#story">{t("landing.navStories")}</a>
           <a href="#install">{t("landing.ctaInstall")}</a>
-        </div>
-        <div className="lp-nav-right">
+        </nav>
+
+        <div className="lp-nav-actions">
           <button
             type="button"
             className="lp-lang-btn"
             onClick={() => setLang(lang === "vi" ? "en" : "vi")}
+            aria-label={t("landing.languageLabel")}
           >
-            <Globe size={14} />
-            {t("landing.langSwitch")}
+            <Globe2 size={16} aria-hidden="true" />
+            <span>{lang === "vi" ? "Tiếng Việt" : "English"}</span>
           </button>
-          <Link to="/register" className="lp-nav-cta">
+          <Link className="lp-nav-cta" to="/register">
             {t("landing.getStarted")}
           </Link>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="lp-hero">
-        <div className="lp-hero-badge">
-          <Flame size={12} />
-          <span>{t("landing.heroBadge")}</span>
-        </div>
-        <div className="lp-hero-content">
-          <div className="lp-hero-text">
-            <h1>
-              {t("landing.heroTitle")}
-              <br />
-              <span className="lp-text-gradient">
-                {t("landing.heroAccent")}
-              </span>
+      <main>
+        <section className="lp-hero" id="top" aria-labelledby="lp-hero-title">
+          <LandingMapScene label={t("landing.heroMapLabel")} />
+          <div className="lp-map-wash" aria-hidden="true" />
+
+          <div className="lp-hero-copy">
+            <h1 id="lp-hero-title">
+              <span>{t("landing.heroTitle")}</span>
+              <strong>{t("landing.heroAccent")}</strong>
             </h1>
             <p>{t("landing.heroDesc")}</p>
-            <div className="lp-hero-btns">
-              <Link to="/register" className="lp-btn-primary">
+            <div className="lp-hero-actions">
+              <Link className="lp-btn-primary" to="/register">
+                <MapPin size={17} aria-hidden="true" />
                 {t("landing.ctaPrimary")}
               </Link>
-              <a href="#install" className="lp-btn-outline">
-                <Download size={16} />
-                {t("landing.ctaInstall")}
+              <a className="lp-btn-journey" href="#story">
+                {t("landing.ctaLearnMore")}
+                <ArrowRight size={18} aria-hidden="true" />
               </a>
             </div>
-            <div className="lp-hero-proof">
-              <span className="lp-hero-proof-text">
-                {t("landing.proofSpaces")}
-              </span>
-            </div>
-          </div>
-          <div className="lp-hero-visual">
-            <div
-              className="lp-space-showcase"
-              aria-label={t("landing.spaceShowcaseTitle")}
-            >
-              <div className="lp-space-panel">
-                <div className="lp-space-panel-header">
-                  <span>{t("landing.spaceShowcaseTitle")}</span>
-                  <span>{t("landing.spaceInvite")}</span>
-                </div>
-                <div className="lp-space-list">
-                  <div className="lp-space-card active lp-space-card-one">
-                    <span>{t("landing.spacePersonal")}</span>
-                    <small>{t("landing.spacePrivate")}</small>
-                  </div>
-                  <div className="lp-space-card lp-space-card-two">
-                    <span>{t("landing.spaceTrip")}</span>
-                    <small>{t("landing.spaceMembers")}</small>
-                  </div>
-                  <div className="lp-space-card lp-space-card-three">
-                    <span>{t("landing.spaceFamily")}</span>
-                    <small>{t("landing.spaceShared")}</small>
-                  </div>
-                  <div className="lp-space-card lp-space-card-four">
-                    <span>{t("landing.spaceFriends")}</span>
-                    <small>{t("landing.spaceInvite")}</small>
-                  </div>
-                </div>
-              </div>
-              <div className="lp-memory-map-stage">
-                <div className="lp-map-scan" aria-hidden="true" />
-                <div className="lp-memory-map">
-                  <img
-                    src="/icons/map-preview.png"
-                    alt="Pinly map"
-                    className="lp-memory-map-img"
-                  />
-                  <span className="lp-map-pin one" />
-                  <span className="lp-map-pin two" />
-                  <span className="lp-map-pin three" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="lp-features" id="features">
-        <h2>{t("landing.featuresTitle")}</h2>
-        <p className="lp-features-sub">{t("landing.featuresSub")}</p>
-        <div className="lp-features-grid">
-          <div className="lp-fcard lp-fcard-wide">
-            <div className="lp-fcard-content">
-              <div className="lp-fcard-icon">
-                <MapPin size={18} />
-              </div>
-              <h3>{t("landing.feat1Title")}</h3>
-              <p>{t("landing.feat1Desc")}</p>
-            </div>
-          </div>
-          <div className="lp-fcard">
-            <div className="lp-fcard-content">
-              <div className="lp-fcard-icon">
-                <Heart size={18} />
-              </div>
-              <h3>{t("landing.feat5Title")}</h3>
-              <p>{t("landing.feat5Desc")}</p>
-            </div>
-          </div>
-          <div className="lp-fcard">
-            <div className="lp-fcard-content">
-              <div className="lp-fcard-icon">
-                <Flame size={18} />
-              </div>
-              <h3>{t("landing.feat3Title")}</h3>
-              <p>{t("landing.feat3Desc")}</p>
-            </div>
-          </div>
-          <div className="lp-fcard">
-            <div className="lp-fcard-content">
-              <div className="lp-fcard-icon">
-                <Camera size={18} />
-              </div>
-              <h3>{t("landing.feat2Title")}</h3>
-              <p>{t("landing.feat2Desc")}</p>
-            </div>
-          </div>
-          <div className="lp-fcard">
-            <div className="lp-fcard-content">
-              <div className="lp-fcard-icon">
-                <Lock size={18} />
-              </div>
-              <h3>{t("landing.feat4Title")}</h3>
-              <p>{t("landing.feat4Desc")}</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Install */}
-      <section className="lp-install" id="install">
-        <div className="lp-install-badge">
-          <span>{t("landing.proofPwa")}</span>
-        </div>
-        <h2>{t("landing.installTitle")}</h2>
-        <p className="lp-install-desc">{t("landing.installDesc")}</p>
-
-        <div className="lp-install-tabs">
-          <button
-            type="button"
-            className={`lp-install-tab ${installTab === "ios" ? "active" : ""}`}
-            onClick={() => setInstallTab("ios")}
-          >
-            iPhone / iPad
-          </button>
-          <button
-            type="button"
-            className={`lp-install-tab ${installTab === "android" ? "active" : ""}`}
-            onClick={() => setInstallTab("android")}
-          >
-            Android
-          </button>
-        </div>
-
-        <div className="lp-install-body">
-          <div className="lp-install-steps">
-            {installTab === "ios" ? (
-              <>
-                <div className="lp-step-card">
-                  <span className="lp-step-num">1</span>
-                  <div className="lp-step-text">
-                    <svg
-                      className="lp-step-svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    >
-                      <circle cx="12" cy="12" r="10" />
-                      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
-                    </svg>
-                    <strong>{t("landing.installIos1")}</strong>
-                  </div>
-                </div>
-                <div className="lp-step-card">
-                  <span className="lp-step-num">2</span>
-                  <div className="lp-step-text">
-                    <svg
-                      className="lp-step-svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    >
-                      <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
-                      <polyline points="16 6 12 2 8 6" />
-                      <line x1="12" y1="2" x2="12" y2="15" />
-                    </svg>
-                    <strong>{t("landing.installIos2")}</strong>
-                  </div>
-                </div>
-                <div className="lp-step-card">
-                  <span className="lp-step-num">3</span>
-                  <div className="lp-step-text">
-                    <svg
-                      className="lp-step-svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    >
-                      <rect x="3" y="3" width="18" height="18" rx="2" />
-                      <line x1="12" y1="8" x2="12" y2="16" />
-                      <line x1="8" y1="12" x2="16" y2="12" />
-                    </svg>
-                    <strong>{t("landing.installIos3")}</strong>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="lp-step-card">
-                  <span className="lp-step-num">1</span>
-                  <div className="lp-step-text">
-                    <svg
-                      className="lp-step-svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    >
-                      <circle cx="12" cy="12" r="10" />
-                      <circle cx="12" cy="12" r="4" />
-                      <line x1="21.17" y1="8" x2="12" y2="8" />
-                      <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
-                      <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
-                    </svg>
-                    <strong>{t("landing.installAndroid1")}</strong>
-                  </div>
-                </div>
-                <div className="lp-step-card">
-                  <span className="lp-step-num">2</span>
-                  <div className="lp-step-text">
-                    <svg
-                      className="lp-step-svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <circle cx="12" cy="5" r="1.5" />
-                      <circle cx="12" cy="12" r="1.5" />
-                      <circle cx="12" cy="19" r="1.5" />
-                    </svg>
-                    <strong>{t("landing.installAndroid2")}</strong>
-                  </div>
-                </div>
-                <div className="lp-step-card">
-                  <span className="lp-step-num">3</span>
-                  <div className="lp-step-text">
-                    <svg
-                      className="lp-step-svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    >
-                      <rect x="5" y="2" width="14" height="20" rx="2" />
-                      <line x1="12" y1="18" x2="12.01" y2="18" />
-                    </svg>
-                    <strong>{t("landing.installAndroid3")}</strong>
-                  </div>
-                </div>
-              </>
-            )}
           </div>
 
-          <div className="lp-install-demo">
+          <figure className="lp-memory-photo lp-memory-photo-rooftop">
             <img
-              src="/icons/install-guide.png"
-              alt="Install to Home Screen"
-              className="lp-install-demo-img"
-              loading="lazy"
+              src="/landing/rooftop-da-nang.jpg"
+              alt={t("landing.altRooftop")}
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
             />
+            <figcaption>
+              <MapPin size={17} aria-hidden="true" />
+              <span>
+                <strong>{t("landing.memoryRooftopTitle")}</strong>
+                <small>{t("landing.memoryRooftopTime")}</small>
+              </span>
+            </figcaption>
+          </figure>
+
+          <figure className="lp-memory-photo lp-memory-photo-beach">
+            <img
+              src="/landing/my-khe-morning.jpg"
+              alt={t("landing.altBeach")}
+              loading="eager"
+              decoding="async"
+            />
+            <figcaption>
+              <MapPin size={17} aria-hidden="true" />
+              <span>
+                <strong>{t("landing.memoryBeachTitle")}</strong>
+                <small>{t("landing.memoryBeachTime")}</small>
+              </span>
+            </figcaption>
+          </figure>
+
+          <figure className="lp-memory-photo lp-memory-photo-hoi-an">
+            <img
+              src="/landing/hoi-an-family.jpg"
+              alt={t("landing.altHoiAn")}
+              loading="eager"
+              decoding="async"
+            />
+            <figcaption>
+              <MapPin size={17} aria-hidden="true" />
+              <span>
+                <strong>{t("landing.memoryHoiAnTitle")}</strong>
+                <small>{t("landing.memoryHoiAnTime")}</small>
+              </span>
+            </figcaption>
+          </figure>
+
+          <div className="lp-route-note" aria-hidden="true">
+            <span />
+            <strong>{t("landing.memoryBridgeTitle")}</strong>
+            <small>{t("landing.memoryBridgeTime")}</small>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Bottom CTA */}
-      <section className="lp-bottom-cta">
-        <h2>{t("landing.bottomCtaTitle")}</h2>
-        <p>{t("landing.bottomCtaDesc")}</p>
-        <Link to="/register" className="lp-btn-primary">
-          {t("landing.bottomCtaBtn")}
-        </Link>
-      </section>
+        <section className="lp-featured" id="story">
+          <div className="lp-featured-inner" data-reveal>
+            <figure className="lp-featured-media">
+              <img
+                src="/landing/rooftop-da-nang-feature.jpg"
+                alt={t("landing.altRooftop")}
+                loading="lazy"
+                decoding="async"
+              />
+            </figure>
 
-      {/* Footer */}
+            <div className="lp-featured-content">
+              <div className="lp-kicker">
+                <MapPin size={17} aria-hidden="true" />
+                <span>{t("landing.featuredLocation")}</span>
+              </div>
+              <h2>{t("landing.featuredTitle")}</h2>
+              <time>{t("landing.featuredDate")}</time>
+
+              <div className="lp-privacy-block">
+                <span className="lp-control-label">
+                  {t("landing.featuredPrivacy")}
+                </span>
+                <div
+                  className="lp-privacy-control"
+                  role="group"
+                  aria-label={t("landing.featuredPrivacy")}
+                >
+                  <button
+                    type="button"
+                    className={privacyMode === "private" ? "is-active" : ""}
+                    onClick={() => setPrivacyMode("private")}
+                    aria-pressed={privacyMode === "private"}
+                  >
+                    <LockKeyhole size={16} aria-hidden="true" />
+                    {t("landing.privacyPrivate")}
+                  </button>
+                  <button
+                    type="button"
+                    className={privacyMode === "shared" ? "is-active" : ""}
+                    onClick={() => setPrivacyMode("shared")}
+                    aria-pressed={privacyMode === "shared"}
+                  >
+                    <UsersRound size={17} aria-hidden="true" />
+                    {t("landing.privacyShared")}
+                  </button>
+                </div>
+                <p>
+                  {privacyMode === "private"
+                    ? t("landing.privacyPrivateDesc")
+                    : t("landing.privacySharedDesc")}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="lp-circles">
+          <div className="lp-circles-inner" data-reveal>
+            <header className="lp-section-heading">
+              <span>{t("landing.modesEyebrow")}</span>
+              <h2>{t("landing.modesTitle")}</h2>
+              <p>{t("landing.modesDesc")}</p>
+            </header>
+
+            <div className="lp-circle-gallery">
+              <article className="lp-circle-item">
+                <img
+                  src="/landing/my-khe-morning.jpg"
+                  alt={t("landing.altBeach")}
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div>
+                  <span className="lp-circle-item-icon">
+                    <LockKeyhole aria-hidden="true" />
+                  </span>
+                  <span>{t("landing.modeSolo")}</span>
+                </div>
+              </article>
+              <article className="lp-circle-item">
+                <img
+                  src="/landing/rooftop-da-nang.jpg"
+                  alt={t("landing.altRooftop")}
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div>
+                  <span className="lp-circle-item-icon">
+                    <Share2 aria-hidden="true" />
+                  </span>
+                  <span>{t("landing.modeFriends")}</span>
+                </div>
+              </article>
+              <article className="lp-circle-item">
+                <img
+                  src="/landing/hoi-an-family.jpg"
+                  alt={t("landing.altHoiAn")}
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div>
+                  <span className="lp-circle-item-icon">
+                    <UsersRound aria-hidden="true" />
+                  </span>
+                  <span>{t("landing.modeFamily")}</span>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section className="lp-install" id="install">
+          <div className="lp-install-inner" data-reveal>
+            <div className="lp-install-copy">
+              <div className="lp-kicker">
+                <Download size={17} aria-hidden="true" />
+                <span>{t("landing.installKicker")}</span>
+              </div>
+              <h2>{t("landing.installTitle")}</h2>
+              <p>{t("landing.installDesc")}</p>
+
+              <div className="lp-install-tabs" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={installPlatform === "ios"}
+                  className={installPlatform === "ios" ? "is-active" : ""}
+                  onClick={() => setInstallPlatform("ios")}
+                >
+                  iPhone / iPad
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={installPlatform === "android"}
+                  className={installPlatform === "android" ? "is-active" : ""}
+                  onClick={() => setInstallPlatform("android")}
+                >
+                  Android
+                </button>
+              </div>
+
+              <ol className="lp-install-steps">
+                {installSteps.map((step) => (
+                  <li key={step.label}>
+                    <span className="lp-install-step-icon">{step.icon}</span>
+                    <span>{step.label}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            <figure className="lp-install-media">
+              <img
+                src="/icons/install-guide.png"
+                alt={t("landing.installAlt")}
+                loading="lazy"
+                decoding="async"
+              />
+            </figure>
+          </div>
+        </section>
+
+        <section className="lp-bottom-cta">
+          <div className="lp-bottom-cta-inner" data-reveal>
+            <div>
+              <h2>{t("landing.bottomCtaTitle")}</h2>
+              <p>{t("landing.bottomCtaDesc")}</p>
+            </div>
+            <Link className="lp-btn-primary" to="/register">
+              <MapPin size={17} aria-hidden="true" />
+              {t("landing.bottomCtaBtn")}
+            </Link>
+          </div>
+        </section>
+      </main>
+
       <footer className="lp-footer">
         <div className="lp-footer-brand">
-          <Logo size={20} />
+          <Logo size={24} />
           <span>Pinly</span>
         </div>
+        <p>{t("landing.footerTagline")}</p>
         <div className="lp-footer-links">
           <Link to="/privacy">{t("legal.privacy")}</Link>
           <Link to="/terms">{t("legal.terms")}</Link>
