@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { useI18n } from "../../hooks/I18nContext";
 import { useSpaceCtx } from "../../hooks/SpaceContext";
 import { useSubscription } from "../../hooks/useSubscription";
+import { MULTI_SPACE_ENABLED } from "../../lib/featureFlags";
 import type { Space } from "../../types";
 import { Button } from "../ui/Button";
 import { GlassSurface } from "../ui/GlassSurface";
@@ -36,6 +37,94 @@ function formatSpaceError(err: unknown, lang: string) {
 }
 
 export function SpaceSwitcher() {
+  return MULTI_SPACE_ENABLED ? (
+    <MultiSpaceSwitcher />
+  ) : (
+    <SingleSpaceJoinPanel />
+  );
+}
+
+function SingleSpaceJoinPanel() {
+  const { t } = useI18n();
+  const { activeSpace, capabilities, joinSpaceByInvite } = useSpaceCtx();
+  const { refetch: refetchSubscription } = useSubscription();
+  const [inviteCode, setInviteCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [joined, setJoined] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!activeSpace || capabilities.memberCount >= 2) return null;
+
+  async function handleJoin(event: React.FormEvent) {
+    event.preventDefault();
+    if (busy || !inviteCode.trim()) return;
+    setBusy(true);
+    setJoined(false);
+    setError(null);
+    try {
+      await joinSpaceByInvite(inviteCode);
+      setInviteCode("");
+      setJoined(true);
+      await refetchSubscription();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <GlassSurface
+      as="section"
+      level="section"
+      className="setting-section space-switcher single-space-join"
+    >
+      <div className="setting-section-title">
+        <LogIn size={14} aria-hidden="true" />
+        <span>{t("settings.joinSpace")}</span>
+      </div>
+      <form
+        className="space-join-form"
+        onSubmit={(event) => void handleJoin(event)}
+      >
+        <div className="space-join-row">
+          <input
+            id="settings-single-space-join-code"
+            className="space-join-input"
+            value={inviteCode}
+            onChange={(event) => {
+              setInviteCode(event.target.value.toUpperCase());
+              setJoined(false);
+              if (error) setError(null);
+            }}
+            aria-label={t("spaceSetup.inviteCode")}
+            placeholder={t("spaceSetup.inviteCode")}
+            maxLength={12}
+            autoComplete="off"
+            disabled={busy}
+          />
+          <Button
+            type="submit"
+            variant="secondary"
+            size="sm"
+            loading={busy}
+            disabled={busy || !inviteCode.trim()}
+            leadingIcon={<LogIn size={15} />}
+            className="space-join-submit"
+          >
+            {t("spaceSetup.join")}
+          </Button>
+        </div>
+      </form>
+      {joined && (
+        <p className="space-join-success">{t("settings.joinSpaceSuccess")}</p>
+      )}
+      {error && <p className="error small">{error}</p>}
+    </GlassSurface>
+  );
+}
+
+function MultiSpaceSwitcher() {
   const { lang, t } = useI18n();
   const {
     profile,

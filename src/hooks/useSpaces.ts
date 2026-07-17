@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { MULTI_SPACE_ENABLED } from "../lib/featureFlags";
+import {
+  scopePayloadToSingleSpace,
+  selectPreferredSingleSpace,
+} from "../lib/spaceSelection";
 import { getSpaceCapabilities } from "../lib/spaceCapabilities";
 import type { Space, SpaceContextPayload, SpaceMember, SpaceProfile } from "../types";
 
@@ -123,10 +128,35 @@ export function useSpaces(userId: string | undefined) {
         if (rpcError) throw rpcError;
         if (!isCurrentRequest()) return;
 
-        applyPayload(
-          (data as SpaceContextPayload | null) ?? emptyPayload(),
-          expectedUserId,
-        );
+        let nextPayload =
+          (data as SpaceContextPayload | null) ?? emptyPayload();
+
+        if (!MULTI_SPACE_ENABLED) {
+          const preferredSpace = selectPreferredSingleSpace(nextPayload);
+          const storedActiveSpaceId = nextPayload.profile?.active_space_id ?? null;
+
+          if (preferredSpace && storedActiveSpaceId !== preferredSpace.id) {
+            const { error: setActiveError } = await supabase.rpc(
+              "set_active_space_for_current_user",
+              { space_id: preferredSpace.id },
+            );
+            if (setActiveError) throw setActiveError;
+            if (!isCurrentRequest()) return;
+
+            const { data: syncedData, error: syncedError } = await supabase.rpc(
+              "get_space_context_for_current_user",
+              { active_space_id: preferredSpace.id },
+            );
+            if (syncedError) throw syncedError;
+            if (!isCurrentRequest()) return;
+            nextPayload =
+              (syncedData as SpaceContextPayload | null) ?? emptyPayload();
+          }
+
+          nextPayload = scopePayloadToSingleSpace(nextPayload);
+        }
+
+        applyPayload(nextPayload, expectedUserId);
       } catch (err) {
         if (!isCurrentRequest()) return;
         setError(err instanceof Error ? err.message : "Could not load spaces");

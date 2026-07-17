@@ -50,6 +50,14 @@ interface AdminSupportTicket {
   resolved_at: string | null;
 }
 
+interface SupportMessage {
+  id: string;
+  ticket_id: string;
+  sender_type: "user" | "admin";
+  body: string;
+  created_at: string;
+}
+
 interface TicketCounts {
   total: number;
   open: number;
@@ -108,12 +116,18 @@ const COPY = {
     viewport: "Viewport",
     browser: "Browser",
     language: "Language",
+    conversation: "Conversation",
+    customer: "Customer",
+    pinly: "Pinly support",
+    conversationLoading: "Loading conversation…",
+    conversationError: "The conversation could not be loaded.",
     reply: "Reply to user",
     replyPlaceholder: "Write a clear response for the user…",
     status: "Status",
-    save: "Save response",
+    save: "Send reply",
+    updateStatus: "Update status",
     saving: "Saving…",
-    saved: "Ticket updated. The user will see the latest response in Pinly.",
+    saved: "Ticket updated. The user will see the new message in Pinly.",
     saveError: "Could not update this ticket. Please try again.",
     replyRequired: "Add a reply before resolving or closing this ticket.",
     chars: "characters",
@@ -151,12 +165,18 @@ const COPY = {
     viewport: "Màn hình",
     browser: "Trình duyệt",
     language: "Ngôn ngữ",
+    conversation: "Lịch sử trao đổi",
+    customer: "Người dùng",
+    pinly: "Đội ngũ Pinly",
+    conversationLoading: "Đang tải nội dung trao đổi…",
+    conversationError: "Chưa tải được nội dung trao đổi.",
     reply: "Phản hồi người dùng",
     replyPlaceholder: "Nhập phản hồi rõ ràng cho người dùng…",
     status: "Trạng thái",
-    save: "Lưu phản hồi",
+    save: "Gửi phản hồi",
+    updateStatus: "Cập nhật trạng thái",
     saving: "Đang lưu…",
-    saved: "Đã cập nhật ticket. Người dùng sẽ thấy phản hồi mới nhất trong Pinly.",
+    saved: "Đã cập nhật ticket. Người dùng sẽ thấy tin nhắn mới trong Pinly.",
     saveError: "Chưa thể cập nhật ticket. Vui lòng thử lại.",
     replyRequired: "Hãy nhập phản hồi trước khi giải quyết hoặc đóng ticket.",
     chars: "ký tự",
@@ -216,6 +236,9 @@ export function AdminSupportPage({
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [statusDraft, setStatusDraft] = useState<SupportStatus>("open");
   const [replyDraft, setReplyDraft] = useState("");
+  const [threadMessages, setThreadMessages] = useState<SupportMessage[]>([]);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [threadError, setThreadError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -223,6 +246,7 @@ export function AdminSupportPage({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [livePulse, setLivePulse] = useState(0);
   const detailRef = useRef<HTMLElement>(null);
+  const draftTicketIdRef = useRef<string | null>(null);
 
   const statusLabel = useCallback(
     (status: SupportStatus) => {
@@ -254,14 +278,37 @@ export function AdminSupportPage({
       const rows = (ticketResult.data ?? []) as AdminSupportTicket[];
       setTickets(rows);
       setCounts(normalizeCounts(countResult.data));
-      setSelectedTicketId((current) =>
-        current && rows.some((ticket) => ticket.ticket_id === current)
-          ? current
-          : null,
+      const requestedTicketId = new URLSearchParams(window.location.search).get(
+        "ticket",
       );
+      setSelectedTicketId((current) => {
+        const preferredTicketId = current ?? requestedTicketId;
+        return preferredTicketId &&
+          rows.some((ticket) => ticket.ticket_id === preferredTicketId)
+          ? preferredTicketId
+          : null;
+      });
     }
     setLoading(false);
   }, [copy.loadError]);
+
+  const loadThread = useCallback(async (ticketId: string, showLoading = true) => {
+    if (showLoading) setThreadLoading(true);
+    setThreadError(false);
+    const { data, error: messageError } = await supabase
+      .from("support_ticket_messages")
+      .select("id, ticket_id, sender_type, body, created_at")
+      .eq("ticket_id", ticketId)
+      .order("created_at", { ascending: true });
+
+    if (messageError) {
+      setThreadMessages([]);
+      setThreadError(true);
+    } else {
+      setThreadMessages((data ?? []) as SupportMessage[]);
+    }
+    setThreadLoading(false);
+  }, []);
 
   useEffect(() => {
     if (!access.isAdmin) return;
@@ -318,21 +365,92 @@ export function AdminSupportPage({
     [selectedTicketId, tickets],
   );
 
-  const replyChanged = selectedTicket
-    ? replyDraft.trim() !== (selectedTicket.admin_reply ?? "")
-    : false;
+  useEffect(() => {
+    if (!selectedTicket) {
+      draftTicketIdRef.current = null;
+      return;
+    }
+    if (draftTicketIdRef.current !== selectedTicket.ticket_id) {
+      draftTicketIdRef.current = selectedTicket.ticket_id;
+      setStatusDraft(selectedTicket.status);
+      setReplyDraft("");
+      setSaveError(null);
+      setSaveSuccess(false);
+    }
+  }, [selectedTicket]);
+
+  useEffect(() => {
+    if (!access.isAdmin || !selectedTicketId) return;
+
+    const timer = window.setTimeout(() => {
+      void loadThread(selectedTicketId);
+    }, 0);
+    const channel = supabase
+      .channel(`admin-support-thread-${selectedTicketId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "support_ticket_messages",
+          filter: `ticket_id=eq.${selectedTicketId}`,
+        },
+        () => {
+          void loadThread(selectedTicketId, false);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      window.clearTimeout(timer);
+      void supabase.removeChannel(channel);
+    };
+  }, [access.isAdmin, loadThread, selectedTicketId]);
+
+  const replyChanged = replyDraft.trim().length > 0;
   const statusChanged = selectedTicket
     ? statusDraft !== selectedTicket.status
     : false;
   const formDirty = replyChanged || statusChanged;
+  const hasAdminReply =
+    threadMessages.some((message) => message.sender_type === "admin") ||
+    Boolean(selectedTicket?.admin_reply);
+  const visibleThreadMessages = useMemo(() => {
+    if (threadMessages.length > 0 || !selectedTicket) return threadMessages;
+    const fallback: SupportMessage[] = [
+      {
+        id: `${selectedTicket.ticket_id}-initial`,
+        ticket_id: selectedTicket.ticket_id,
+        sender_type: "user",
+        body: selectedTicket.message,
+        created_at: selectedTicket.created_at,
+      },
+    ];
+    if (selectedTicket.admin_reply) {
+      fallback.push({
+        id: `${selectedTicket.ticket_id}-legacy-admin`,
+        ticket_id: selectedTicket.ticket_id,
+        sender_type: "admin",
+        body: selectedTicket.admin_reply,
+        created_at: selectedTicket.updated_at,
+      });
+    }
+    return fallback;
+  }, [selectedTicket, threadMessages]);
 
   function openTicket(ticket: AdminSupportTicket) {
+    draftTicketIdRef.current = ticket.ticket_id;
     setSelectedTicketId(ticket.ticket_id);
     setStatusDraft(ticket.status);
-    setReplyDraft(ticket.admin_reply ?? "");
+    setReplyDraft("");
+    setThreadMessages([]);
+    setThreadError(false);
     setSaveError(null);
     setSaveSuccess(false);
     setLivePulse(0);
+    const url = new URL(window.location.href);
+    url.searchParams.set("ticket", ticket.ticket_id);
+    window.history.replaceState(window.history.state, "", url);
     if (window.matchMedia("(max-width: 720px)").matches) {
       window.requestAnimationFrame(() => {
         detailRef.current?.scrollIntoView({
@@ -350,7 +468,8 @@ export function AdminSupportPage({
     if (!selectedTicket || saving || !formDirty) return;
     if (
       (statusDraft === "resolved" || statusDraft === "closed") &&
-      replyDraft.trim().length === 0
+      replyDraft.trim().length === 0 &&
+      !hasAdminReply
     ) {
       setSaveError(copy.replyRequired);
       return;
@@ -359,12 +478,15 @@ export function AdminSupportPage({
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
+    const reply = replyDraft.trim();
+    const nextStatus =
+      reply && statusDraft === "open" ? "in_progress" : statusDraft;
     const { error: updateError } = await supabase.rpc(
       "admin_update_support_ticket",
       {
         p_ticket_id: selectedTicket.ticket_id,
-        p_status: statusDraft,
-        p_admin_reply: replyDraft.trim() || null,
+        p_status: nextStatus,
+        p_admin_reply: reply || null,
       },
     );
 
@@ -372,7 +494,12 @@ export function AdminSupportPage({
       setSaveError(updateError.message || copy.saveError);
     } else {
       setSaveSuccess(true);
-      await loadDashboard(false);
+      setReplyDraft("");
+      setStatusDraft(nextStatus);
+      await Promise.all([
+        loadDashboard(false),
+        loadThread(selectedTicket.ticket_id, false),
+      ]);
     }
     setSaving(false);
   }
@@ -636,9 +763,47 @@ export function AdminSupportPage({
                 </span>
               </div>
 
-              <article className="admin-support-message">
-                {selectedTicket.message}
-              </article>
+              <section
+                className="admin-support-thread"
+                aria-labelledby="admin-support-conversation-title"
+              >
+                <div className="admin-support-thread-heading">
+                  <h3 id="admin-support-conversation-title">
+                    {copy.conversation}
+                  </h3>
+                  {threadLoading && (
+                    <span>
+                      <Loader2 size={13} className="admin-support-spinner" />
+                      {copy.conversationLoading}
+                    </span>
+                  )}
+                </div>
+                {threadError && (
+                  <p className="admin-support-thread-error">
+                    <AlertCircle size={14} /> {copy.conversationError}
+                  </p>
+                )}
+                <div className="admin-support-thread-list">
+                  {visibleThreadMessages.map((message) => (
+                    <article
+                      key={message.id}
+                      className={`admin-support-thread-message from-${message.sender_type}`}
+                    >
+                      <header>
+                        <strong>
+                          {message.sender_type === "admin"
+                            ? copy.pinly
+                            : copy.customer}
+                        </strong>
+                        <time dateTime={message.created_at}>
+                          {formatDate(message.created_at)}
+                        </time>
+                      </header>
+                      <p>{message.body}</p>
+                    </article>
+                  ))}
+                </div>
+              </section>
 
               <details className="admin-support-context">
                 <summary>{copy.technicalContext}</summary>
@@ -695,7 +860,11 @@ export function AdminSupportPage({
                   disabled={!formDirty || saving}
                   leadingIcon={<MessageCircle size={16} />}
                 >
-                  {saving ? copy.saving : copy.save}
+                  {saving
+                    ? copy.saving
+                    : replyChanged
+                      ? copy.save
+                      : copy.updateStatus}
                 </Button>
               </form>
             </>

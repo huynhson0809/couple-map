@@ -55,6 +55,7 @@ import { Switch } from "../components/ui/Switch";
 import { cx } from "../components/ui/uiClasses";
 import { uploadToCloudinary, getImageUrl } from "../lib/cloudinary";
 import { invalidateApiCacheByPrefix } from "../lib/apiCache";
+import { MULTI_SPACE_ENABLED } from "../lib/featureFlags";
 
 const BREAKUP_CONFIRM_TEXT = "KET THUC";
 
@@ -360,7 +361,7 @@ export function SettingsPage() {
           {accountPlan !== "free" && planSourceLabel && (
             <span className="muted setting-plan-meta">{planSourceLabel}</span>
           )}
-          {!subscriptionLoading && (
+          {MULTI_SPACE_ENABLED && !subscriptionLoading && (
             <span className="muted setting-plan-meta">
               {lang === "vi"
                 ? `Bản đồ đã tạo: ${ownedSpaceCount}/${ownedSpaceLimit}`
@@ -376,7 +377,7 @@ export function SettingsPage() {
                   : `This space uses owner plan: ${effectiveSpacePlanName}`}
               </span>
             )}
-          {quotaReached && (
+          {MULTI_SPACE_ENABLED && quotaReached && (
             <span className="muted setting-plan-meta">
               {lang === "vi"
                 ? "Bạn đã đạt giới hạn tạo bản đồ của gói hiện tại. Bạn vẫn có thể tham gia bản đồ được mời."

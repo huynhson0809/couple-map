@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  useCallback,
   useEffect,
   useState,
   type FormEvent,
@@ -23,14 +24,26 @@ export type SupportView = "faq" | "contact" | "bug";
 
 type TicketStatus = "open" | "in_progress" | "resolved" | "closed";
 type TicketKind = "question" | "bug";
+type MessageSender = "user" | "admin";
+
+interface SupportMessage {
+  id: string;
+  ticket_id: string;
+  sender_type: MessageSender;
+  body: string;
+  created_at: string;
+}
 
 interface SupportTicket {
   id: string;
   kind: TicketKind;
   subject: string;
+  message: string;
   status: TicketStatus;
   admin_reply: string | null;
   created_at: string;
+  updated_at: string;
+  messages: SupportMessage[];
 }
 
 interface TicketDraft {
@@ -63,12 +76,68 @@ function getErrorMessage(error: unknown) {
 }
 
 async function fetchRecentTickets(userId: string) {
-  return supabase
+  const ticketResult = await supabase
     .from("support_tickets")
-    .select("id, kind, subject, status, admin_reply, created_at")
+    .select(
+      "id, kind, subject, message, status, admin_reply, created_at, updated_at",
+    )
     .eq("user_id", userId)
-    .order("created_at", { ascending: false })
+    .order("updated_at", { ascending: false })
     .limit(5);
+
+  if (ticketResult.error) {
+    return { data: null, error: ticketResult.error };
+  }
+
+  const ticketRows = ticketResult.data ?? [];
+  if (ticketRows.length === 0) {
+    return { data: [] as SupportTicket[], error: null };
+  }
+
+  const messageResult = await supabase
+    .from("support_ticket_messages")
+    .select("id, ticket_id, sender_type, body, created_at")
+    .in(
+      "ticket_id",
+      ticketRows.map((ticket) => ticket.id),
+    )
+    .order("created_at", { ascending: true });
+
+  if (messageResult.error) {
+    return { data: null, error: messageResult.error };
+  }
+
+  const messagesByTicket = new Map<string, SupportMessage[]>();
+  for (const row of (messageResult.data ?? []) as SupportMessage[]) {
+    const current = messagesByTicket.get(row.ticket_id) ?? [];
+    current.push(row);
+    messagesByTicket.set(row.ticket_id, current);
+  }
+
+  const tickets = ticketRows.map((ticket) => {
+    const messages = messagesByTicket.get(ticket.id) ?? [];
+    if (messages.length === 0) {
+      messages.push({
+        id: `${ticket.id}-initial`,
+        ticket_id: ticket.id,
+        sender_type: "user",
+        body: ticket.message,
+        created_at: ticket.created_at,
+      });
+      if (ticket.admin_reply) {
+        messages.push({
+          id: `${ticket.id}-legacy-admin`,
+          ticket_id: ticket.id,
+          sender_type: "admin",
+          body: ticket.admin_reply,
+          created_at: ticket.updated_at,
+        });
+      }
+    }
+    return { ...ticket, messages } as SupportTicket;
+  });
+
+  return { data: tickets, error: null };
 }
 
 export function SupportCenter({
@@ -90,23 +159,53 @@ export function SupportCenter({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedTicketId, setSubmittedTicketId] = useState<string | null>(null);
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [replyingTicketId, setReplyingTicketId] = useState<string | null>(null);
+  const [replyErrors, setReplyErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    let active = true;
-    void fetchRecentTickets(userId).then(({ data, error }) => {
-      if (!active) return;
+  const refreshTickets = useCallback(
+    async (showLoading = false) => {
+      if (showLoading) setTicketsLoading(true);
+      const { data, error } = await fetchRecentTickets(userId);
       if (error) {
         setTicketsError(true);
-        setTickets([]);
       } else {
-        setTickets((data ?? []) as SupportTicket[]);
+        setTicketsError(false);
+        setTickets(data ?? []);
       }
       setTicketsLoading(false);
-    });
+    },
+    [userId],
+  );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void refreshTickets(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [refreshTickets]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`support-center-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "support_tickets",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          void refreshTickets(false);
+        },
+      )
+      .subscribe();
+
     return () => {
-      active = false;
+      void supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [refreshTickets, userId]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -159,40 +258,39 @@ export function SupportCenter({
     setSubmittedTicketId(null);
     try {
       const kind: TicketKind = view === "bug" ? "bug" : "question";
-      const { data, error } = await supabase
-        .from("support_tickets")
-        .insert({
-          user_id: userId,
-          kind,
-          subject,
-          message,
-          context: {
-            route: window.location.pathname,
-            language: lang,
-            active_space_id: activeSpaceId ?? null,
-            user_agent: navigator.userAgent,
-            viewport: {
-              width: window.innerWidth,
-              height: window.innerHeight,
+      const { data, error } = await supabase.functions.invoke(
+        "submit-support-message",
+        {
+          body: {
+            action: "create",
+            kind,
+            subject,
+            message,
+            context: {
+              route: window.location.pathname,
+              language: lang,
+              active_space_id: activeSpaceId ?? null,
+              user_agent: navigator.userAgent,
+              viewport: {
+                width: window.innerWidth,
+                height: window.innerHeight,
+              },
             },
           },
-        })
-        .select("id")
-        .single();
+        },
+      );
 
       if (error) throw error;
-      setSubmittedTicketId(data.id);
+      const ticketId =
+        data && typeof data.ticket_id === "string" ? data.ticket_id : null;
+      if (!ticketId) throw new Error("support_ticket_id_missing");
+
+      setSubmittedTicketId(ticketId);
       setDrafts((current) => ({
         ...current,
         [view]: { subject: "", message: "" },
       }));
-      const recent = await fetchRecentTickets(userId);
-      if (recent.error) {
-        setTicketsError(true);
-      } else {
-        setTicketsError(false);
-        setTickets((recent.data ?? []) as SupportTicket[]);
-      }
+      await refreshTickets(false);
     } catch (error) {
       const messageText = getErrorMessage(error);
       setSubmitError(
@@ -204,6 +302,59 @@ export function SupportCenter({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleReply(
+    event: FormEvent<HTMLFormElement>,
+    ticket: SupportTicket,
+  ) {
+    event.preventDefault();
+    if (replyingTicketId || ticket.status === "closed") return;
+
+    const message = (replyDrafts[ticket.id] ?? "").trim();
+    if (!message) {
+      setReplyErrors((current) => ({
+        ...current,
+        [ticket.id]: t("support.replyValidation"),
+      }));
+      return;
+    }
+
+    setReplyingTicketId(ticket.id);
+    setReplyErrors((current) => ({ ...current, [ticket.id]: "" }));
+    try {
+      const { error } = await supabase.functions.invoke(
+        "submit-support-message",
+        {
+          body: {
+            action: "reply",
+            ticket_id: ticket.id,
+            message,
+          },
+        },
+      );
+      if (error) throw error;
+
+      setReplyDrafts((current) => ({ ...current, [ticket.id]: "" }));
+      await refreshTickets(false);
+    } catch (error) {
+      const messageText = getErrorMessage(error);
+      setReplyErrors((current) => ({
+        ...current,
+        [ticket.id]: messageText.includes("closed")
+          ? t("support.ticketClosed")
+          : t("support.replyError"),
+      }));
+    } finally {
+      setReplyingTicketId(null);
+    }
+  }
+
+  function formatMessageDate(value: string) {
+    return new Intl.DateTimeFormat(lang === "vi" ? "vi-VN" : "en-US", {
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(new Date(value));
   }
 
   const activeDraft = view === "faq" ? null : drafts[view];
@@ -380,41 +531,117 @@ export function SupportCenter({
               <p className="muted small">{t("support.recentEmpty")}</p>
             ) : (
               <div className="support-ticket-list">
-                {tickets.map((ticket) => (
-                  <details className="support-ticket-item" key={ticket.id}>
-                    <summary>
-                      <span className="support-ticket-summary">
-                        <strong>{ticket.subject}</strong>
-                        <small>
-                          #{ticket.id.slice(0, 8).toUpperCase()} ·{" "}
-                          {new Date(ticket.created_at).toLocaleDateString(
-                            lang === "vi" ? "vi-VN" : "en-US",
-                          )}
-                        </small>
-                      </span>
-                      <span
-                        className={`support-ticket-status status-${ticket.status}`}
-                      >
-                        {statusLabel(ticket.status)}
-                      </span>
-                    </summary>
-                    <div className="support-ticket-detail">
-                      <span>
-                        {ticket.kind === "bug"
-                          ? t("settings.supportReportBug")
-                          : t("settings.supportContact")}
-                      </span>
-                      {ticket.admin_reply ? (
-                        <p>
-                          <strong>{t("support.adminReply")}</strong>
-                          {ticket.admin_reply}
-                        </p>
-                      ) : (
-                        <p>{t("support.waitingReply")}</p>
-                      )}
-                    </div>
-                  </details>
-                ))}
+                {tickets.map((ticket) => {
+                  const hasAdminMessage = ticket.messages.some(
+                    (message) => message.sender_type === "admin",
+                  );
+                  const isReplying = replyingTicketId === ticket.id;
+                  return (
+                    <details className="support-ticket-item" key={ticket.id}>
+                      <summary>
+                        <span className="support-ticket-summary">
+                          <strong>{ticket.subject}</strong>
+                          <small>
+                            #{ticket.id.slice(0, 8).toUpperCase()} ·{" "}
+                            {new Date(ticket.created_at).toLocaleDateString(
+                              lang === "vi" ? "vi-VN" : "en-US",
+                            )}
+                          </small>
+                        </span>
+                        <span
+                          className={`support-ticket-status status-${ticket.status}`}
+                        >
+                          {statusLabel(ticket.status)}
+                        </span>
+                      </summary>
+                      <div className="support-ticket-detail">
+                        <span>
+                          {ticket.kind === "bug"
+                            ? t("settings.supportReportBug")
+                            : t("settings.supportContact")}
+                        </span>
+
+                        <div
+                          className="support-conversation"
+                          aria-label={t("support.conversation")}
+                        >
+                          {ticket.messages.map((message) => (
+                            <article
+                              key={message.id}
+                              className={`support-conversation-message from-${message.sender_type}`}
+                            >
+                              <header>
+                                <strong>
+                                  {message.sender_type === "admin"
+                                    ? t("support.pinly")
+                                    : t("support.you")}
+                                </strong>
+                                <time dateTime={message.created_at}>
+                                  {formatMessageDate(message.created_at)}
+                                </time>
+                              </header>
+                              <p>{message.body}</p>
+                            </article>
+                          ))}
+                        </div>
+
+                        {!hasAdminMessage && ticket.status !== "closed" && (
+                          <p className="support-waiting-reply">
+                            {t("support.waitingReply")}
+                          </p>
+                        )}
+
+                        {ticket.status === "closed" ? (
+                          <p className="support-ticket-closed">
+                            {t("support.ticketClosed")}
+                          </p>
+                        ) : (
+                          <form
+                            className="support-conversation-reply"
+                            onSubmit={(event) => handleReply(event, ticket)}
+                          >
+                            <label>
+                              <span>{t("support.reply")}</span>
+                              <textarea
+                                value={replyDrafts[ticket.id] ?? ""}
+                                onChange={(event) => {
+                                  setReplyDrafts((current) => ({
+                                    ...current,
+                                    [ticket.id]: event.target.value,
+                                  }));
+                                  setReplyErrors((current) => ({
+                                    ...current,
+                                    [ticket.id]: "",
+                                  }));
+                                }}
+                                placeholder={t("support.replyPlaceholder")}
+                                maxLength={4000}
+                                rows={3}
+                                disabled={isReplying}
+                              />
+                            </label>
+                            {replyErrors[ticket.id] && (
+                              <p className="support-conversation-error" role="alert">
+                                {replyErrors[ticket.id]}
+                              </p>
+                            )}
+                            <Button
+                              type="submit"
+                              size="sm"
+                              loading={isReplying}
+                              disabled={isReplying}
+                              leadingIcon={<Send size={14} />}
+                            >
+                              {isReplying
+                                ? t("support.replySending")
+                                : t("support.replySend")}
+                            </Button>
+                          </form>
+                        )}
+                      </div>
+                    </details>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -663,6 +663,102 @@
   overflow-wrap: anywhere;
 }
 
+.admin-support-thread {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-support-thread-heading {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-support-thread-heading h3 {
+  margin: 0;
+  color: #30384b;
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.admin-support-thread-heading > span,
+.admin-support-thread-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #7b8495;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.admin-support-thread-error {
+  color: #be123c;
+}
+
+.admin-support-thread-list {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #e1e5eb;
+  border-radius: 8px;
+  background: #f8f9fb;
+}
+
+.admin-support-thread-message {
+  width: min(86%, 520px);
+  display: grid;
+  gap: 7px;
+  padding: 11px 12px;
+  border: 1px solid #e1e5eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #30384b;
+}
+
+.admin-support-thread-message.from-user {
+  justify-self: start;
+}
+
+.admin-support-thread-message.from-admin {
+  justify-self: end;
+  border-color: rgba(255, 82, 102, 0.2);
+  background: #fff4f6;
+}
+
+.admin-support-thread-message header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-support-thread-message header strong {
+  color: #30384b;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.admin-support-thread-message time {
+  color: #929aaa;
+  font-size: 8px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-support-thread-message p {
+  margin: 0;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .admin-support-context {
   margin-top: 16px;
   border: 1px solid #e1e5eb;
@@ -927,10 +1023,27 @@
 }
 
 [data-theme="dark"] .admin-support-message,
+[data-theme="dark"] .admin-support-thread-list,
 [data-theme="dark"] .admin-support-context {
   border-color: #343a49;
   background: #1a1f2b;
   color: #d6dbe4;
+}
+
+[data-theme="dark"] .admin-support-thread-heading h3,
+[data-theme="dark"] .admin-support-thread-message header strong {
+  color: #f2f4f8;
+}
+
+[data-theme="dark"] .admin-support-thread-message {
+  border-color: #343a49;
+  background: #10141e;
+  color: #d6dbe4;
+}
+
+[data-theme="dark"] .admin-support-thread-message.from-admin {
+  border-color: rgba(255, 101, 118, 0.26);
+  background: #281c25;
 }
 
 [data-theme="dark"] .admin-support-context dl {
@@ -1148,6 +1261,20 @@
 
   .admin-support-context dl > div.wide {
     grid-column: auto;
+  }
+
+  .admin-support-thread-list {
+    padding: 10px;
+  }
+
+  .admin-support-thread-message {
+    width: 94%;
+  }
+
+  .admin-support-thread-message header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
   }
 
   .admin-support-reply-grid {

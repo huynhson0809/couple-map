@@ -16,6 +16,7 @@ import webpush from "npm:web-push@3.6.7";
 import { buildCorsHeaders } from "../_shared/cors.ts";
 
 const REMINDER_HOURS = [12, 20, 22, 23];
+const EMAIL_REMINDER_HOUR = 20;
 const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";
 const LEGACY_GEMINI_MODELS = new Set([
   "gemini-2.5-flash",
@@ -348,6 +349,34 @@ function maskEmail(email: string) {
   return `${visibleName}@${domain}`;
 }
 
+function resendFailureReason(status: number, rawText: string) {
+  const detail = rawText.toLowerCase();
+
+  if (status === 403) {
+    if (detail.includes("api key is invalid") || detail.includes("invalid api key")) {
+      return "resend_invalid_api_key";
+    }
+    if (
+      detail.includes("only send testing emails") ||
+      detail.includes("testing emails to your own email") ||
+      detail.includes("resend.dev")
+    ) {
+      return "resend_testing_domain_restricted";
+    }
+    if (detail.includes("domain") && detail.includes("not verified")) {
+      return "resend_domain_not_verified";
+    }
+    if (detail.includes("domain") && detail.includes("does not match")) {
+      return "resend_domain_mismatch";
+    }
+    if (detail.includes("1010") || detail.includes("access denied")) {
+      return "resend_access_denied";
+    }
+  }
+
+  return `resend_http_${status}`;
+}
+
 async function sendToUser(
   supabase: ReturnType<typeof createClient>,
   userId: string,
@@ -471,17 +500,22 @@ async function sendEmailToUser(
     return { sent: 0, skipped: true, reason: "missing_user_email" };
   }
 
-  const baseUrl = Deno.env.get("APP_URL") || "https://pinly-app.vercel.app";
-  const appUrl = baseUrl;
+  const baseUrl = Deno.env.get("APP_URL") || "https://pinly.tech";
+  const appUrl = baseUrl.replace(/\/$/, "");
+  const settingsUrl = `${appUrl}/settings`;
   const text = [
     body,
     "",
     "Mở Pinly để lưu một mẩu ký ức hôm nay:",
     appUrl,
+    "",
+    "Bạn có thể tắt email nhắc chuỗi bất cứ lúc nào:",
+    settingsUrl,
   ].join("\n");
   const html = [
     `<p>${escapeHtml(body)}</p>`,
     `<p><a href="${appUrl}">Mở Pinly</a> để lưu một mẩu ký ức hôm nay.</p>`,
+    `<p style="color:#667085;font-size:13px">Bạn có thể <a href="${settingsUrl}">tắt email nhắc chuỗi</a> bất cứ lúc nào.</p>`,
   ].join("");
 
   let response: Response;
@@ -493,6 +527,7 @@ async function sendEmailToUser(
         headers: {
           Authorization: `Bearer ${resendApiKey}`,
           "Content-Type": "application/json",
+          "User-Agent": "Pinly/1.0",
         },
         body: JSON.stringify({
           from,
@@ -528,7 +563,7 @@ async function sendEmailToUser(
     return {
       sent: 0,
       skipped: true,
-      reason: `resend_http_${response.status}`,
+      reason: resendFailureReason(response.status, rawText),
       toEmail: maskEmail(toEmail),
       emailSource,
     };
@@ -541,6 +576,24 @@ async function sendEmailToUser(
     toEmail: maskEmail(toEmail),
     emailSource,
   };
+}
+
+async function sendScheduledEmailToUser(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  reminderHour: number,
+  subject: string,
+  body: string,
+): Promise<EmailSendResult> {
+  if (reminderHour !== EMAIL_REMINDER_HOUR) {
+    return {
+      sent: 0,
+      skipped: true,
+      reason: "outside_daily_email_window",
+    };
+  }
+
+  return sendEmailToUser(supabase, userId, subject, body);
 }
 
 function bodyForRecipient(
@@ -952,6 +1005,10 @@ serve(async (req) => {
     const debug = booleanValue(
       requestValue(body, requestUrl.searchParams, req.headers, "debug"),
     );
+    const action = stringValue(
+      requestValue(body, requestUrl.searchParams, req.headers, "action"),
+      "",
+    );
     const envDryRun = envFlag("STREAK_REMINDER_DRY_RUN");
     const dryRun =
       envDryRun ||
@@ -962,6 +1019,82 @@ serve(async (req) => {
         requestValue(body, requestUrl.searchParams, req.headers, "preview"),
       );
     const includeDebug = dryRun || debug;
+
+    if (action === "test_email") {
+      if (req.method !== "POST") {
+        return new Response(JSON.stringify({ error: "Method not allowed" }), {
+          status: 405,
+          headers: {
+            ...buildCorsHeaders(req, "x-streak-secret"),
+            "Content-Type": "application/json",
+          },
+        });
+      }
+
+      const targetEmail = stringValue(
+        requestValue(
+          body,
+          requestUrl.searchParams,
+          req.headers,
+          "target_email",
+        ),
+        "",
+      ).toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(targetEmail)) {
+        return new Response(JSON.stringify({ error: "Invalid target email" }), {
+          status: 400,
+          headers: {
+            ...buildCorsHeaders(req, "x-streak-secret"),
+            "Content-Type": "application/json",
+          },
+        });
+      }
+
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      const { data: targetUser, error: targetUserError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", targetEmail)
+        .maybeSingle();
+
+      if (targetUserError) throw targetUserError;
+      if (!targetUser?.id) {
+        return new Response(JSON.stringify({ error: "Target user not found" }), {
+          status: 404,
+          headers: {
+            ...buildCorsHeaders(req, "x-streak-secret"),
+            "Content-Type": "application/json",
+          },
+        });
+      }
+
+      const result = await sendEmailToUser(
+        supabase,
+        targetUser.id,
+        "Pinly - kiểm tra email nhắc chuỗi",
+        "Email nhắc chuỗi của Pinly đang hoạt động bình thường.",
+      );
+
+      return new Response(
+        JSON.stringify({
+          message: "Test email processed",
+          sent: result.sent,
+          skipped: result.skipped,
+          reason: result.reason ?? null,
+          to: result.toEmail ?? null,
+        }),
+        {
+          status: result.sent === 1 ? 200 : 502,
+          headers: {
+            ...buildCorsHeaders(req, "x-streak-secret"),
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
 
     if (!force && !REMINDER_HOURS.includes(reminderHour)) {
       return new Response(
@@ -1159,9 +1292,10 @@ serve(async (req) => {
 
         const emailResult = dryRun
           ? { sent: 0, skipped: false, reason: "dry_run" }
-          : await sendEmailToUser(
+          : await sendScheduledEmailToUser(
               supabase,
               recipient.userId,
+              reminderHour,
               "Pinly nhắc nhẹ",
               notificationBody.body,
             );
@@ -1286,9 +1420,10 @@ serve(async (req) => {
 
       const emailResult = dryRun
         ? { sent: 0, skipped: false, reason: "dry_run" }
-        : await sendEmailToUser(
+        : await sendScheduledEmailToUser(
             supabase,
             target.user_id,
+            reminderHour,
             "Pinly nhắc nhẹ",
             notificationBody.body,
           );

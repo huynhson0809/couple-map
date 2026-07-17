@@ -1,3 +1,11 @@
 /// <reference types="vite/client" />
 /// <reference types="vite-plugin-pwa/react" />
 /// <reference types="vite-plugin-pwa/client" />
+
+interface ImportMetaEnv {
+  readonly VITE_MULTI_SPACE_ENABLED?: "true" | "false";
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}

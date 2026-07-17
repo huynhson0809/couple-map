@@ -6541,6 +6541,121 @@ button.stat-card {
   color: var(--fg);
 }
 
+.support-conversation {
+  display: grid;
+  gap: 8px;
+  padding: 10px 0 2px;
+}
+
+.support-conversation-message {
+  width: min(88%, 330px);
+  display: grid;
+  gap: 5px;
+  padding: 9px 10px;
+  border: 1px solid rgba(117, 126, 148, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.56);
+  color: var(--fg-secondary);
+}
+
+.support-conversation-message.from-user {
+  justify-self: end;
+  border-color: rgba(255, 90, 112, 0.17);
+  background: rgba(255, 90, 112, 0.1);
+}
+
+.support-conversation-message.from-admin {
+  justify-self: start;
+}
+
+.support-conversation-message header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.support-conversation-message header strong {
+  color: var(--fg);
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.support-conversation-message time {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.support-conversation-message p {
+  display: block;
+  margin: 0;
+  color: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.support-waiting-reply,
+.support-ticket-closed,
+.support-conversation-error {
+  margin: 2px 0 0;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.support-ticket-closed {
+  color: var(--muted);
+}
+
+.support-conversation-reply {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  margin-top: 3px;
+  border-top: 1px solid rgba(117, 126, 148, 0.12);
+}
+
+.support-conversation-reply label {
+  display: grid;
+  gap: 6px;
+  color: var(--fg-secondary);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.support-conversation-reply textarea {
+  width: 100%;
+  min-height: 76px;
+  resize: vertical;
+  padding: 9px 10px;
+  border: 1px solid rgba(117, 126, 148, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  outline: none;
+}
+
+.support-conversation-reply textarea:focus {
+  border-color: rgba(255, 90, 112, 0.72);
+  box-shadow: 0 0 0 3px rgba(255, 90, 112, 0.1);
+}
+
+.support-conversation-reply .lg-button {
+  justify-self: end;
+}
+
+.support-conversation-error {
+  color: #be123c;
+}
+
 [data-theme="dark"] .settings-support-actions,
 [data-theme="dark"] .support-faq-list,
 [data-theme="dark"] .support-ticket-list {
@@ -6567,10 +6682,25 @@ button.stat-card {
 }
 
 [data-theme="dark"] .support-field input,
-[data-theme="dark"] .support-field textarea {
+[data-theme="dark"] .support-field textarea,
+[data-theme="dark"] .support-conversation-reply textarea {
   border-color: rgba(255, 255, 255, 0.12);
   background: rgba(9, 12, 20, 0.58);
   box-shadow: inset 0 0.75px 0 rgba(255, 255, 255, 0.07);
+}
+
+[data-theme="dark"] .support-conversation-message {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(9, 12, 20, 0.54);
+}
+
+[data-theme="dark"] .support-conversation-message.from-user {
+  border-color: rgba(255, 101, 118, 0.22);
+  background: rgba(255, 82, 102, 0.13);
+}
+
+[data-theme="dark"] .support-conversation-reply {
+  border-color: rgba(255, 255, 255, 0.09);
 }
 
 [data-theme="dark"] .support-submit-success {

@@ -474,6 +474,17 @@ const dict = {
     "support.statusClosed": "Closed",
     "support.adminReply": "Pinly replied",
     "support.waitingReply": "The Pinly team has not replied yet.",
+    "support.conversation": "Support conversation",
+    "support.you": "You",
+    "support.pinly": "Pinly support",
+    "support.reply": "Continue the conversation",
+    "support.replyPlaceholder": "Add more details or reply to Pinly…",
+    "support.replySend": "Send reply",
+    "support.replySending": "Sending…",
+    "support.replyError": "Could not send your reply. Please try again.",
+    "support.replyValidation": "Write a message before sending.",
+    "support.ticketClosed":
+      "This request is closed. Create a new request if you still need help.",
 
     "common.you": "You",
     "common.partner": "Member",
@@ -1045,6 +1056,18 @@ const dict = {
     "support.statusClosed": "Đã đóng",
     "support.adminReply": "Phản hồi từ Pinly",
     "support.waitingReply": "Đội ngũ Pinly chưa phản hồi yêu cầu này.",
+    "support.conversation": "Trao đổi hỗ trợ",
+    "support.you": "Bạn",
+    "support.pinly": "Đội ngũ Pinly",
+    "support.reply": "Trao đổi thêm",
+    "support.replyPlaceholder":
+      "Bổ sung thông tin hoặc phản hồi lại đội ngũ Pinly…",
+    "support.replySend": "Gửi phản hồi",
+    "support.replySending": "Đang gửi…",
+    "support.replyError": "Chưa gửi được phản hồi. Vui lòng thử lại.",
+    "support.replyValidation": "Hãy nhập nội dung trước khi gửi.",
+    "support.ticketClosed":
+      "Yêu cầu này đã đóng. Hãy tạo yêu cầu mới nếu bạn vẫn cần hỗ trợ.",
 
     "common.you": "Bạn",
     "common.partner": "Thành viên",
