@@ -144,6 +144,7 @@ export function MapView({
   const bucketMarkersRef = useRef<maplibregl.Marker[]>([]);
   const longPressTimer = useRef<number | null>(null);
   const styleLoadedRef = useRef(false);
+  const map3DEnabledRef = useRef(map3DEnabled);
   const didInitialFitRef = useRef<boolean>(false);
   const pinsRef = useRef<Pin[]>([]);
   const onLongPressRef = useRef(onLongPress);
@@ -161,6 +162,8 @@ export function MapView({
     expiresAt: number;
   } | null>(null);
   const [clusterPinIds, setClusterPinIds] = useState<string[] | null>(null);
+
+  map3DEnabledRef.current = map3DEnabled;
 
   useEffect(() => {
     pinsRef.current = pins;
@@ -723,36 +726,70 @@ export function MapView({
       return { source, sourceLayer };
     }
 
-    // 2. Fallback: probe vector tile sources for a "building" source-layer
-    //    (works for OpenMapTiles / MapTiler styles that don't render buildings)
+    // 2. Fallback: inspect vector tile metadata when the style does not render
+    //    buildings itself.
     const sources = style?.sources ?? {};
+    const vectorSources: Array<{
+      id: string;
+      definition: {
+        type?: string;
+        url?: string;
+        tiles?: string[];
+        vector_layers?: { id: string }[];
+      };
+    }> = [];
+
     for (const [sourceId, sourceDef] of Object.entries(sources)) {
       const s = sourceDef as {
         type?: string;
+        url?: string;
+        tiles?: string[];
         vector_layers?: { id: string }[];
       };
       if (s.type !== "vector") continue;
+      vectorSources.push({ id: sourceId, definition: s });
 
-      // Some styles expose vector_layers metadata
       if (Array.isArray(s.vector_layers)) {
         const bl = s.vector_layers.find((vl) =>
           vl.id.toLowerCase().includes("building"),
         );
         if (bl) return { source: sourceId, sourceLayer: bl.id };
       }
+    }
 
-      // Otherwise assume standard OpenMapTiles "building" source-layer
-      return { source: sourceId, sourceLayer: "building" };
+    // OpenMapTiles-compatible sources use the standard "building" source
+    // layer. Prefer a source with a recognizable id/URL instead of attaching
+    // the extrusion layer to an unrelated vector source.
+    const openMapTilesSource = vectorSources.find(({ id, definition }) => {
+      const signature = [
+        id,
+        definition.url ?? "",
+        ...(definition.tiles ?? []),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return /openmaptiles|openfreemap|maptiler|planet/.test(signature);
+    });
+
+    if (openMapTilesSource) {
+      return { source: openMapTilesSource.id, sourceLayer: "building" };
+    }
+
+    // A single vector source is also unambiguous for the custom styles Pinly
+    // supports. Multiple unknown vector sources are intentionally ignored.
+    if (vectorSources.length === 1) {
+      return { source: vectorSources[0].id, sourceLayer: "building" };
     }
 
     return null;
   }
 
   function ensure3DBuildingsLayer(map: maplibregl.Map) {
-    if (map.getLayer(BUILDINGS_3D_LAYER_ID)) return;
+    if (map.getLayer(BUILDINGS_3D_LAYER_ID)) return true;
+    if (!map.isStyleLoaded()) return false;
 
     const buildingSource = findBuildingLayerSource(map);
-    if (!buildingSource) return;
+    if (!buildingSource || !map.getSource(buildingSource.source)) return false;
 
     const style = map.getStyle();
     const firstSymbolLayerId = style?.layers?.find(
@@ -786,42 +823,48 @@ export function MapView({
       "#a8b4c4", // tower   — steel blue
     ];
 
-    map.addLayer(
-      {
-        id: BUILDINGS_3D_LAYER_ID,
-        type: "fill-extrusion",
-        source: buildingSource.source,
-        "source-layer": buildingSource.sourceLayer,
-        minzoom: 13,
-        paint: {
-          "fill-extrusion-color": buildingColorExpr,
-          "fill-extrusion-height": heightExpr,
-          "fill-extrusion-base": [
-            "coalesce",
-            ["to-number", ["get", "render_min_height"]],
-            ["to-number", ["get", "min_height"]],
-            0,
-          ],
-          // Smooth fade-in by zoom level
-          "fill-extrusion-opacity": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            13,
-            0,
-            13.5,
-            0.7,
-            15,
-            0.88,
-            18,
-            0.92,
-          ] as unknown as number,
-          // Vertical gradient: darker at base, lighter at roof — adds depth
-          "fill-extrusion-vertical-gradient": true as unknown as boolean,
+    try {
+      map.addLayer(
+        {
+          id: BUILDINGS_3D_LAYER_ID,
+          type: "fill-extrusion",
+          source: buildingSource.source,
+          "source-layer": buildingSource.sourceLayer,
+          minzoom: 13,
+          paint: {
+            "fill-extrusion-color": buildingColorExpr,
+            "fill-extrusion-height": heightExpr,
+            "fill-extrusion-base": [
+              "coalesce",
+              ["to-number", ["get", "render_min_height"]],
+              ["to-number", ["get", "min_height"]],
+              0,
+            ],
+            // Smooth fade-in by zoom level
+            "fill-extrusion-opacity": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              13,
+              0,
+              13.5,
+              0.7,
+              15,
+              0.88,
+              18,
+              0.92,
+            ] as unknown as number,
+            // Vertical gradient: darker at base, lighter at roof — adds depth
+            "fill-extrusion-vertical-gradient": true as unknown as boolean,
+          },
         },
-      },
-      firstSymbolLayerId,
-    );
+        firstSymbolLayerId,
+      );
+      return true;
+    } catch (error) {
+      console.warn("[MapLibre] 3D buildings are not ready yet", error);
+      return false;
+    }
   }
 
   function apply3DLighting(map: maplibregl.Map) {
@@ -849,11 +892,24 @@ export function MapView({
   }
 
   function syncMap3DMode(map: maplibregl.Map) {
-    if (map3DEnabled) {
+    if (map3DEnabledRef.current) {
       applyFree3DMode(map);
     } else {
       disable3DMode(map);
     }
+  }
+
+  function retry3DBuildingsLayer(map: maplibregl.Map) {
+    if (
+      !styleLoadedRef.current ||
+      !map3DEnabledRef.current ||
+      map.getLayer(BUILDINGS_3D_LAYER_ID) ||
+      !map.isStyleLoaded()
+    ) {
+      return;
+    }
+
+    ensure3DBuildingsLayer(map);
   }
 
   function getPinIdsFromFeature(feature: maplibregl.MapGeoJSONFeature) {
@@ -1170,6 +1226,10 @@ export function MapView({
     map.on("rotatestart", cancelLongPress);
     map.on("pitchstart", cancelLongPress);
 
+    const handle3DSourceReady = () => retry3DBuildingsLayer(map);
+    map.on("sourcedata", handle3DSourceReady);
+    map.on("idle", handle3DSourceReady);
+
     map.on("load", () => {
       styleLoadedRef.current = true;
       syncMap3DMode(map);
@@ -1194,6 +1254,8 @@ export function MapView({
     mapRef.current = map;
     return () => {
       ro.disconnect();
+      map.off("sourcedata", handle3DSourceReady);
+      map.off("idle", handle3DSourceReady);
       map.off("click", handleMemoryFeatureClick);
       map.off("mousemove", handleMemoryPointerMove);
       bucketMarkersRef.current.forEach((marker) => marker.remove());
@@ -1218,13 +1280,17 @@ export function MapView({
     initialStyleRef.current = "";
     styleLoadedRef.current = false;
     removeMemoryLayersAndSource(map);
-    map.setStyle(mapStyleUrl);
-    map.once("styledata", () => {
+    const handleStyleLoad = () => {
       styleLoadedRef.current = true;
       syncMap3DMode(map);
       syncMemoryLayers();
       renderBucketMarkers();
-    });
+    };
+    map.once("style.load", handleStyleLoad);
+    map.setStyle(mapStyleUrl);
+    return () => {
+      map.off("style.load", handleStyleLoad);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapStyleUrl]);
 

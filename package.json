@@ -12,6 +12,7 @@
     "check:interaction-notifications": "node scripts/interaction-notifications-contract.mjs",
     "check:map-cluster-marker": "node scripts/map-cluster-marker-contract.mjs",
     "check:map-add-pin-fab": "node scripts/map-add-pin-fab-contract.mjs",
+    "check:map-3d-initial-load": "node scripts/map-3d-initial-load-contract.mjs",
     "check:memory-spaces-schema": "node scripts/memory-spaces-schema-contract.mjs",
     "check:memory-spaces-frontend": "node scripts/memory-spaces-frontend-contract.mjs",
     "check:create-memory-upload": "node scripts/create-memory-upload-contract.mjs",
