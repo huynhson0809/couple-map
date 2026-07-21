@@ -23,6 +23,7 @@
     "check:plan-pricing-limits": "node scripts/plan-pricing-memory-limits-contract.mjs",
     "check:seo-domain": "node scripts/seo-domain-contract.mjs",
     "check:ai-discoverability": "node scripts/ai-discoverability-contract.mjs",
+    "check:web-analytics": "node --experimental-strip-types scripts/web-analytics-contract.mjs",
     "check:landing-homepage": "node scripts/landing-homepage-contract.mjs",
     "check:social-login": "node scripts/social-login-contract.mjs",
     "check:space-member-quota": "node scripts/space-member-quota-contract.mjs",
@@ -54,6 +55,7 @@
   "dependencies": {
     "@polar-sh/supabase": "^0.4.5",
     "@supabase/supabase-js": "^2.106.0",
+    "@vercel/analytics": "^2.0.1",
     "browser-image-compression": "^2.0.2",
     "lucide-react": "^1.16.0",
     "maplibre-gl": "^5.24.0",

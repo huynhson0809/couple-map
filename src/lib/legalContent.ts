@@ -29,6 +29,7 @@ const privacyVi: LegalContent = {
         "Nội dung kỷ niệm như tiêu đề, ghi chú, tag, tọa độ, địa chỉ, thành phố, quốc gia và thời gian tạo.",
         "Ảnh, video, marker, hình nền, mã định danh tệp media, liên kết media và kích thước media.",
         "Tùy chọn thông báo, thông tin thiết bị cần thiết để gửi thông báo, và dữ liệu kỹ thuật cần thiết để vận hành ứng dụng.",
+        "Dữ liệu phân tích ẩn danh trên các trang công khai như trang đã xem, tên miền giới thiệu, quốc gia ở mức tổng hợp, loại thiết bị, hệ điều hành và trình duyệt.",
       ],
     },
     {
@@ -37,6 +38,7 @@ const privacyVi: LegalContent = {
         "Tạo và bảo vệ tài khoản, hiển thị kỷ niệm cho đúng không gian, đồng bộ bản đồ và dòng thời gian.",
         "Tải lên, hiển thị, tối ưu kích thước ảnh/video và gửi thông báo hoặc email nhắc nhở nếu bạn bật tính năng này.",
         "Giảm lỗi, ngăn lạm dụng và cải thiện độ ổn định của ứng dụng.",
+        "Hiểu người dùng tìm thấy Pinly từ đâu và nội dung công khai nào hữu ích để cải thiện trang giới thiệu.",
       ],
     },
     {
@@ -52,6 +54,7 @@ const privacyVi: LegalContent = {
       body: [
         "Pinly có thể sử dụng các nhà cung cấp hạ tầng để vận hành đăng nhập, lưu trữ dữ liệu, lưu trữ media, bản đồ, email và thông báo.",
         "Các nhà cung cấp này chỉ xử lý dữ liệu cần thiết để tính năng tương ứng hoạt động và được giới hạn theo mục đích vận hành dịch vụ.",
+        "Pinly sử dụng Vercel Web Analytics cho số liệu truy cập tổng hợp. Công cụ này không dùng cookie phân tích; Pinly không gửi email tài khoản, nội dung kỷ niệm hoặc đường dẫn riêng tư vào báo cáo này.",
       ],
     },
     {
@@ -87,6 +90,7 @@ const privacyEn: LegalContent = {
         "Memory data such as title, note, tags, coordinates, address, city, country, and timestamps.",
         "Photos, videos, marker images, backgrounds, media identifiers, media links, and media dimensions.",
         "Notification preferences, device information needed for notifications, and technical data needed to operate the app.",
+        "Anonymous analytics for public pages, such as the page viewed, referring domain, aggregate country, device type, operating system, and browser.",
       ],
     },
     {
@@ -95,6 +99,7 @@ const privacyEn: LegalContent = {
         "To create and secure accounts, show memories to the correct space, and sync the map and timeline.",
         "To upload, display, optimize media, and send push notifications or optional reminder emails.",
         "To diagnose issues, prevent abuse, and improve reliability.",
+        "To understand how people discover Pinly and which public content is useful so we can improve the website.",
       ],
     },
     {
@@ -110,6 +115,7 @@ const privacyEn: LegalContent = {
       body: [
         "Pinly may use infrastructure providers to operate login, data storage, media storage, maps, email, and notifications.",
         "These providers process only the data needed for the related feature and are limited to operating the service.",
+        "Pinly uses Vercel Web Analytics for aggregate traffic reporting. It does not use analytics cookies, and Pinly does not send account email, memory content, or private routes to this report.",
       ],
     },
     {

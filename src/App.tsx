@@ -13,6 +13,7 @@ import { NotificationToast } from "./components/ui/NotificationToast";
 import { LockKeyhole } from "lucide-react";
 import { DesktopGate } from "./components/ui/DesktopGate";
 import { Logo } from "./components/ui/Logo";
+import { WebAnalytics } from "./components/analytics/WebAnalytics";
 import { getImageUrl } from "./lib/cloudinary";
 import { useAuth } from "./hooks/useAuth";
 import { CoupleProvider, useCoupleCtx } from "./hooks/CoupleContext";
@@ -302,7 +303,12 @@ function AppRoutes() {
   const publicPage = getPublicPageByPath(location.pathname);
 
   if (publicPage && publicPage.key !== "home") {
-    return <PublicContentPage pageKey={publicPage.key} />;
+    return (
+      <>
+        <PublicContentPage pageKey={publicPage.key} />
+        <WebAnalytics />
+      </>
+    );
   }
 
   if (authLoading) return <AppStatusScreen title="Loading Pinly…" />;
@@ -320,16 +326,19 @@ function AppRoutes() {
 
   if (!user) {
     return (
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/privacy" element={<PrivacyPage />} />
-        <Route path="/terms" element={<TermsPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <WebAnalytics />
+      </>
     );
   }
 
