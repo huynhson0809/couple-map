@@ -79,6 +79,11 @@ const PublicContentPage = lazy(() =>
     default: module.PublicContentPage,
   })),
 );
+const PublicPolicyPage = lazy(() =>
+  import("./pages/PublicPolicyPage").then((module) => ({
+    default: module.PublicPolicyPage,
+  })),
+);
 const MapPage = lazy(() =>
   import("./pages/MapPage").then((module) => ({ default: module.MapPage })),
 );
@@ -333,8 +338,14 @@ function AppRoutes() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/terms" element={<TermsPage />} />
+          <Route
+            path="/privacy"
+            element={<PublicPolicyPage kind="privacy" />}
+          />
+          <Route
+            path="/terms"
+            element={<PublicPolicyPage kind="terms" />}
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <WebAnalytics />
