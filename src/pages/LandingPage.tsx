@@ -16,7 +16,12 @@ import {
 } from "lucide-react";
 import { LandingMapScene } from "../components/landing/LandingMapScene";
 import { Logo } from "../components/ui/Logo";
+import {
+  PUBLIC_INFO_PAGE_KEYS,
+  PUBLIC_PAGES,
+} from "../content/publicPages";
 import { useI18n } from "../hooks/I18nContext";
+import { usePublicPageSeo } from "../hooks/usePublicPageSeo";
 import "./LandingPage.css";
 
 type PrivacyMode = "private" | "shared";
@@ -49,6 +54,8 @@ export function LandingPage() {
   const [privacyMode, setPrivacyMode] = useState<PrivacyMode>("shared");
   const [installPlatform, setInstallPlatform] =
     useState<InstallPlatform>("ios");
+
+  usePublicPageSeo("home", lang);
 
   useEffect(() => {
     const revealNodes = Array.from(
@@ -410,6 +417,11 @@ export function LandingPage() {
         </div>
         <p>{t("landing.footerTagline")}</p>
         <div className="lp-footer-links">
+          {PUBLIC_INFO_PAGE_KEYS.map((key) => (
+            <Link key={key} to={PUBLIC_PAGES[key].path}>
+              {PUBLIC_PAGES[key][lang].eyebrow}
+            </Link>
+          ))}
           <Link to="/privacy">{t("legal.privacy")}</Link>
           <Link to="/terms">{t("legal.terms")}</Link>
           <Link to="/login">{t("landing.login")}</Link>

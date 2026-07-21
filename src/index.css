@@ -138,6 +138,7 @@ html, body {
 
 #root:has(.landing),
 #root:has(.lp),
+#root:has(.public-page),
 #root:has(.admin-support-page),
 #root:has(.admin-support-state) {
   max-width: none;

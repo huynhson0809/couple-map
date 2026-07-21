@@ -151,6 +151,6 @@ assert.doesNotMatch(
 
 assert.match(
   indexHtml,
-  /không gian riêng|personal and shared memory spaces/i,
-  "SEO fallback metadata should match the spaces-first positioning.",
+  /bản đồ kỷ niệm|private memory map/i,
+  "SEO fallback metadata should match the memory-map positioning.",
 );

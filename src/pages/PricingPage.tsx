@@ -9,7 +9,7 @@ const PLAN_FEATURES: Record<
   { key: string; value: string | boolean }[]
 > = {
   free: [
-    { key: "pins", value: "100" },
+    { key: "pins", value: String(PLAN_LIMITS.free.pins) },
     { key: "photos", value: "3" },
     { key: "video", value: false },
     { key: "styles", value: "3" },
@@ -19,7 +19,7 @@ const PLAN_FEATURES: Record<
     { key: "watermark", value: true },
   ],
   plus: [
-    { key: "pins", value: "300" },
+    { key: "pins", value: String(PLAN_LIMITS.plus.pins) },
     { key: "photos", value: "5" },
     { key: "video", value: false },
     { key: "styles", value: "10" },
@@ -29,7 +29,7 @@ const PLAN_FEATURES: Record<
     { key: "watermark", value: false },
   ],
   pro: [
-    { key: "pins", value: "∞" },
+    { key: "pins", value: String(PLAN_LIMITS.pro.pins) },
     { key: "photos", value: "5" },
     { key: "video", value: true },
     { key: "styles", value: "15" },
@@ -39,6 +39,11 @@ const PLAN_FEATURES: Record<
     { key: "watermark", value: false },
   ],
 };
+
+const PLAN_PRICES = {
+  monthly: { plus: 59000, pro: 99000 },
+  annual: { plus: 566000, pro: 950000 },
+} as const;
 
 const FEATURE_LABELS: Record<string, { vi: string; en: string }> = {
   pins: { vi: "Kỷ niệm", en: "Memories" },
@@ -77,10 +82,7 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
       ? "Không thể tạo phiên thanh toán."
       : "Unable to create checkout session.";
 
-  const prices = {
-    plus: cycle === "annual" ? 278400 : 29000,
-    pro: cycle === "annual" ? 374400 : 39000,
-  };
+  const prices = PLAN_PRICES[cycle];
 
   const formatPrice = (amount: number) => {
     return new Intl.NumberFormat("vi-VN").format(amount) + "đ";
@@ -283,8 +285,8 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
         <Zap size={14} />
         <span>
           {lang === "vi"
-            ? `Free: ${PLAN_LIMITS.free.pins} pins, ${PLAN_LIMITS.free.photosPerPin} ảnh/pin, 3 map styles, không có 3D`
-            : `Free: ${PLAN_LIMITS.free.pins} pins, ${PLAN_LIMITS.free.photosPerPin} photos/pin, 3 map styles, no 3D`}
+            ? `Free: ${PLAN_LIMITS.free.pins} kỷ niệm, ${PLAN_LIMITS.free.photosPerPin} ảnh/kỷ niệm, 3 kiểu bản đồ, không có 3D`
+            : `Free: ${PLAN_LIMITS.free.pins} memories, ${PLAN_LIMITS.free.photosPerPin} photos/memory, 3 map styles, no 3D`}
         </span>
       </div>
 

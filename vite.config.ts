@@ -21,7 +21,8 @@ export default defineConfig({
       manifest: {
         name: "Pinly",
         short_name: "Pinly",
-        description: "Bản đồ kỷ niệm của chúng mình",
+        description:
+          "Bản đồ kỷ niệm riêng tư để lưu địa điểm, ảnh, video và câu chuyện theo thời gian.",
         theme_color: "#fff8fa",
         background_color: "#fff8fa",
         display: "standalone",

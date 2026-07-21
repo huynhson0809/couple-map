@@ -940,7 +940,7 @@
 
 .lp-footer {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 34px;
   padding: 32px max(28px, calc((100vw - var(--lp-max)) / 2));
@@ -956,7 +956,11 @@
 
 .lp-footer-links {
   display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
   gap: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--lp-line);
 }
 
 .lp-footer-links a {

@@ -37,7 +37,7 @@ const MAP_STYLE_IDS = [
 // Plan limits configuration
 const PLAN_LIMITS = {
   free: {
-    pins: 100,
+    pins: 50,
     photosPerPin: 3,
     video: false,
     mapStyles: 3,
@@ -59,7 +59,7 @@ const PLAN_LIMITS = {
     ownedSpaces: 2,
   },
   pro: {
-    pins: Infinity,
+    pins: 500,
     photosPerPin: 5,
     video: true,
     mapStyles: 15,

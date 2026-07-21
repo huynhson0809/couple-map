@@ -27,17 +27,17 @@ assert.match(
 );
 assert.match(
   indexHtml,
-  new RegExp(`<meta property="og:image" content="${PRIMARY_ORIGIN}/icons/icon-512\\.png"\\s*/>`),
+  new RegExp(`<meta property="og:image" content="${PRIMARY_ORIGIN}/landing/da-nang-journey-map\\.jpg"\\s*/>`),
   "Open Graph image must use the primary Pinly domain.",
 );
 assert.match(
   indexHtml,
-  new RegExp(`<meta name="twitter:image" content="${PRIMARY_ORIGIN}/icons/icon-512\\.png"\\s*/>`),
+  new RegExp(`<meta name="twitter:image" content="${PRIMARY_ORIGIN}/landing/da-nang-journey-map\\.jpg"\\s*/>`),
   "Twitter image must use the primary Pinly domain.",
 );
 assert.match(
   indexHtml,
-  /"@type": "WebApplication"[\s\S]*"url": "https:\/\/pinly\.tech"/,
+  /"@type": "WebApplication"[\s\S]*"url": "https:\/\/pinly\.tech\/"/,
   "WebApplication JSON-LD URL must use the primary Pinly domain.",
 );
 

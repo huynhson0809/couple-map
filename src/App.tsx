@@ -25,6 +25,7 @@ import { ToastProvider } from "./hooks/ToastContext";
 import { usePushSubscription } from "./hooks/usePushSubscription";
 import { NotificationFeedProvider } from "./hooks/NotificationFeedContext";
 import { SubscriptionProvider, useSubscription } from "./hooks/useSubscription";
+import { getPublicPageByPath } from "./content/publicPages";
 import { lazy, Suspense, useEffect, useRef, type ReactNode } from "react";
 
 const LoginPage = lazy(() =>
@@ -70,6 +71,11 @@ const TermsPage = lazy(() =>
 const LandingPage = lazy(() =>
   import("./pages/LandingPage").then((module) => ({
     default: module.LandingPage,
+  })),
+);
+const PublicContentPage = lazy(() =>
+  import("./pages/PublicContentPage").then((module) => ({
+    default: module.PublicContentPage,
   })),
 );
 const MapPage = lazy(() =>
@@ -292,6 +298,12 @@ function RoutedShell() {
 
 function AppRoutes() {
   const { user, loading: authLoading, isRecovery } = useAuth();
+  const location = useLocation();
+  const publicPage = getPublicPageByPath(location.pathname);
+
+  if (publicPage && publicPage.key !== "home") {
+    return <PublicContentPage pageKey={publicPage.key} />;
+  }
 
   if (authLoading) return <AppStatusScreen title="Loading Pinly…" />;
 

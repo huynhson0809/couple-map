@@ -31,6 +31,18 @@
     }
   ],
   "rewrites": [
+    { "source": "/about", "destination": "/about/index.html" },
+    { "source": "/features", "destination": "/features/index.html" },
+    { "source": "/pricing", "destination": "/pricing/index.html" },
+    { "source": "/faq", "destination": "/faq/index.html" },
+    {
+      "source": "/guides/memory-map",
+      "destination": "/guides/memory-map/index.html"
+    },
+    {
+      "source": "/guides/travel-memory-journal",
+      "destination": "/guides/travel-memory-journal/index.html"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

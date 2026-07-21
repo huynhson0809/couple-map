@@ -1,4 +1,17 @@
+# OAI-SearchBot, ChatGPT-User, Googlebot, Bingbot and other public
+# search crawlers are allowed by this shared policy.
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /forgot-password
+Disallow: /login
+Disallow: /memory/
+Disallow: /notifications
+Disallow: /register
+Disallow: /reset-password
+Disallow: /settings
+Disallow: /setup
+Disallow: /timeline
+Disallow: /wishlist
 
 Sitemap: https://pinly.tech/sitemap.xml

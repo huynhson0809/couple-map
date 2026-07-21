@@ -32,4 +32,5 @@ ensureMapLibreStylesheet();
 syncStandaloneClass();
 standaloneQuery.addEventListener("change", syncStandaloneClass);
 
+document.getElementById("pinly-prerender")?.remove();
 createRoot(document.getElementById("root")!).render(<App />);
