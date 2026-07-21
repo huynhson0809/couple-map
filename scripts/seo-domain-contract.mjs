@@ -8,6 +8,31 @@ const OLD_ORIGIN_PATTERN = /pinly-app\.vercel\.app/i;
 const indexHtml = readFileSync(resolve("index.html"), "utf8");
 const robots = readFileSync(resolve("public/robots.txt"), "utf8");
 const sitemap = readFileSync(resolve("public/sitemap.xml"), "utf8");
+const prerender = readFileSync(
+  resolve("scripts/prerender-public-pages.mjs"),
+  "utf8",
+);
+
+assert.match(
+  indexHtml,
+  /<html lang="en">/,
+  "English must be the default language exposed to search crawlers.",
+);
+assert.match(
+  indexHtml,
+  /<title>Pinly - A Private Map for Your Memories<\/title>/,
+  "The static homepage title must be English.",
+);
+assert.match(
+  indexHtml,
+  /<meta property="og:locale" content="en_US" \/>/,
+  "English must be the primary Open Graph locale.",
+);
+assert.match(
+  prerender,
+  /const language = "en";/,
+  "Public prerendered pages must default to English.",
+);
 
 assert.doesNotMatch(
   `${indexHtml}\n${robots}\n${sitemap}`,

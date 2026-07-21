@@ -55,7 +55,7 @@ for (const path of publicPaths) {
 
 assert.match(
   indexHtml,
-  /"alternateName": \["Pinly Memory Map", "Pinly - Bản đồ kỷ niệm"/,
+  /"alternateName": \["Pinly Memory Map", "Pinly Private Memory Map"/,
   "Entity schema must distinguish Pinly from similarly named products.",
 );
 assert.doesNotMatch(

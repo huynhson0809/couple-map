@@ -8,7 +8,7 @@ import {
 
 const DIST_DIR = resolve("dist");
 const template = readFileSync(resolve(DIST_DIR, "index.html"), "utf8");
-const language = "vi";
+const language = "en";
 
 function escapeHtml(value) {
   return String(value)
@@ -53,7 +53,7 @@ function renderSections(sections) {
 function renderPlans(plans) {
   if (!plans) return "";
   return `
-    <section class="pinly-static-plans" aria-label="Bảng giá Pinly">
+    <section class="pinly-static-plans" aria-label="Pinly pricing">
       ${plans
         .map(
           (plan) => `
@@ -73,7 +73,7 @@ function renderSteps(steps) {
   if (!steps) return "";
   return `
     <section class="pinly-static-steps">
-      <h2>Các bước thực hiện</h2>
+      <h2>How it works</h2>
       <ol>
         ${steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}
       </ol>
@@ -84,7 +84,7 @@ function renderQuestions(questions) {
   if (!questions) return "";
   return `
     <section class="pinly-static-faq">
-      <h2>Câu hỏi thường gặp</h2>
+      <h2>Frequently asked questions</h2>
       ${questions
         .map(
           (item) => `
@@ -111,8 +111,8 @@ function renderStaticPage(page) {
           <img src="/favicon.svg" width="30" height="30" alt="" />
           <span>Pinly</span>
         </a>
-        <nav aria-label="Điều hướng nội dung Pinly">${links}</nav>
-        <a class="pinly-static-cta" href="/register">Bắt đầu miễn phí</a>
+        <nav aria-label="Pinly information navigation">${links}</nav>
+        <a class="pinly-static-cta" href="/register">Start for free</a>
       </header>
       <main>
         <section class="pinly-static-hero">
@@ -130,12 +130,12 @@ function renderStaticPage(page) {
         <section class="pinly-static-bottom">
           <h2>${escapeHtml(content.ctaTitle)}</h2>
           <p>${escapeHtml(content.ctaDescription)}</p>
-          <a class="pinly-static-cta" href="/register">Tạo tài khoản Pinly</a>
+          <a class="pinly-static-cta" href="/register">Create a Pinly account</a>
         </section>
       </main>
       <footer>
         <strong>Pinly</strong>
-        <nav>${links}<a href="/privacy">Quyền riêng tư</a><a href="/terms">Điều khoản</a></nav>
+        <nav>${links}<a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
         <small>© 2026 Pinly</small>
       </footer>
     </div>`;

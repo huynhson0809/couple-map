@@ -111,7 +111,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
       title: "Keep every memory connected to its place",
       description:
         "Pinly is a private memory map for saving places, photos, videos, and stories on a personal timeline. Use it on your own or share it with someone you invite.",
-      metaTitle: "Pinly - A private map for your memories",
+      metaTitle: "Pinly - A Private Map for Your Memories",
       metaDescription:
         "Save places, photos, videos, and stories on a private memory map. Use Pinly on your own or share it with someone you trust.",
       sections: [],
