@@ -125,6 +125,8 @@ export function SettingsPage() {
   const canManageSpaceDetails =
     capabilities.canDeleteSpace && currentSpaceWritable;
   const duoFeaturesEnabled = capabilities.canUseDuoFeatures;
+  const canUseEmailStreakReminders =
+    !subscriptionLoading && accountPlan === "pro";
   const sortedStyles = useMemo(
     () =>
       [...MAP_STYLES].sort((a, b) => {
@@ -731,22 +733,24 @@ export function SettingsPage() {
               }
             />
           </div>
-          <div className="notif-pref-row">
-            <span>
-              <strong>{t("notif.streakEmailReminders")}</strong>
-              <small>{t("notif.streakEmailRemindersHint")}</small>
-            </span>
-            <Switch
-              aria-label={t("notif.streakEmailReminders")}
-              checked={notifPrefs.prefs.streak_email_reminders}
-              disabled={notifPrefs.loading}
-              onChange={(e) =>
-                notifPrefs.updatePrefs({
-                  streak_email_reminders: e.target.checked,
-                })
-              }
-            />
-          </div>
+          {canUseEmailStreakReminders && (
+            <div className="notif-pref-row">
+              <span>
+                <strong>{t("notif.streakEmailReminders")}</strong>
+                <small>{t("notif.streakEmailRemindersHint")}</small>
+              </span>
+              <Switch
+                aria-label={t("notif.streakEmailReminders")}
+                checked={notifPrefs.prefs.streak_email_reminders}
+                disabled={notifPrefs.loading}
+                onChange={(e) =>
+                  notifPrefs.updatePrefs({
+                    streak_email_reminders: e.target.checked,
+                  })
+                }
+              />
+            </div>
+          )}
         </div>
       </SettingSection>
 

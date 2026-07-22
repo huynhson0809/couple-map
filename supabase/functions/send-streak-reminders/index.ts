@@ -14,6 +14,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import webpush from "npm:web-push@3.6.7";
 import { buildCorsHeaders } from "../_shared/cors.ts";
+import { eligibleDuoRecipients } from "../_shared/streak-reminder-recipients.ts";
 
 const REMINDER_HOURS = [12, 20, 22, 23];
 const EMAIL_REMINDER_HOUR = 20;
@@ -125,7 +126,12 @@ type DebugCouple = {
   todayCompleted: boolean;
   todayUserAPosted: boolean;
   todayUserBPosted: boolean;
-  logStatus: "created" | "dry_run" | "skipped_duplicate" | "missing_couple";
+  logStatus:
+    | "created"
+    | "dry_run"
+    | "skipped_duplicate"
+    | "missing_couple"
+    | "already_completed";
   recipients: DebugRecipient[];
 };
 
@@ -469,6 +475,27 @@ async function sendEmailToUser(
 
   if (!pref?.streak_email_reminders) {
     return { sent: 0, skipped: true, reason: "email_preference_disabled" };
+  }
+
+  const { data: accountPlan, error: accountPlanError } = await supabase.rpc(
+    "get_account_plan",
+    { p_user_id: userId },
+  );
+
+  if (accountPlanError) {
+    console.error("Streak email plan lookup error:", {
+      userId,
+      message: accountPlanError.message,
+    });
+    return {
+      sent: 0,
+      skipped: true,
+      reason: "account_plan_lookup_failed",
+    };
+  }
+
+  if (accountPlan !== "pro") {
+    return { sent: 0, skipped: true, reason: "email_requires_pro" };
   }
 
   const { data: user } = await supabase
@@ -1237,6 +1264,48 @@ serve(async (req) => {
         continue;
       }
 
+      const { error: latestRefreshError } = await supabase.rpc(
+        "refresh_couple_streak",
+        { target_couple_id: streak.couple_id },
+      );
+      if (latestRefreshError) throw latestRefreshError;
+
+      const { data: latestStreakRow, error: latestStreakError } = await supabase
+        .from("couple_streaks")
+        .select(
+          "couple_id,current_count,today_date,today_user_a_posted,today_user_b_posted,today_completed",
+        )
+        .eq("couple_id", streak.couple_id)
+        .eq("today_date", reminderDate)
+        .maybeSingle();
+      if (latestStreakError) throw latestStreakError;
+
+      const currentStreak = latestStreakRow as CoupleStreakRow | null;
+      if (!currentStreak) {
+        skipped += 1;
+        debugCouple.logStatus = "missing_couple";
+        debugCouples.push(debugCouple);
+        continue;
+      }
+
+      debugCouple.currentCount = currentStreak.current_count;
+      debugCouple.todayDate = currentStreak.today_date;
+      debugCouple.todayCompleted = currentStreak.today_completed;
+      debugCouple.todayUserAPosted = currentStreak.today_user_a_posted;
+      debugCouple.todayUserBPosted = currentStreak.today_user_b_posted;
+
+      const recipients = eligibleDuoRecipients(
+        currentStreak,
+        couple.user_a,
+        couple.user_b,
+      );
+      if (recipients.length === 0) {
+        skipped += 1;
+        debugCouple.logStatus = "already_completed";
+        debugCouples.push(debugCouple);
+        continue;
+      }
+
       if (!dryRun) {
         const claimed = await claimReminderWindow(
           supabase,
@@ -1252,14 +1321,9 @@ serve(async (req) => {
         }
       }
 
-      const recipients: Array<{ userId: string; slot: "user_a" | "user_b" }> = [
-        { userId: couple.user_a, slot: "user_a" },
-        { userId: couple.user_b, slot: "user_b" },
-      ];
-
       for (const recipient of recipients) {
         const notificationBody = await generateReminderBody(
-          streak,
+          currentStreak,
           recipient.slot,
           recipient.userId,
           reminderDate,

@@ -34,6 +34,7 @@
     "check:streak-integrity": "node scripts/streak-integrity-contract.mjs",
     "check:solo-streak-reminders": "node scripts/solo-streak-reminders-contract.mjs",
     "check:resend-email": "node scripts/resend-email-contract.mjs",
+    "check:pro-streak-email-reminders": "node --experimental-strip-types scripts/pro-streak-email-reminders-contract.mjs",
     "check:support-center": "node scripts/support-center-contract.mjs",
     "check:admin-support": "node scripts/admin-support-contract.mjs",
     "check:support-conversations": "node scripts/support-conversations-contract.mjs",
