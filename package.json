@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node --experimental-strip-types scripts/prerender-public-pages.mjs",
+    "build": "node --experimental-strip-types scripts/generate-search-files.mjs && tsc -b && vite build && node --experimental-strip-types scripts/prerender-public-pages.mjs",
     "prerender:public": "node --experimental-strip-types scripts/prerender-public-pages.mjs",
+    "generate:search-files": "node --experimental-strip-types scripts/generate-search-files.mjs",
     "submit:indexnow": "node --experimental-strip-types scripts/submit-indexnow.mjs",
     "check:auth-session": "node scripts/auth-session-contract.mjs",
     "check:app-shell-background": "node scripts/app-shell-background-contract.mjs",

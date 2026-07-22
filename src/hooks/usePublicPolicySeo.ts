@@ -1,8 +1,12 @@
 import { useEffect } from "react";
 import type { Lang } from "./I18nContext";
 import { getLegalContent, type PolicyKind } from "../lib/legalContent";
+import {
+  getAbsolutePublicUrl,
+  PRIMARY_ORIGIN,
+  syncPublicLanguageLinks,
+} from "../lib/publicSeo";
 
-const PRIMARY_ORIGIN = "https://pinly.tech";
 const ROUTE_SCHEMA_ID = "pinly-route-schema";
 const SOCIAL_IMAGE = `${PRIMARY_ORIGIN}/landing/da-nang-journey-map.jpg`;
 
@@ -26,7 +30,8 @@ function setMeta(selector: string, value: string) {
 export function usePublicPolicySeo(kind: PolicyKind, lang: Lang) {
   useEffect(() => {
     const content = getLegalContent(kind, lang);
-    const canonicalUrl = `${PRIMARY_ORIGIN}/${kind}`;
+    const basePath = `/${kind}`;
+    const canonicalUrl = getAbsolutePublicUrl(basePath, lang);
     const title = POLICY_TITLES[lang][kind];
 
     document.documentElement.lang = lang;
@@ -37,6 +42,14 @@ export function usePublicPolicySeo(kind: PolicyKind, lang: Lang) {
     setMeta('meta[property="og:title"]', title);
     setMeta('meta[property="og:description"]', content.summary);
     setMeta('meta[property="og:image"]', SOCIAL_IMAGE);
+    setMeta(
+      'meta[property="og:locale"]',
+      lang === "vi" ? "vi_VN" : "en_US",
+    );
+    setMeta(
+      'meta[property="og:locale:alternate"]',
+      lang === "vi" ? "en_US" : "vi_VN",
+    );
     setMeta('meta[name="twitter:title"]', title);
     setMeta('meta[name="twitter:description"]', content.summary);
     setMeta('meta[name="twitter:image"]', SOCIAL_IMAGE);
@@ -44,6 +57,7 @@ export function usePublicPolicySeo(kind: PolicyKind, lang: Lang) {
     document.head
       .querySelector<HTMLLinkElement>('link[rel="canonical"]')
       ?.setAttribute("href", canonicalUrl);
+    syncPublicLanguageLinks(basePath);
 
     document.getElementById(ROUTE_SCHEMA_ID)?.remove();
     const schema = document.createElement("script");

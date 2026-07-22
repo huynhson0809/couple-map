@@ -1,9 +1,14 @@
 import { CalendarDays, FileText, ShieldCheck } from "lucide-react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   PublicSiteFooter,
   PublicSiteHeader,
 } from "../components/public/PublicSiteChrome";
+import {
+  getLocalizedPublicPath,
+  type PublicLanguage,
+} from "../content/publicPages";
 import { useI18n } from "../hooks/I18nContext";
 import { usePublicPolicySeo } from "../hooks/usePublicPolicySeo";
 import { getLegalContent, type PolicyKind } from "../lib/legalContent";
@@ -29,17 +34,28 @@ const POLICY_LABELS = {
   },
 } as const;
 
-export function PublicPolicyPage({ kind }: { kind: PolicyKind }) {
-  const { lang } = useI18n();
+export function PublicPolicyPage({
+  kind,
+  language,
+}: {
+  kind: PolicyKind;
+  language: PublicLanguage;
+}) {
+  const { setLang } = useI18n();
+  const lang = language;
   const content = getLegalContent(kind, lang);
   const labels = POLICY_LABELS[lang];
   const PolicyIcon = kind === "privacy" ? ShieldCheck : FileText;
 
   usePublicPolicySeo(kind, lang);
 
+  useEffect(() => {
+    setLang(language);
+  }, [language, setLang]);
+
   return (
     <div className="public-page public-policy-page">
-      <PublicSiteHeader />
+      <PublicSiteHeader language={language} />
 
       <main>
         <section className="public-policy-hero">
@@ -100,14 +116,14 @@ export function PublicPolicyPage({ kind }: { kind: PolicyKind }) {
             <h2 id="legal-related">{labels.related}</h2>
             <nav aria-label={labels.related}>
               <Link
-                to="/privacy"
+                to={getLocalizedPublicPath("/privacy", language)}
                 aria-current={kind === "privacy" ? "page" : undefined}
               >
                 <ShieldCheck size={20} aria-hidden="true" />
                 {labels.privacy}
               </Link>
               <Link
-                to="/terms"
+                to={getLocalizedPublicPath("/terms", language)}
                 aria-current={kind === "terms" ? "page" : undefined}
               >
                 <FileText size={20} aria-hidden="true" />
@@ -118,7 +134,7 @@ export function PublicPolicyPage({ kind }: { kind: PolicyKind }) {
         </section>
       </main>
 
-      <PublicSiteFooter />
+      <PublicSiteFooter language={language} />
     </div>
   );
 }

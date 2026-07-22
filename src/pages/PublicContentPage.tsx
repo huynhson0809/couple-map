@@ -4,10 +4,13 @@ import {
   CircleHelp,
   MapPin,
 } from "lucide-react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   PUBLIC_CHROME,
   PUBLIC_PAGES,
+  getLocalizedPublicPath,
+  type PublicLanguage,
   type PublicPageKey,
 } from "../content/publicPages";
 import {
@@ -28,8 +31,15 @@ const FEATURED_RELATED_KEYS: Record<PublicPageKey, PublicPageKey[]> = {
   travelJournalGuide: ["memoryMapGuide", "features", "pricing"],
 };
 
-export function PublicContentPage({ pageKey }: { pageKey: PublicPageKey }) {
-  const { lang } = useI18n();
+export function PublicContentPage({
+  pageKey,
+  language,
+}: {
+  pageKey: PublicPageKey;
+  language: PublicLanguage;
+}) {
+  const { setLang } = useI18n();
+  const lang = language;
   const page = PUBLIC_PAGES[pageKey];
   const content = page[lang];
   const chrome = PUBLIC_CHROME[lang];
@@ -39,9 +49,13 @@ export function PublicContentPage({ pageKey }: { pageKey: PublicPageKey }) {
 
   usePublicPageSeo(pageKey, lang);
 
+  useEffect(() => {
+    setLang(language);
+  }, [language, setLang]);
+
   return (
     <div className="public-page">
-      <PublicSiteHeader activePageKey={pageKey} />
+      <PublicSiteHeader activePageKey={pageKey} language={language} />
 
       <main>
         <section
@@ -163,7 +177,10 @@ export function PublicContentPage({ pageKey }: { pageKey: PublicPageKey }) {
             <h2 id="related-heading">{chrome.related}</h2>
             <div className="public-related-links">
               {relatedPages.map((related) => (
-                <Link to={related.path} key={related.key}>
+                <Link
+                  to={getLocalizedPublicPath(related.path, language)}
+                  key={related.key}
+                >
                   <span>{related[lang].eyebrow}</span>
                   <strong>{related[lang].title}</strong>
                   <ArrowRight size={20} aria-hidden="true" />
@@ -187,7 +204,7 @@ export function PublicContentPage({ pageKey }: { pageKey: PublicPageKey }) {
         </section>
       </main>
 
-      <PublicSiteFooter />
+      <PublicSiteFooter language={language} />
     </div>
   );
 }

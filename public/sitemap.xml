@@ -1,79 +1,113 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="/sitemap.xsl"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://pinly.tech/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/" />
-    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/" />
-    <lastmod>2026-07-22</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://pinly.tech/vi</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/" />
   </url>
   <url>
     <loc>https://pinly.tech/about</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/about" />
-    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/about" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/about" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/about" />
-    <lastmod>2026-07-22</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://pinly.tech/vi/about</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/about" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/about" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/about" />
   </url>
   <url>
     <loc>https://pinly.tech/features</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/features" />
-    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/features" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/features" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/features" />
-    <lastmod>2026-07-22</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://pinly.tech/vi/features</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/features" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/features" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/features" />
   </url>
   <url>
     <loc>https://pinly.tech/pricing</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/pricing" />
-    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/pricing" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/pricing" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/pricing" />
-    <lastmod>2026-07-22</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://pinly.tech/vi/pricing</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/pricing" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/pricing" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/pricing" />
   </url>
   <url>
     <loc>https://pinly.tech/faq</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/faq" />
-    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/faq" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/faq" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/faq" />
-    <lastmod>2026-07-22</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://pinly.tech/vi/faq</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/faq" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/faq" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/faq" />
   </url>
   <url>
     <loc>https://pinly.tech/guides/memory-map</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/guides/memory-map" />
-    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/guides/memory-map" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/guides/memory-map" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/guides/memory-map" />
-    <lastmod>2026-07-22</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://pinly.tech/vi/guides/memory-map</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/guides/memory-map" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/guides/memory-map" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/guides/memory-map" />
   </url>
   <url>
     <loc>https://pinly.tech/guides/travel-memory-journal</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/guides/travel-memory-journal" />
-    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/guides/travel-memory-journal" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/guides/travel-memory-journal" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/guides/travel-memory-journal" />
-    <lastmod>2026-07-22</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://pinly.tech/vi/guides/travel-memory-journal</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/guides/travel-memory-journal" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/guides/travel-memory-journal" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/guides/travel-memory-journal" />
   </url>
   <url>
     <loc>https://pinly.tech/privacy</loc>
-    <lastmod>2026-07-22</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/privacy" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/privacy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/privacy" />
+  </url>
+  <url>
+    <loc>https://pinly.tech/vi/privacy</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/privacy" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/privacy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/privacy" />
   </url>
   <url>
     <loc>https://pinly.tech/terms</loc>
-    <lastmod>2026-07-22</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/terms" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/terms" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/terms" />
+  </url>
+  <url>
+    <loc>https://pinly.tech/vi/terms</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/terms" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/terms" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/terms" />
   </url>
 </urlset>

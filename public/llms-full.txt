@@ -16,6 +16,17 @@ individually or shared with an invited person.
 - Privacy policy: https://pinly.tech/privacy
 - Terms of use: https://pinly.tech/terms
 
+## Vietnamese versions
+
+- Pinly là gì: https://pinly.tech/vi/about
+- Tính năng: https://pinly.tech/vi/features
+- Bảng giá: https://pinly.tech/vi/pricing
+- Câu hỏi thường gặp: https://pinly.tech/vi/faq
+- Hướng dẫn tạo bản đồ kỷ niệm: https://pinly.tech/vi/guides/memory-map
+- Hướng dẫn làm nhật ký hành trình: https://pinly.tech/vi/guides/travel-memory-journal
+- Chính sách quyền riêng tư: https://pinly.tech/vi/privacy
+- Điều khoản sử dụng: https://pinly.tech/vi/terms
+
 ---
 
 ## About Pinly

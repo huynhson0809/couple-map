@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Compass,
@@ -19,8 +19,14 @@ import { Logo } from "../components/ui/Logo";
 import {
   PUBLIC_INFO_PAGE_KEYS,
   PUBLIC_PAGES,
+  getLocalizedPublicPath,
+  type PublicLanguage,
 } from "../content/publicPages";
-import { useI18n } from "../hooks/I18nContext";
+import {
+  translate,
+  useI18n,
+  type I18nKey,
+} from "../hooks/I18nContext";
 import { usePublicPageSeo } from "../hooks/usePublicPageSeo";
 import "./LandingPage.css";
 
@@ -49,13 +55,27 @@ function ChromeMark({ size = 20 }: { size?: number }) {
   );
 }
 
-export function LandingPage() {
-  const { t, lang, setLang } = useI18n();
+export function LandingPage({
+  language = "en",
+}: {
+  language?: PublicLanguage;
+}) {
+  const { setLang } = useI18n();
+  const navigate = useNavigate();
+  const lang = language;
+  const t = (
+    key: I18nKey,
+    values?: Record<string, string | number>,
+  ) => translate(language, key, values);
   const [privacyMode, setPrivacyMode] = useState<PrivacyMode>("shared");
   const [installPlatform, setInstallPlatform] =
     useState<InstallPlatform>("ios");
 
   usePublicPageSeo("home", lang);
+
+  useEffect(() => {
+    setLang(language);
+  }, [language, setLang]);
 
   useEffect(() => {
     const revealNodes = Array.from(
@@ -124,6 +144,12 @@ export function LandingPage() {
           },
         ];
 
+  const switchLanguage = () => {
+    const nextLanguage = language === "vi" ? "en" : "vi";
+    setLang(nextLanguage);
+    navigate(getLocalizedPublicPath("/", nextLanguage));
+  };
+
   return (
     <div className="lp">
       <header className="lp-nav">
@@ -141,7 +167,7 @@ export function LandingPage() {
           <button
             type="button"
             className="lp-lang-btn"
-            onClick={() => setLang(lang === "vi" ? "en" : "vi")}
+            onClick={switchLanguage}
             aria-label={t("landing.languageLabel")}
           >
             <Globe2 size={16} aria-hidden="true" />
@@ -418,12 +444,19 @@ export function LandingPage() {
         <p>{t("landing.footerTagline")}</p>
         <div className="lp-footer-links">
           {PUBLIC_INFO_PAGE_KEYS.map((key) => (
-            <Link key={key} to={PUBLIC_PAGES[key].path}>
+            <Link
+              key={key}
+              to={getLocalizedPublicPath(PUBLIC_PAGES[key].path, language)}
+            >
               {PUBLIC_PAGES[key][lang].eyebrow}
             </Link>
           ))}
-          <Link to="/privacy">{t("legal.privacy")}</Link>
-          <Link to="/terms">{t("legal.terms")}</Link>
+          <Link to={getLocalizedPublicPath("/privacy", language)}>
+            {t("legal.privacy")}
+          </Link>
+          <Link to={getLocalizedPublicPath("/terms", language)}>
+            {t("legal.terms")}
+          </Link>
           <Link to="/login">{t("landing.login")}</Link>
         </div>
         <small>© 2026 Pinly</small>

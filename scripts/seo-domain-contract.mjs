@@ -12,6 +12,41 @@ const prerender = readFileSync(
   resolve("scripts/prerender-public-pages.mjs"),
   "utf8",
 );
+const generator = readFileSync(
+  resolve("scripts/generate-search-files.mjs"),
+  "utf8",
+);
+const vercel = readFileSync(resolve("vercel.json"), "utf8");
+
+const EXPECTED_PUBLIC_PATHS = [
+  "/",
+  "/about",
+  "/features",
+  "/pricing",
+  "/faq",
+  "/guides/memory-map",
+  "/guides/travel-memory-journal",
+  "/privacy",
+  "/terms",
+];
+const EXPECTED_LOCALIZED_PATHS = EXPECTED_PUBLIC_PATHS.flatMap((path) => [
+  path,
+  path === "/" ? "/vi" : `/vi${path}`,
+]);
+const PRIVATE_PATHS = [
+  "/admin/",
+  "/forgot-password",
+  "/login",
+  "/memory/",
+  "/notifications",
+  "/register",
+  "/replay",
+  "/reset-password",
+  "/settings",
+  "/setup",
+  "/timeline",
+  "/wishlist",
+];
 
 assert.match(
   indexHtml,
@@ -30,8 +65,8 @@ assert.match(
 );
 assert.match(
   prerender,
-  /const language = "en";/,
-  "Public prerendered pages must default to English.",
+  /const LANGUAGES = \["en", "vi"\];/,
+  "Public prerendering must emit distinct English and Vietnamese pages.",
 );
 
 assert.doesNotMatch(
@@ -70,6 +105,85 @@ assert.match(
   robots,
   new RegExp(`Sitemap: ${PRIMARY_ORIGIN}/sitemap\\.xml`),
   "robots.txt must advertise the primary-domain sitemap.",
+);
+assert.match(
+  robots,
+  /^User-agent: OAI-SearchBot$/m,
+  "ChatGPT search crawling must be explicitly allowed.",
+);
+
+for (const path of PRIVATE_PATHS) {
+  assert.match(
+    robots,
+    new RegExp(`^Disallow: ${path.replaceAll("/", "\\/")}$`, "m"),
+    `${path} must be excluded from crawler discovery.`,
+  );
+}
+
+const sitemapUrls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(
+  (match) => match[1],
+);
+assert.deepEqual(
+  sitemapUrls,
+  EXPECTED_LOCALIZED_PATHS.map(
+    (path) => `${PRIMARY_ORIGIN}${path === "/" ? "/" : path}`,
+  ),
+  "Sitemap must contain every English and Vietnamese public route exactly once.",
+);
+assert.match(
+  sitemap,
+  /^<\?xml version="1\.0" encoding="UTF-8"\?>/,
+  "Sitemap must be a valid XML document.",
+);
+assert.match(
+  sitemap,
+  /<\?xml-stylesheet type="text\/xsl" href="\/sitemap\.xsl"\?>/,
+  "Sitemap must provide a human-readable browser stylesheet.",
+);
+assert.match(
+  sitemap,
+  /xmlns:xhtml="http:\/\/www\.w3\.org\/1999\/xhtml"/,
+  "Localized sitemap entries must declare the XHTML namespace.",
+);
+assert.match(
+  sitemap,
+  /xhtml:link rel="alternate" hreflang="en" href="https:\/\/pinly\.tech\/about"/,
+  "Sitemap must connect English public pages to their language variants.",
+);
+assert.match(
+  sitemap,
+  /xhtml:link rel="alternate" hreflang="vi" href="https:\/\/pinly\.tech\/vi\/about"/,
+  "Sitemap must expose the Vietnamese public-page variants.",
+);
+assert.match(
+  sitemap,
+  /xhtml:link rel="alternate" hreflang="x-default" href="https:\/\/pinly\.tech\/about"/,
+  "Every language cluster must provide an English x-default URL.",
+);
+assert.doesNotMatch(
+  sitemap,
+  /<(?:lastmod|changefreq|priority)>/,
+  "Sitemap must not publish fabricated dates or ignored ranking hints.",
+);
+assert.match(
+  generator,
+  /Object\.values\(PUBLIC_PAGES\)\.map/,
+  "Sitemap generation must derive marketing routes from public page definitions.",
+);
+assert.match(
+  vercel,
+  /"source": "\/sitemap\.xml", "destination": "\/_seo\/sitemap\.xml"/,
+  "Vercel must route sitemap.xml to an explicit static XML target.",
+);
+assert.match(
+  vercel,
+  /"source": "\/robots\.txt", "destination": "\/_seo\/robots\.txt"/,
+  "Vercel must route robots.txt to an explicit static text target.",
+);
+assert.match(
+  vercel,
+  /"source": "\/vi\/about", "destination": "\/vi\/about\/index\.html"/,
+  "Vercel must serve the prerendered Vietnamese route before the SPA fallback.",
 );
 
 assert.match(

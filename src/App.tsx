@@ -26,7 +26,7 @@ import { ToastProvider } from "./hooks/ToastContext";
 import { usePushSubscription } from "./hooks/usePushSubscription";
 import { NotificationFeedProvider } from "./hooks/NotificationFeedContext";
 import { SubscriptionProvider, useSubscription } from "./hooks/useSubscription";
-import { getPublicPageByPath } from "./content/publicPages";
+import { getPublicPageRouteByPath } from "./content/publicPages";
 import { lazy, Suspense, useEffect, useRef, type ReactNode } from "react";
 
 const LoginPage = lazy(() =>
@@ -315,12 +315,24 @@ function RoutedShell() {
 function AppRoutes() {
   const { user, loading: authLoading, isRecovery } = useAuth();
   const location = useLocation();
-  const publicPage = getPublicPageByPath(location.pathname);
+  const publicRoute = getPublicPageRouteByPath(location.pathname);
 
-  if (publicPage && publicPage.key !== "home") {
+  if (publicRoute && publicRoute.page.key !== "home") {
     return (
       <>
-        <PublicContentPage pageKey={publicPage.key} />
+        <PublicContentPage
+          pageKey={publicRoute.page.key}
+          language={publicRoute.language}
+        />
+        <WebAnalytics />
+      </>
+    );
+  }
+
+  if (publicRoute?.page.key === "home" && publicRoute.language === "vi") {
+    return (
+      <>
+        <LandingPage language="vi" />
         <WebAnalytics />
       </>
     );
@@ -343,18 +355,26 @@ function AppRoutes() {
     return (
       <>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<LandingPage language="en" />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route
             path="/privacy"
-            element={<PublicPolicyPage kind="privacy" />}
+            element={<PublicPolicyPage kind="privacy" language="en" />}
           />
           <Route
             path="/terms"
-            element={<PublicPolicyPage kind="terms" />}
+            element={<PublicPolicyPage kind="terms" language="en" />}
+          />
+          <Route
+            path="/vi/privacy"
+            element={<PublicPolicyPage kind="privacy" language="vi" />}
+          />
+          <Route
+            path="/vi/terms"
+            element={<PublicPolicyPage kind="terms" language="vi" />}
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -367,6 +387,8 @@ function AppRoutes() {
     <Routes>
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
+      <Route path="/vi/privacy" element={<PrivacyPage />} />
+      <Route path="/vi/terms" element={<TermsPage />} />
       <Route
         path="/admin/support"
         element={

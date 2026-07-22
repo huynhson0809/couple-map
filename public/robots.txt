@@ -1,13 +1,47 @@
-# OAI-SearchBot, ChatGPT-User, Googlebot, Bingbot and other public
-# search crawlers are allowed by this shared policy.
-User-agent: *
+# Public Pinly pages may be crawled by search and AI discovery bots.
+# Private routes are excluded from discovery; robots.txt is not access control.
+User-agent: OAI-SearchBot
 Allow: /
+Disallow: /_seo/
 Disallow: /admin/
 Disallow: /forgot-password
 Disallow: /login
 Disallow: /memory/
 Disallow: /notifications
 Disallow: /register
+Disallow: /replay
+Disallow: /reset-password
+Disallow: /settings
+Disallow: /setup
+Disallow: /timeline
+Disallow: /wishlist
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /_seo/
+Disallow: /admin/
+Disallow: /forgot-password
+Disallow: /login
+Disallow: /memory/
+Disallow: /notifications
+Disallow: /register
+Disallow: /replay
+Disallow: /reset-password
+Disallow: /settings
+Disallow: /setup
+Disallow: /timeline
+Disallow: /wishlist
+
+User-agent: *
+Allow: /
+Disallow: /_seo/
+Disallow: /admin/
+Disallow: /forgot-password
+Disallow: /login
+Disallow: /memory/
+Disallow: /notifications
+Disallow: /register
+Disallow: /replay
 Disallow: /reset-password
 Disallow: /settings
 Disallow: /setup

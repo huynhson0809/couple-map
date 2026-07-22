@@ -1,4 +1,5 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "headers": [
     {
       "source": "/sitemap.xml",
@@ -6,6 +7,36 @@
         {
           "key": "Content-Type",
           "value": "application/xml; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, s-maxage=3600"
+        }
+      ]
+    },
+    {
+      "source": "/sitemap.xsl",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/xsl; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, s-maxage=3600"
+        }
+      ]
+    },
+    {
+      "source": "/robots.txt",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, s-maxage=3600"
         }
       ]
     },
@@ -40,6 +71,9 @@
     }
   ],
   "rewrites": [
+    { "source": "/sitemap.xml", "destination": "/_seo/sitemap.xml" },
+    { "source": "/sitemap.xsl", "destination": "/_seo/sitemap.xsl" },
+    { "source": "/robots.txt", "destination": "/_seo/robots.txt" },
     { "source": "/about", "destination": "/about/index.html" },
     { "source": "/features", "destination": "/features/index.html" },
     { "source": "/pricing", "destination": "/pricing/index.html" },
@@ -52,8 +86,31 @@
       "source": "/guides/travel-memory-journal",
       "destination": "/guides/travel-memory-journal/index.html"
     },
+    { "source": "/privacy", "destination": "/privacy/index.html" },
+    { "source": "/terms", "destination": "/terms/index.html" },
+    { "source": "/vi", "destination": "/vi/index.html" },
+    { "source": "/vi/about", "destination": "/vi/about/index.html" },
     {
-      "source": "/((?!sitemap\\.xml|robots\\.txt|llms\\.txt|llms-full\\.txt|BingSiteAuth\\.xml|6b4e9d7c1a8f3e2b5c0d9a7f4e1c8b6d\\.txt).*)",
+      "source": "/vi/features",
+      "destination": "/vi/features/index.html"
+    },
+    { "source": "/vi/pricing", "destination": "/vi/pricing/index.html" },
+    { "source": "/vi/faq", "destination": "/vi/faq/index.html" },
+    {
+      "source": "/vi/guides/memory-map",
+      "destination": "/vi/guides/memory-map/index.html"
+    },
+    {
+      "source": "/vi/guides/travel-memory-journal",
+      "destination": "/vi/guides/travel-memory-journal/index.html"
+    },
+    {
+      "source": "/vi/privacy",
+      "destination": "/vi/privacy/index.html"
+    },
+    { "source": "/vi/terms", "destination": "/vi/terms/index.html" },
+    {
+      "source": "/((?!_seo/|sitemap\\.xml|sitemap\\.xsl|robots\\.txt|llms\\.txt|llms-full\\.txt|BingSiteAuth\\.xml|6b4e9d7c1a8f3e2b5c0d9a7f4e1c8b6d\\.txt).*)",
       "destination": "/index.html"
     }
   ]

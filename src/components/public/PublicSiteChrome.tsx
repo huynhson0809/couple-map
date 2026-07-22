@@ -1,9 +1,11 @@
 import { Globe2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   PUBLIC_CHROME,
   PUBLIC_INFO_PAGE_KEYS,
   PUBLIC_PAGES,
+  getLocalizedPublicPath,
+  type PublicLanguage,
   type PublicPageKey,
 } from "../../content/publicPages";
 import { useI18n } from "../../hooks/I18nContext";
@@ -33,40 +35,54 @@ const LEGAL_FOOTER_LABELS = {
 
 export function PublicSiteHeader({
   activePageKey,
+  language,
 }: {
   activePageKey?: PublicPageKey;
+  language: PublicLanguage;
 }) {
-  const { lang, setLang } = useI18n();
-  const chrome = PUBLIC_CHROME[lang];
+  const { setLang } = useI18n();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const chrome = PUBLIC_CHROME[language];
+
+  const switchLanguage = () => {
+    const nextLanguage = language === "vi" ? "en" : "vi";
+    setLang(nextLanguage);
+    navigate(getLocalizedPublicPath(location.pathname, nextLanguage));
+  };
 
   return (
     <header className="public-nav">
-      <Link className="public-brand" to="/" aria-label="Pinly">
+      <Link
+        className="public-brand"
+        to={getLocalizedPublicPath("/", language)}
+        aria-label="Pinly"
+      >
         <Logo size={30} />
         <span>Pinly</span>
       </Link>
 
       <nav className="public-nav-links" aria-label={chrome.navLabel}>
         <Link
-          to="/about"
+          to={getLocalizedPublicPath("/about", language)}
           aria-current={activePageKey === "about" ? "page" : undefined}
         >
           {chrome.about}
         </Link>
         <Link
-          to="/features"
+          to={getLocalizedPublicPath("/features", language)}
           aria-current={activePageKey === "features" ? "page" : undefined}
         >
           {chrome.features}
         </Link>
         <Link
-          to="/pricing"
+          to={getLocalizedPublicPath("/pricing", language)}
           aria-current={activePageKey === "pricing" ? "page" : undefined}
         >
           {chrome.pricing}
         </Link>
         <Link
-          to="/faq"
+          to={getLocalizedPublicPath("/faq", language)}
           aria-current={activePageKey === "faq" ? "page" : undefined}
         >
           {chrome.faq}
@@ -77,12 +93,12 @@ export function PublicSiteHeader({
         <button
           type="button"
           className="public-language-button"
-          onClick={() => setLang(lang === "vi" ? "en" : "vi")}
+          onClick={switchLanguage}
           aria-label={chrome.language}
           title={chrome.language}
         >
           <Globe2 size={18} aria-hidden="true" />
-          <span>{lang === "vi" ? "VI" : "EN"}</span>
+          <span>{language === "vi" ? "VI" : "EN"}</span>
         </button>
         <Link className="public-primary-button public-nav-cta" to="/register">
           {chrome.register}
@@ -92,14 +108,16 @@ export function PublicSiteHeader({
   );
 }
 
-export function PublicSiteFooter() {
-  const { lang } = useI18n();
-  const chrome = PUBLIC_CHROME[lang];
+export function PublicSiteFooter({ language }: { language: PublicLanguage }) {
+  const chrome = PUBLIC_CHROME[language];
 
   return (
     <footer className="public-footer">
       <div className="public-footer-top">
-        <Link className="public-brand" to="/">
+        <Link
+          className="public-brand"
+          to={getLocalizedPublicPath("/", language)}
+        >
           <Logo size={26} />
           <span>Pinly</span>
         </Link>
@@ -107,14 +125,21 @@ export function PublicSiteFooter() {
       </div>
       <nav aria-label={chrome.navLabel}>
         {PUBLIC_INFO_PAGE_KEYS.map((key) => (
-          <Link key={key} to={PUBLIC_PAGES[key].path}>
+          <Link
+            key={key}
+            to={getLocalizedPublicPath(PUBLIC_PAGES[key].path, language)}
+          >
             {key === "memoryMapGuide" || key === "travelJournalGuide"
-              ? GUIDE_FOOTER_LABELS[lang][key]
-              : PUBLIC_PAGES[key][lang].eyebrow}
+              ? GUIDE_FOOTER_LABELS[language][key]
+              : PUBLIC_PAGES[key][language].eyebrow}
           </Link>
         ))}
-        <Link to="/privacy">{LEGAL_FOOTER_LABELS[lang].privacy}</Link>
-        <Link to="/terms">{LEGAL_FOOTER_LABELS[lang].terms}</Link>
+        <Link to={getLocalizedPublicPath("/privacy", language)}>
+          {LEGAL_FOOTER_LABELS[language].privacy}
+        </Link>
+        <Link to={getLocalizedPublicPath("/terms", language)}>
+          {LEGAL_FOOTER_LABELS[language].terms}
+        </Link>
         <Link to="/login">{chrome.login}</Link>
       </nav>
       <small>© 2026 Pinly</small>

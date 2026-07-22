@@ -683,12 +683,50 @@ export const PUBLIC_INFO_PAGE_KEYS = PUBLIC_PAGE_KEYS.filter(
   (key) => key !== "home",
 );
 
-export function getPublicPageByPath(pathname: string) {
-  const normalizedPath =
-    pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
-  return PUBLIC_PAGE_KEYS.map((key) => PUBLIC_PAGES[key]).find(
-    (page) => page.path === normalizedPath,
+export const PUBLIC_POLICY_PATHS = ["/privacy", "/terms"] as const;
+
+function normalizePublicPath(pathname: string) {
+  if (!pathname) return "/";
+  const withLeadingSlash = pathname.startsWith("/")
+    ? pathname
+    : `/${pathname}`;
+  return withLeadingSlash.length > 1
+    ? withLeadingSlash.replace(/\/+$/, "")
+    : withLeadingSlash;
+}
+
+export function getLocalizedPublicPath(
+  pathname: string,
+  language: PublicLanguage,
+) {
+  const normalizedPath = normalizePublicPath(pathname);
+  const basePath =
+    normalizedPath === "/vi"
+      ? "/"
+      : normalizedPath.startsWith("/vi/")
+        ? normalizedPath.slice(3)
+        : normalizedPath;
+
+  if (language === "en") return basePath;
+  return basePath === "/" ? "/vi" : `/vi${basePath}`;
+}
+
+export function getPublicPageRouteByPath(pathname: string) {
+  const normalizedPath = normalizePublicPath(pathname);
+  const language: PublicLanguage =
+    normalizedPath === "/vi" || normalizedPath.startsWith("/vi/")
+      ? "vi"
+      : "en";
+  const basePath = getLocalizedPublicPath(normalizedPath, "en");
+  const page = PUBLIC_PAGE_KEYS.map((key) => PUBLIC_PAGES[key]).find(
+    (candidate) => candidate.path === basePath,
   );
+
+  return page ? { page, language } : undefined;
+}
+
+export function getPublicPageByPath(pathname: string) {
+  return getPublicPageRouteByPath(pathname)?.page;
 }
 
 export function getPublicPageSchema(
@@ -696,7 +734,8 @@ export function getPublicPageSchema(
   language: PublicLanguage,
 ) {
   const content = page[language];
-  const url = `https://pinly.tech${page.path === "/" ? "/" : page.path}`;
+  const localizedPath = getLocalizedPublicPath(page.path, language);
+  const url = `https://pinly.tech${localizedPath}`;
   const base = {
     "@context": "https://schema.org",
     "@type": page.schemaType,
@@ -719,7 +758,7 @@ export function getPublicPageSchema(
       operatingSystem: "Web",
       url: "https://pinly.tech/",
     },
-    dateModified: "2026-07-21",
+    dateModified: "2026-07-22",
   };
 
   if (page.schemaType === "FAQPage") {

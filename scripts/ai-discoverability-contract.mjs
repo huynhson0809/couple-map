@@ -30,6 +30,11 @@ assert.match(
   /User-agent:\s*\*[\s\S]*?Allow:\s*\//,
   "Public crawlers, including OAI-SearchBot, must be allowed by robots.txt.",
 );
+assert.match(
+  robots,
+  /User-agent:\s*OAI-SearchBot[\s\S]*?Allow:\s*\//,
+  "OpenAI search crawling must be explicitly allowed.",
+);
 assert.doesNotMatch(
   robots,
   /Disallow:\s*\/(?:about|features|pricing|faq|guides)/,
@@ -52,6 +57,21 @@ for (const path of publicPaths) {
     new RegExp(`https://pinly\\.tech${path}`),
     `${path} must be discoverable from llms.txt.`,
   );
+  assert.match(
+    sitemap,
+    new RegExp(`<loc>https://pinly\\.tech/vi${path}</loc>`),
+    `The Vietnamese ${path} route must be present in sitemap.xml.`,
+  );
+  assert.match(
+    vercel,
+    new RegExp(`"source": "/vi${path.replaceAll("/", "\\/")}"`),
+    `The Vietnamese ${path} route must have a prerender rewrite.`,
+  );
+  assert.match(
+    llms,
+    new RegExp(`https://pinly\\.tech/vi${path}`),
+    `The Vietnamese ${path} route must be discoverable from llms.txt.`,
+  );
 }
 
 assert.match(
@@ -69,13 +89,23 @@ for (const path of publicPaths) {
 
 assert.match(
   indexHtml,
-  /hreflang="en"/,
-  "index.html must include hreflang=en for international targeting.",
+  /<link rel="alternate" hreflang="vi" href="https:\/\/pinly\.tech\/vi" \/>/,
+  "The default homepage must link to its distinct Vietnamese version.",
+);
+assert.match(
+  prerender,
+  /replaceAlternate[\s\S]*"x-default"/,
+  "Prerendered public pages must emit reciprocal locale alternates.",
+);
+assert.match(
+  sitemap,
+  /xhtml:link rel="alternate" hreflang="vi" href="https:\/\/pinly\.tech\/vi\/about"/,
+  "Sitemap locale annotations must point to distinct crawlable locale URLs.",
 );
 assert.match(
   indexHtml,
-  /hreflang="x-default"/,
-  "index.html must include hreflang=x-default as fallback.",
+  /<html lang="en">/,
+  "The crawlable default version must remain English.",
 );
 
 assert.match(
@@ -119,8 +149,8 @@ assert.match(
 );
 assert.match(
   prerender,
-  /writeFileSync\(outputPath, buildPageHtml\(page\)\)/,
-  "Build-time prerender must emit static HTML for each public route.",
+  /writeLocalizedPage\(page\.path, language, buildPageHtml\(page, language\)\)/,
+  "Build-time prerender must emit static HTML for each localized public route.",
 );
 assert.match(
   packageJson,

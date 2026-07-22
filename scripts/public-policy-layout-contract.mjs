@@ -29,13 +29,18 @@ const signedInRoutes = app.slice(signedInRoutesStart);
 
 assert.match(
   signedOutRoutes,
-  /<PublicPolicyPage kind="privacy" \/>/,
+  /<PublicPolicyPage kind="privacy" language="en" \/>/,
   "Signed-out privacy should use the public policy layout.",
 );
 assert.match(
   signedOutRoutes,
-  /<PublicPolicyPage kind="terms" \/>/,
+  /<PublicPolicyPage kind="terms" language="en" \/>/,
   "Signed-out terms should use the public policy layout.",
+);
+assert.match(
+  signedOutRoutes,
+  /<PublicPolicyPage kind="privacy" language="vi" \/>/,
+  "Signed-out privacy should have a distinct Vietnamese route.",
 );
 assert.match(
   signedInRoutes,
@@ -55,16 +60,16 @@ assert.match(
 );
 assert.match(
   publicPolicy,
-  /<PublicSiteHeader \/>/,
+  /<PublicSiteHeader language={language} \/>/,
   "The public policy layout should use the shared public header.",
 );
 assert.match(
   publicPolicy,
-  /<PublicSiteFooter \/>/,
+  /<PublicSiteFooter language={language} \/>/,
   "The public policy layout should use the shared public footer.",
 );
 assert.match(
   publicContent,
-  /<PublicSiteHeader activePageKey={pageKey} \/>/,
+  /<PublicSiteHeader activePageKey={pageKey} language={language} \/>/,
   "Public content pages should use the same shared header.",
 );

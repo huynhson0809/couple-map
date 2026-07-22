@@ -1192,12 +1192,25 @@ const dict = {
   },
 } as const;
 
-type Keys = keyof (typeof dict)["en"];
+export type I18nKey = keyof (typeof dict)["en"];
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function translate(
+  lang: Lang,
+  key: I18nKey,
+  values?: Record<string, string | number>,
+) {
+  let value: string = dict[lang][key] ?? key;
+  for (const [name, replacement] of Object.entries(values ?? {})) {
+    value = value.split(`{{${name}}}`).join(String(replacement));
+  }
+  return value;
+}
 
 interface Ctx {
   lang: Lang;
   setLang: (l: Lang) => void;
-  t: (k: Keys, values?: Record<string, string | number>) => string;
+  t: (k: I18nKey, values?: Record<string, string | number>) => string;
 }
 
 const I18nCtx = createContext<Ctx | null>(null);
@@ -1213,13 +1226,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = lang;
   }, [lang]);
 
-  const t = (k: Keys, values?: Record<string, string | number>) => {
-    let value: string = dict[lang][k] ?? k;
-    for (const [name, replacement] of Object.entries(values ?? {})) {
-      value = value.split(`{{${name}}}`).join(String(replacement));
-    }
-    return value;
-  };
+  const t = (k: I18nKey, values?: Record<string, string | number>) =>
+    translate(lang, k, values);
   return (
     <I18nCtx.Provider value={{ lang, setLang: setLangState, t }}>
       {children}

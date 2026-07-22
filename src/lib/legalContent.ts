@@ -1,4 +1,4 @@
-import { LEGAL_EFFECTIVE_DATE } from "./privacyConsent";
+import { LEGAL_EFFECTIVE_DATE } from "./privacyConsent.ts";
 import type { Lang } from "../hooks/I18nContext";
 
 export type PolicyKind = "privacy" | "terms";

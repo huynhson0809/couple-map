@@ -5,8 +5,12 @@ import {
   type PublicLanguage,
   type PublicPageKey,
 } from "../content/publicPages";
+import {
+  getAbsolutePublicUrl,
+  PRIMARY_ORIGIN,
+  syncPublicLanguageLinks,
+} from "../lib/publicSeo";
 
-const PRIMARY_ORIGIN = "https://pinly.tech";
 const ROUTE_SCHEMA_ID = "pinly-route-schema";
 
 function setMeta(selector: string, attribute: string, value: string) {
@@ -23,7 +27,7 @@ export function usePublicPageSeo(
   useEffect(() => {
     const page = PUBLIC_PAGES[pageKey];
     const content = page[language];
-    const canonicalUrl = `${PRIMARY_ORIGIN}${page.path === "/" ? "/" : page.path}`;
+    const canonicalUrl = getAbsolutePublicUrl(page.path, language);
     const imageUrl = `${PRIMARY_ORIGIN}${page.image}`;
 
     document.documentElement.lang = language;
@@ -38,6 +42,16 @@ export function usePublicPageSeo(
       content.metaDescription,
     );
     setMeta('meta[property="og:image"]', "content", imageUrl);
+    setMeta(
+      'meta[property="og:locale"]',
+      "content",
+      language === "vi" ? "vi_VN" : "en_US",
+    );
+    setMeta(
+      'meta[property="og:locale:alternate"]',
+      "content",
+      language === "vi" ? "en_US" : "vi_VN",
+    );
     setMeta('meta[name="twitter:title"]', "content", content.metaTitle);
     setMeta(
       'meta[name="twitter:description"]',
@@ -50,6 +64,7 @@ export function usePublicPageSeo(
       'link[rel="canonical"]',
     );
     canonical?.setAttribute("href", canonicalUrl);
+    syncPublicLanguageLinks(page.path);
 
     document.getElementById(ROUTE_SCHEMA_ID)?.remove();
     const schema = document.createElement("script");
