@@ -52,6 +52,9 @@
       "source": "/guides/travel-memory-journal",
       "destination": "/guides/travel-memory-journal/index.html"
     },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/((?!sitemap\\.xml|robots\\.txt|llms\\.txt|llms-full\\.txt|BingSiteAuth\\.xml|6b4e9d7c1a8f3e2b5c0d9a7f4e1c8b6d\\.txt).*)",
+      "destination": "/index.html"
+    }
   ]
 }
