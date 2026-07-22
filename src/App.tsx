@@ -113,6 +113,11 @@ const SettingsPage = lazy(() =>
     default: module.SettingsPage,
   })),
 );
+const YearReplayPage = lazy(() =>
+  import("./pages/YearReplayPage").then((module) => ({
+    default: module.YearReplayPage,
+  })),
+);
 const AdminSupportPage = lazy(() =>
   import("./pages/AdminSupportPage").then((module) => ({
     default: module.AdminSupportPage,
@@ -149,6 +154,9 @@ function PairedShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const isMap = location.pathname === "/";
+  const isReplay =
+    location.pathname === "/replay" ||
+    location.pathname.startsWith("/replay/");
   const bgUrl = activeSpace?.background_image_url;
   const backgroundImageUrl = bgUrl ? getImageUrl(bgUrl, 1200) : undefined;
   const backgroundPreloadRef = useRef<HTMLImageElement | null>(null);
@@ -213,7 +221,7 @@ function PairedShell() {
         className={`app-shell ${isMap ? "shell-map" : "shell-page"} ${bgUrl ? "has-bg" : ""} ${!subscriptionLoading && !currentSpaceWritable ? "space-read-only" : ""}`}
         style={shellStyle}
       >
-        {!subscriptionLoading && !currentSpaceWritable && (
+        {!isReplay && !subscriptionLoading && !currentSpaceWritable && (
           <div className="space-read-only-banner" role="status">
             <span className="space-read-only-banner-icon" aria-hidden="true">
               <LockKeyhole size={17} />
@@ -238,10 +246,12 @@ function PairedShell() {
           <Route path="/wishlist" element={<WishlistPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/replay" element={<YearReplayPage />} />
+          <Route path="/replay/:year" element={<YearReplayPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        <BottomNav />
-        <AnniversaryPrompt />
+        {!isReplay && <BottomNav />}
+        {!isReplay && <AnniversaryPrompt />}
         <NotificationToast />
       </div>
     </NotificationFeedProvider>

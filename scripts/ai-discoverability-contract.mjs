@@ -8,6 +8,7 @@ const indexHtml = read("index.html");
 const robots = read("public/robots.txt");
 const sitemap = read("public/sitemap.xml");
 const llms = read("public/llms.txt");
+const llmsFull = read("public/llms-full.txt");
 const publicPages = read("src/content/publicPages.ts");
 const publicPageComponent = read("src/pages/PublicContentPage.tsx");
 const landingPage = read("src/pages/LandingPage.tsx");
@@ -54,6 +55,30 @@ for (const path of publicPaths) {
 }
 
 assert.match(
+  llms,
+  /llms-full\.txt/,
+  "llms.txt must reference the full version (llms-full.txt).",
+);
+for (const path of publicPaths) {
+  assert.match(
+    llmsFull,
+    new RegExp(`https://pinly\\.tech${path}`),
+    `${path} must be discoverable from llms-full.txt.`,
+  );
+}
+
+assert.match(
+  indexHtml,
+  /hreflang="en"/,
+  "index.html must include hreflang=en for international targeting.",
+);
+assert.match(
+  indexHtml,
+  /hreflang="x-default"/,
+  "index.html must include hreflang=x-default as fallback.",
+);
+
+assert.match(
   indexHtml,
   /"alternateName": \["Pinly Memory Map", "Pinly Private Memory Map"/,
   "Entity schema must distinguish Pinly from similarly named products.",
@@ -64,7 +89,7 @@ assert.doesNotMatch(
   "FAQ schema must live on the visible public FAQ page, not globally.",
 );
 assert.doesNotMatch(
-  `${indexHtml}\n${llms}\n${publicPages}`,
+  `${indexHtml}\n${llms}\n${llmsFull}\n${publicPages}`,
   /(?:100 pins|100 kỷ niệm)/i,
   "Public AI-facing content must not advertise the old Free limit.",
 );

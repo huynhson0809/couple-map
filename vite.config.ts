@@ -22,7 +22,7 @@ export default defineConfig({
         name: "Pinly",
         short_name: "Pinly",
         description:
-          "Bản đồ kỷ niệm riêng tư để lưu địa điểm, ảnh, video và câu chuyện theo thời gian.",
+          "A private memory map for saving places, photos, videos, and stories over time.",
         theme_color: "#fff8fa",
         background_color: "#fff8fa",
         display: "standalone",
@@ -58,7 +58,8 @@ export default defineConfig({
         manualChunks(id: string) {
           if (id.includes("node_modules/react")) return "react-vendor";
           if (id.includes("node_modules/react-dom")) return "react-vendor";
-          if (id.includes("node_modules/react-router-dom")) return "react-vendor";
+          if (id.includes("node_modules/react-router-dom"))
+            return "react-vendor";
           if (id.includes("node_modules/@supabase")) return "supabase";
           if (id.includes("node_modules/maplibre-gl")) return "maplibre";
           if (id.includes("node_modules/browser-image-compression")) {

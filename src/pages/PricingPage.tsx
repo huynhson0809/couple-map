@@ -41,8 +41,8 @@ const PLAN_FEATURES: Record<
 };
 
 const PLAN_PRICES = {
-  monthly: { plus: 59000, pro: 99000 },
-  annual: { plus: 566000, pro: 950000 },
+  monthly: { plus: 2.99, pro: 4.99 },
+  annual: { plus: 24.99, pro: 39.99 },
 } as const;
 
 const FEATURE_LABELS: Record<string, { vi: string; en: string }> = {
@@ -68,9 +68,7 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
   const [cycle, setCycle] = useState<"monthly" | "annual">("monthly");
   const [code, setCode] = useState("");
   const [activating, setActivating] = useState(false);
-  const [checkoutBusy, setCheckoutBusy] = useState<"plus" | "pro" | null>(
-    null,
-  );
+  const [checkoutBusy, setCheckoutBusy] = useState<"plus" | "pro" | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [showActivationCode, setShowActivationCode] = useState(false);
   const [activateResult, setActivateResult] = useState<{
@@ -85,7 +83,9 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
   const prices = PLAN_PRICES[cycle];
 
   const formatPrice = (amount: number) => {
-    return new Intl.NumberFormat("vi-VN").format(amount) + "đ";
+    return lang === "vi"
+      ? new Intl.NumberFormat("vi-VN").format(amount * 25000) + "đ"
+      : "$" + amount.toFixed(2).replace(/\.00$/, "");
   };
 
   const periodLabel =
@@ -265,7 +265,9 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
             type="button"
             className="pricing-buy-btn pricing-buy-btn-pro"
             onClick={() => void handleCheckout("pro")}
-            disabled={checkoutBusy !== null || subLoading || accountPlan === "pro"}
+            disabled={
+              checkoutBusy !== null || subLoading || accountPlan === "pro"
+            }
           >
             {checkoutBusy === "pro"
               ? "..."

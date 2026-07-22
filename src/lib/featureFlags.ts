@@ -8,3 +8,8 @@ export const MULTI_SPACE_ENABLED = readBooleanFlag(
   import.meta.env.VITE_MULTI_SPACE_ENABLED,
   false,
 );
+
+export const YEAR_REPLAY_ENABLED = readBooleanFlag(
+  import.meta.env.VITE_YEAR_REPLAY_ENABLED,
+  true,
+);

@@ -389,8 +389,8 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
       plans: [
         {
           name: "Free",
-          monthlyPrice: "0 VND",
-          annualPrice: "0 VND",
+          monthlyPrice: "$0",
+          annualPrice: "$0",
           description: "Create your first memory map.",
           features: [
             "50 memories",
@@ -401,8 +401,8 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         },
         {
           name: "Plus",
-          monthlyPrice: "59,000 VND/month",
-          annualPrice: "566,000 VND/year",
+          monthlyPrice: "$2.99/month",
+          annualPrice: "$24.99/year",
           description: "More room and 3D maps.",
           features: [
             "300 memories",
@@ -413,8 +413,8 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         },
         {
           name: "Pro",
-          monthlyPrice: "99,000 VND/month",
-          annualPrice: "950,000 VND/year",
+          monthlyPrice: "$4.99/month",
+          annualPrice: "$39.99/year",
           description: "The complete toolkit for a growing archive.",
           features: [
             "500 memories",
@@ -570,8 +570,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         "Mở Timeline để xem lại câu chuyện theo thời gian hoặc dùng tìm kiếm để tìm bằng tiêu đề và địa chỉ.",
       ],
       ctaTitle: "Tạo dấu ghim đầu tiên",
-      ctaDescription:
-        "Gói Free cho phép bạn bắt đầu với tối đa 50 kỷ niệm.",
+      ctaDescription: "Gói Free cho phép bạn bắt đầu với tối đa 50 kỷ niệm.",
     },
     en: {
       eyebrow: "Guide",
@@ -641,8 +640,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         "Sau chuyến đi, mở Timeline để chỉnh lại câu chuyện và chia sẻ bản đồ với người được mời khi cần.",
       ],
       ctaTitle: "Bắt đầu nhật ký hành trình",
-      ctaDescription:
-        "Lưu điểm đến đầu tiên ngay khi ký ức vẫn còn mới.",
+      ctaDescription: "Lưu điểm đến đầu tiên ngay khi ký ức vẫn còn mới.",
     },
     en: {
       eyebrow: "Guide",

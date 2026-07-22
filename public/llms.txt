@@ -1,5 +1,7 @@
 # Pinly
 
+> For the full detailed version, see https://pinly.tech/llms-full.txt
+
 Pinly is a private memory map web application at https://pinly.tech/.
 It lets people save places, dates, notes, photos, and videos as memories,
 then revisit them on a map and chronological timeline. Pinly can be used
@@ -19,8 +21,8 @@ individually or shared with an invited person.
 ## Product facts
 
 - Free: 50 memories, 3 photos per memory, and 3 map styles.
-- Plus: 300 memories, 5 photos per memory, 10 map styles, and 3D maps.
-- Pro: 500 memories, photo and video support, 15 map styles, and 3D maps.
+- Plus ($2.99/month): 300 memories, 5 photos per memory, 10 map styles, and 3D maps.
+- Pro ($4.99/month): 500 memories, photo and video support, 15 map styles, and 3D maps.
 - Personal memories are private by default.
 - Shared content is available only to invited members.
 - Pinly is a Progressive Web App and can be added to a phone Home Screen.

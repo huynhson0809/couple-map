@@ -153,23 +153,33 @@ function buildPageHtml(page) {
   let html = template;
 
   html = html.replace(/<html lang="[^"]+">/, `<html lang="${language}">`);
-  html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(content.metaTitle)}</title>`);
+  html = html.replace(
+    /<title>[\s\S]*?<\/title>/,
+    `<title>${escapeHtml(content.metaTitle)}</title>`,
+  );
   html = replaceMeta(html, "name", "description", content.metaDescription);
   html = replaceMeta(html, "property", "og:url", canonicalUrl);
   html = replaceMeta(html, "property", "og:title", content.metaTitle);
-  html = replaceMeta(html, "property", "og:description", content.metaDescription);
+  html = replaceMeta(
+    html,
+    "property",
+    "og:description",
+    content.metaDescription,
+  );
   html = replaceMeta(html, "property", "og:image", imageUrl);
   html = replaceMeta(html, "name", "twitter:title", content.metaTitle);
-  html = replaceMeta(html, "name", "twitter:description", content.metaDescription);
+  html = replaceMeta(
+    html,
+    "name",
+    "twitter:description",
+    content.metaDescription,
+  );
   html = replaceMeta(html, "name", "twitter:image", imageUrl);
   html = html.replace(
     /<link rel="canonical" href="[^"]+" \/>/,
-    `<link rel="canonical" href="${canonicalUrl}" />`,
+    `<link rel="canonical" href="${canonicalUrl}" />\n    <link rel="alternate" hreflang="en" href="${canonicalUrl}" />\n    <link rel="alternate" hreflang="vi" href="${canonicalUrl}" />\n    <link rel="alternate" hreflang="x-default" href="${canonicalUrl}" />`,
   );
-  html = html.replace(
-    /<!-- noscript fallback:[\s\S]*?<\/noscript>/,
-    "",
-  );
+  html = html.replace(/<!-- noscript fallback:[\s\S]*?<\/noscript>/, "");
 
   const schema = JSON.stringify(getPublicPageSchema(page, language)).replace(
     /</g,

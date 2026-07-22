@@ -1,0 +1,204 @@
+# Pinly
+
+Pinly is a private memory map web application at https://pinly.tech/.
+It lets people save places, dates, notes, photos, and videos as memories,
+then revisit them on a map and chronological timeline. Pinly can be used
+individually or shared with an invited person.
+
+## Canonical pages
+
+- Product overview: https://pinly.tech/about
+- Features: https://pinly.tech/features
+- Pricing: https://pinly.tech/pricing
+- Frequently asked questions: https://pinly.tech/faq
+- How to create a personal memory map: https://pinly.tech/guides/memory-map
+- How to create a map-based travel journal: https://pinly.tech/guides/travel-memory-journal
+- Privacy policy: https://pinly.tech/privacy
+- Terms of use: https://pinly.tech/terms
+
+---
+
+## About Pinly
+
+A private place for the places you remember.
+
+Pinly is a memory map for people who want to preserve life by location instead of letting photos and stories disappear across separate apps.
+
+### What problem does Pinly solve?
+
+Photos live in a library, locations live in a maps app, and the story is often left to memory. Pinly brings them together: every memory has a place, a time, and the context you want to keep.
+
+When you return to your map or timeline, you see more than coordinates. You see what happened there.
+
+### Who is Pinly for?
+
+Pinly works for everyday journaling, travel memories, and two trusted people who want to build a shared record of meaningful places.
+
+- A private location journal for one person
+- A visual record of stops along a trip
+- A shared memory map with someone you trust
+- A map and timeline for revisiting stories
+
+### Private first, shared by choice
+
+Your map starts as your own space. Content is shared only when you actively invite someone. Pinly does not turn private memories into a public feed.
+
+---
+
+## Features
+
+Your map, timeline, and stories in one place.
+
+Pinly organizes memories by place and time, so you can find a moment through its story instead of an image filename.
+
+### Pin a memory to the place it belongs
+
+Choose a location, then add a title, date, note, and photos. Each pin becomes a memory page with useful context.
+
+- Search for a place or choose it directly on the map
+- Save photos and, on supported plans, video
+- Find memories by title, address, creator, or date range
+
+### Return through the map or timeline
+
+The map shows where a story happened. The timeline shows how moments followed one another. Both views use the same memories.
+
+### Build a daily memory streak
+
+Streaks make it easier to preserve one small moment each day. Pinly can send reminders for solo users and appropriate reminders when a map is shared.
+
+### Private and under your control
+
+A personal map belongs to you. When sharing is enabled, only invited people can view and contribute to the shared space.
+
+---
+
+## Pricing
+
+Start free, then grow when your map does.
+
+Each Pinly plan offers a different memory limit and creative toolkit. Existing memories are not automatically deleted when your plan changes.
+
+### Start without a payment card
+
+Free is enough to create a first map and try the complete memory flow. Plus adds more capacity and 3D maps. Pro is for people who want video and the full map-style library.
+
+### What happens when a plan expires?
+
+Pinly keeps existing data. If the number of memories is above the current plan limit, you can still view them but must upgrade or reduce usage before adding more.
+
+### Free plan — $0
+
+Create your first memory map.
+
+- 50 memories
+- 3 photos per memory
+- 3 map styles
+- Memory streak tracking
+
+### Plus plan — $2.99/month or $24.99/year
+
+More room and 3D maps.
+
+- 300 memories
+- 5 photos per memory
+- 10 map styles and 3D maps
+- 5 custom categories
+
+### Pro plan — $4.99/month or $39.99/year
+
+The complete toolkit for a growing archive.
+
+- 500 memories
+- 5 photos and video per memory
+- 15 map styles and 3D maps
+- Unlimited custom categories
+
+---
+
+## Frequently Asked Questions
+
+### What is Pinly?
+
+Pinly is a memory map app. A memory can include a location, title, date, note, photos, or video depending on the plan. Memories can be revisited on the map and timeline.
+
+### Is Pinly free?
+
+Yes. Free includes up to 50 memories, 3 photos per memory, and 3 map styles. Plus and Pro increase limits and unlock additional features.
+
+### Who can see my memories?
+
+A personal map is visible only to you. When you intentionally enable sharing and send an invitation, the invited person can access content in the shared space.
+
+### Can I use Pinly on my own?
+
+Yes. Pinly includes a map, timeline, wishlist, memory streak, and reminders for solo users. You do not need to invite anyone to use the app.
+
+### Can I share a map with someone else?
+
+Yes. When sharing is enabled, you can send an invitation code to someone you trust. Only joined members can view and contribute to the shared map.
+
+### Do I need the App Store or Google Play?
+
+No. Pinly is a Progressive Web App that runs in the browser. Add it to your Home Screen from Safari or Chrome to open it like an app.
+
+### What happens when I exceed a plan limit?
+
+Pinly does not automatically delete existing memories. You can continue viewing them, but cannot add more until usage is reduced or the plan is upgraded.
+
+---
+
+## Guide: How to create a personal memory map
+
+A memory map preserves stories by location. With Pinly, one pin can gradually become a personal journal of meaningful places.
+
+### How is a memory map different from saved places?
+
+A saved-place list tells you where something is. A memory map also preserves what happened, when it happened, and the photos and notes that bring the context back.
+
+### Which memory should come first?
+
+Choose a place you remember clearly: a favorite cafe, a recent trip, an old home, or an ordinary afternoon. Starting small turns the map into a habit instead of a project to finish.
+
+### Steps
+
+1. Create a Pinly account and open your personal map.
+2. Choose Add memory, then search for a place or select it directly on the map.
+3. Write a clear title, choose the date, and add a short note about what happened.
+4. Add photos or video when supported by the current plan, then save the memory.
+5. Open Timeline to revisit the story in order, or search by title and address.
+
+---
+
+## Guide: How to make a travel journal on a map
+
+A map-based travel journal preserves the route, each stop, and the story of every place without requiring a large organizing project after the trip.
+
+### Capture the trip while it is happening
+
+A title, location, and one photo are enough for the first save. Notes can be expanded later. The important part is preserving the place and time while the memory is fresh.
+
+### Combine the map and timeline
+
+The map reveals the journey through its pins. The timeline keeps the mornings, meals, roads, and stops in the order they happened.
+
+### Steps
+
+1. Before the trip, save places you want to visit in Wishlist.
+2. At each stop, create a memory using the current location or place search.
+3. Add a memorable title, date and time, photos, and one small detail from the moment.
+4. Repeat at meaningful stops without worrying about writing a long entry.
+5. After the trip, open Timeline to refine the story and share the map with an invited person when needed.
+
+---
+
+## Technical facts
+
+- Pinly is a Progressive Web App (PWA) built with React.
+- Available in English and Vietnamese.
+- Hosted at https://pinly.tech/
+- No native app download required.
+- Works on any modern browser (Chrome, Safari, Firefox, Edge).
+- Can be added to the phone Home Screen for quick access.
+
+Use the canonical pages above as the source for current product information.

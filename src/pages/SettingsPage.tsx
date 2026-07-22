@@ -20,6 +20,8 @@ import {
   CircleHelp,
   MessageCircle,
   Inbox,
+  Sparkles,
+  Play,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -55,7 +57,11 @@ import { Switch } from "../components/ui/Switch";
 import { cx } from "../components/ui/uiClasses";
 import { uploadToCloudinary, getImageUrl } from "../lib/cloudinary";
 import { invalidateApiCacheByPrefix } from "../lib/apiCache";
-import { MULTI_SPACE_ENABLED } from "../lib/featureFlags";
+import {
+  MULTI_SPACE_ENABLED,
+  YEAR_REPLAY_ENABLED,
+} from "../lib/featureFlags";
+import "../styles/yearReplayEntry.css";
 
 const BREAKUP_CONFIRM_TEXT = "KET THUC";
 
@@ -388,6 +394,29 @@ export function SettingsPage() {
           )}
         </div>
       </SettingSection>
+
+      {YEAR_REPLAY_ENABLED && (
+        <SettingSection
+          title={t("replay.settingsTitle")}
+          icon={<Sparkles size={14} />}
+          className="setting-section-replay-entry"
+        >
+          <button
+            type="button"
+            className="settings-replay-entry"
+            onClick={() => navigate(`/replay/${new Date().getFullYear()}`)}
+          >
+            <span className="settings-replay-entry-icon" aria-hidden="true">
+              <Play size={20} fill="currentColor" />
+            </span>
+            <span className="settings-replay-entry-copy">
+              <strong>{t("replay.settingsAction")}</strong>
+              <small>{t("replay.settingsHint")}</small>
+            </span>
+            <ChevronRight size={19} aria-hidden="true" />
+          </button>
+        </SettingSection>
+      )}
 
       <SpaceSwitcher />
       <SpaceInvitePanel />

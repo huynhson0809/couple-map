@@ -14,7 +14,7 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Flame, Plus } from "lucide-react";
+import { Flame, Plus, Sparkles } from "lucide-react";
 import { useI18n } from "../hooks/I18nContext";
 import { BottomSheet } from "../components/ui/BottomSheet";
 import { CreatePinForm } from "../components/pins/CreatePinForm";
@@ -31,6 +31,8 @@ import { useMap3DMode } from "../hooks/useMap3DMode";
 import { useStreak } from "../hooks/useStreak";
 import { useSubscription } from "../hooks/useSubscription";
 import type { Pin } from "../types";
+import { YEAR_REPLAY_ENABLED } from "../lib/featureFlags";
+import "../styles/yearReplayEntry.css";
 
 const MapView = lazy(() =>
   import("../components/map/MapView").then((module) => ({
@@ -555,6 +557,9 @@ export function MapPage() {
   ]
     .filter(Boolean)
     .join(" ");
+  const today = new Date();
+  const showReplayEntry =
+    YEAR_REPLAY_ENABLED && today.getMonth() === 11 && today.getDate() >= 20;
 
   return (
     <div className="map-page">
@@ -579,6 +584,22 @@ export function MapPage() {
           map3DEnabled={map3DEnabled}
         />
       </Suspense>
+
+      {showReplayEntry && (
+        <button
+          type="button"
+          className="map-replay-entry"
+          onClick={() => navigate(`/replay/${today.getFullYear()}`)}
+        >
+          <span aria-hidden="true">
+            <Sparkles size={18} />
+          </span>
+          <span>
+            <strong>{t("replay.mapAction")}</strong>
+            <small>{t("replay.mapHint")}</small>
+          </span>
+        </button>
+      )}
 
       <button
         type="button"

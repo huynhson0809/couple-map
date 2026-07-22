@@ -416,6 +416,11 @@ const dict = {
     "settings.supportContactHint": "Ask about your account or plan",
     "settings.supportReportBug": "Report a bug",
     "settings.supportReportBugHint": "Tell us when something is not working",
+    "replay.settingsTitle": "Your Replay",
+    "replay.settingsAction": "Open this year's Replay",
+    "replay.settingsHint": "A visual story built from the places you saved.",
+    "replay.mapAction": "Your year on the map",
+    "replay.mapHint": "Open Pinly Replay",
 
     "support.modalTitle": "Pinly Support",
     "support.modalHint": "Answers and help, all in one place.",
@@ -999,6 +1004,12 @@ const dict = {
     "settings.supportReportBug": "Báo cáo lỗi",
     "settings.supportReportBugHint":
       "Báo cho Pinly khi có tính năng không hoạt động",
+    "replay.settingsTitle": "Nhìn lại cùng Pinly",
+    "replay.settingsAction": "Mở Replay năm nay",
+    "replay.settingsHint":
+      "Một câu chuyện bằng hình ảnh từ những nơi bạn đã lưu.",
+    "replay.mapAction": "Một năm trên bản đồ",
+    "replay.mapHint": "Mở Pinly Replay",
 
     "support.modalTitle": "Hỗ trợ Pinly",
     "support.modalHint": "Câu trả lời và hỗ trợ, gói gọn tại một nơi.",

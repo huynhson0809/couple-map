@@ -14,6 +14,7 @@ import type {
   PlanType,
   Subscription,
 } from "../types";
+import type { ReplayTemplateId } from "../features/yearReplay/types";
 
 // All style IDs in display order (matches MAP_STYLES in useMapStyle.ts)
 const MAP_STYLE_IDS = [
@@ -46,6 +47,10 @@ const PLAN_LIMITS = {
     collections: 0,
     shareCardWatermark: true,
     ownedSpaces: 1,
+    replayTemplates: ["journey"] as readonly ReplayTemplateId[],
+    replayCustomization: false,
+    replayAdvancedStyling: false,
+    replayWatermark: true,
   },
   plus: {
     pins: 300,
@@ -57,6 +62,10 @@ const PLAN_LIMITS = {
     collections: 3,
     shareCardWatermark: false,
     ownedSpaces: 2,
+    replayTemplates: ["journey", "scrapbook"] as readonly ReplayTemplateId[],
+    replayCustomization: true,
+    replayAdvancedStyling: false,
+    replayWatermark: false,
   },
   pro: {
     pins: 500,
@@ -68,6 +77,14 @@ const PLAN_LIMITS = {
     collections: Infinity,
     shareCardWatermark: false,
     ownedSpaces: 3,
+    replayTemplates: [
+      "journey",
+      "scrapbook",
+      "film",
+    ] as readonly ReplayTemplateId[],
+    replayCustomization: true,
+    replayAdvancedStyling: true,
+    replayWatermark: false,
   },
 } as const;
 
@@ -108,6 +125,10 @@ interface SubscriptionContextValue {
   canCreateCategory: (currentCount: number) => boolean;
   canCreateCollection: (currentCount: number) => boolean;
   hasWatermark: boolean;
+  canUseReplayTemplate: (templateId: ReplayTemplateId) => boolean;
+  canCustomizeReplay: boolean;
+  canUseAdvancedReplayStyling: boolean;
+  replayHasWatermark: boolean;
   refetch: () => Promise<void>;
   saveSpaceQuotaSelection: (spaceIds: string[]) => Promise<void>;
   checkout: (
@@ -588,6 +609,7 @@ export function SubscriptionProvider({
   }, [fetchPlan, spaceOwnerId]);
 
   const limits = PLAN_LIMITS[plan];
+  const accountReplayLimits = PLAN_LIMITS[accountPlan];
 
   const checkout = useCallback(
     async (checkoutPlan: Exclude<PlanType, "free">, cycle: BillingCycle) => {
@@ -721,6 +743,11 @@ export function SubscriptionProvider({
     canCreateCollection: (currentCount: number) =>
       currentSpaceWritable && currentCount < limits.collections,
     hasWatermark: limits.shareCardWatermark,
+    canUseReplayTemplate: (templateId: ReplayTemplateId) =>
+      accountReplayLimits.replayTemplates.includes(templateId),
+    canCustomizeReplay: accountReplayLimits.replayCustomization,
+    canUseAdvancedReplayStyling: accountReplayLimits.replayAdvancedStyling,
+    replayHasWatermark: accountReplayLimits.replayWatermark,
     refetch: fetchPlan,
     saveSpaceQuotaSelection,
     checkout,
