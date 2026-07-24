@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useI18n } from './I18nContext'
 import type { PinComment, PinCommentReaction, PinReaction, ReactionType } from '../types'
 
 function sendInteractionPush(
@@ -21,14 +22,24 @@ export function usePinInteractions(
   userId: string | undefined,
   writable = true,
 ) {
+  const { t } = useI18n()
   const [reactions, setReactions] = useState<PinReaction[]>([])
   const [comments, setComments] = useState<PinComment[]>([])
   const [commentReactions, setCommentReactions] = useState<PinCommentReaction[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const requestIdRef = useRef(0)
+  const activePinIdRef = useRef(pinId)
+
+  useEffect(() => {
+    activePinIdRef.current = pinId
+    requestIdRef.current += 1
+  }, [pinId])
 
   const fetchInteractions = useCallback(async (options: { silent?: boolean } = {}) => {
     if (!pinId) return
+    const targetPinId = pinId
+    const requestId = ++requestIdRef.current
     const silent = options.silent ?? false
     if (!silent) setLoading(true)
     setError(null)
@@ -36,40 +47,54 @@ export function usePinInteractions(
       supabase
         .from('pin_reactions')
         .select('*')
-        .eq('pin_id', pinId),
+        .eq('pin_id', targetPinId),
       supabase
         .from('pin_comments')
         .select('*, author:users!pin_comments_user_id_fkey(*)')
-        .eq('pin_id', pinId)
+        .eq('pin_id', targetPinId)
         .order('created_at', { ascending: true }),
     ])
 
+    if (
+      requestId !== requestIdRef.current ||
+      activePinIdRef.current !== targetPinId
+    ) return
+
     if (reactionRes.error || commentRes.error) {
-      setError(reactionRes.error?.message ?? commentRes.error?.message ?? 'Failed to load interactions')
+      console.error('Failed to load pin interactions:', reactionRes.error ?? commentRes.error)
+      setError(t('pin.interactionsLoadFailed'))
     } else {
       const nextComments = (commentRes.data as PinComment[]) ?? []
-      setReactions((reactionRes.data as PinReaction[]) ?? [])
-      setComments(nextComments)
+      let nextCommentReactions: PinCommentReaction[] = []
       if (nextComments.length > 0) {
         const { data: commentReactionData, error: commentReactionErr } = await supabase
           .from('pin_comment_reactions')
           .select('*')
           .in('comment_id', nextComments.map((comment) => comment.id))
+        if (
+          requestId !== requestIdRef.current ||
+          activePinIdRef.current !== targetPinId
+        ) return
         if (commentReactionErr) {
-          setError(commentReactionErr.message)
+          console.error('Failed to load comment reactions:', commentReactionErr)
+          setError(t('pin.interactionsLoadFailed'))
         } else {
-          setCommentReactions((commentReactionData as PinCommentReaction[]) ?? [])
+          nextCommentReactions = (commentReactionData as PinCommentReaction[]) ?? []
         }
-      } else {
-        setCommentReactions([])
       }
+      setReactions((reactionRes.data as PinReaction[]) ?? [])
+      setComments(nextComments)
+      setCommentReactions(nextCommentReactions)
     }
     if (!silent) setLoading(false)
-  }, [pinId])
+  }, [pinId, t])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchInteractions()
+    return () => {
+      requestIdRef.current += 1
+    }
   }, [fetchInteractions])
 
   useEffect(() => {

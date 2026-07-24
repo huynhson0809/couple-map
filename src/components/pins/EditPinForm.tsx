@@ -17,6 +17,7 @@ import { toPinImageRows, uploadPinMediaFiles } from "../../lib/pinMediaUpload";
 import {
   savePendingUploads,
   removePendingUploads,
+  releasePendingUploads,
 } from "../../lib/pendingUploads";
 import {
   MAX_PIN_CATEGORIES,
@@ -28,6 +29,7 @@ import {
   type CloudinaryDeleteAsset,
 } from "../../lib/cloudinary-delete";
 import { formatErrorMessage } from "../../lib/errorMessage";
+import { localizedMemoryError } from "../../lib/memoryErrorMessage";
 import type { Pin, PinImage } from "../../types";
 import { useToast } from "../../hooks/ToastContext";
 
@@ -75,7 +77,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     deleteCustomCategory,
   } = useCategoriesCtx();
   const { t, lang } = useI18n();
-  const { canUploadVideo, currentSpaceWritable } = useSubscription();
+  const { canUploadVideo, currentSpaceWritable, limits } = useSubscription();
   const { showToast } = useToast();
   const [title, setTitle] = useState(pin.title);
   const [note, setNote] = useState(pin.note ?? "");
@@ -90,6 +92,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   );
   const [markerUploading, setMarkerUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const mediaLoadError = t("pin.mediaLoadFailed");
   const [saving, setSaving] = useState(false);
   const [customEmojiInput, setCustomEmojiInput] = useState("");
   const [showCustomTag, setShowCustomTag] = useState(false);
@@ -105,8 +108,19 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
 
   // Lazy-load full image details for editing
   useEffect(() => {
-    fetchPinImages(pin.id).then((imgs) => setExistingImages(imgs));
-  }, [pin.id, fetchPinImages]);
+    let active = true;
+    void fetchPinImages(pin.id)
+      .then((imgs) => {
+        if (active) setExistingImages(imgs);
+      })
+      .catch((loadError) => {
+        console.warn("Failed to load memory media for editing:", loadError);
+        if (active) setError(mediaLoadError);
+      });
+    return () => {
+      active = false;
+    };
+  }, [pin.id, fetchPinImages, mediaLoadError]);
   const [removedImages, setRemovedImages] = useState<CloudinaryDeleteAsset[]>(
     [],
   );
@@ -130,7 +144,8 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
       setMarkerImageUrl(res.url);
       setMarkerEmoji(null);
     } catch (e) {
-      setError(formatErrorMessage(e));
+      console.warn("Marker upload failed:", e);
+      setError(t("pin.markerUploadFailed"));
     } finally {
       setMarkerUploading(false);
     }
@@ -166,9 +181,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
       }
       if (current.length >= MAX_PIN_CATEGORIES) {
         setError(
-          lang === "vi"
-            ? `Chọn tối đa ${MAX_PIN_CATEGORIES} danh mục.`
-            : `Choose up to ${MAX_PIN_CATEGORIES} categories.`,
+          t("pin.categorySelectionLimit", { count: MAX_PIN_CATEGORIES }),
         );
         return current;
       }
@@ -208,7 +221,8 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
       setCustomTagName("");
       setCustomTagEmoji("");
     } catch (e) {
-      setError(formatErrorMessage(e));
+      console.warn("Failed to save custom category:", e);
+      setError(t("pin.categorySaveFailed"));
     }
   }
 
@@ -229,7 +243,8 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         setCustomTagEmoji("");
       }
     } catch (e) {
-      setError(formatErrorMessage(e));
+      console.warn("Failed to delete custom category:", e);
+      setError(t("pin.categoryDeleteFailed"));
     }
   }
 
@@ -256,7 +271,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
       return;
     }
     if (kind === "video" && !canUploadVideo) {
-      setError(lang === "vi" ? "Video cần gói Pro" : "Video requires Pro plan");
+      setError(t("pin.videoRequiresPro"));
       return;
     }
     const arr = Array.from(files ?? []).filter((file) => {
@@ -266,13 +281,26 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         : file.type.startsWith("image/");
     });
     if (arr.length === 0) return;
+    const remaining = Math.max(
+      0,
+      limits.photosPerPin - existingImages.length - newFiles.length,
+    );
+    if (remaining === 0) {
+      setError(t("pin.mediaLimit", { count: limits.photosPerPin }));
+      return;
+    }
     for (const f of arr) {
       if (f.type.startsWith("video/") && f.size > MAX_VIDEO_BYTES) {
-        setError(`Video quá lớn (tối đa ${MAX_VIDEO_BYTES / 1024 / 1024}MB)`);
+        setError(
+          t("pin.videoTooLarge", {
+            size: MAX_VIDEO_BYTES / 1024 / 1024,
+          }),
+        );
         return;
       }
     }
-    setNewFiles((prev) => [...prev, ...arr]);
+    setError(null);
+    setNewFiles((prev) => [...prev, ...arr.slice(0, remaining)]);
   }
 
   function handleRemoveNewFile(idx: number) {
@@ -310,7 +338,10 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     setError(null);
     const mediaFiles = [...newFiles];
     const mediaToRemove = [...removedImages];
-    const startOrder = existingImages.length;
+    const startOrder = existingImages.reduce(
+      (next, image) => Math.max(next, image.sort_order + 1),
+      0,
+    );
     const patch = {
       title: title.trim(),
       note: note.trim() || null,
@@ -321,7 +352,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     };
     const hasUpload = mediaFiles.length > 0;
     if (hasUpload) {
-      setUploadProgress(pin.id, 0);
+      setUploadProgress(pin.id, 0, pinSpaceId);
     }
 
     // Save metadata changes first (await so pin updates immediately)
@@ -331,10 +362,11 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         await deletePinMedia(mediaToRemove);
       }
     } catch (e) {
-      const message = formatErrorMessage(e, {
-        fallback: t("toast.actionFailed"),
+      const technicalMessage = formatErrorMessage(e, {
+        fallback: "pin_update_failed",
       });
-      console.warn("Edit failed:", message, e);
+      const message = localizedMemoryError(e, lang, "pin.updateFailed");
+      console.warn("Edit failed:", technicalMessage, e);
       showToast({ type: "error", title: message });
       setError(message);
       setSaving(false);
@@ -354,15 +386,29 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
     }
 
     // Persist to IndexedDB for resilience, then upload in background
-    const pendingUploadIds = await savePendingUploads(
-      pin.id,
-      pinSpaceId,
-      mediaFiles,
-      startOrder,
-    );
+    let pendingUploadIds: string[] = [];
+    try {
+      pendingUploadIds = await savePendingUploads(
+        pin.id,
+        pinSpaceId,
+        mediaFiles,
+        startOrder,
+      );
+    } catch (queueError) {
+      console.warn(
+        "Could not persist the upload retry queue; continuing with the direct upload:",
+        queueError,
+      );
+    }
 
-    void uploadPinMediaFiles(mediaFiles, `pinly/${pinSpaceId}`, (pct) =>
-      setUploadProgress(pin.id, pct),
+    void uploadPinMediaFiles(
+      mediaFiles,
+      `pinly/${pinSpaceId}`,
+      (pct) => setUploadProgress(pin.id, pct, pinSpaceId),
+      {
+        videoTooLarge: (size) => t("pin.videoTooLarge", { size }),
+        uploadFailed: () => t("toast.photoUploadFailed"),
+      },
     )
       .then(async (uploads) => {
         if (uploads.length > 0) {
@@ -377,14 +423,15 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         showToast({ type: "success", title: t("toast.memoryUpdated") });
       })
       .catch((err) => {
-        const message = formatErrorMessage(err, {
+        releasePendingUploads(pendingUploadIds);
+        const technicalMessage = formatErrorMessage(err, {
           fallback: t("toast.photoUploadFailed"),
         });
-        console.warn("Background upload error:", message, err);
-        showToast({ type: "error", title: message });
+        console.warn("Background upload error:", technicalMessage, err);
+        showToast({ type: "error", title: t("toast.photoUploadFailed") });
       })
       .finally(() => {
-        clearUploadProgress(pin.id);
+        clearUploadProgress(pin.id, pinSpaceId);
       });
   }
 
@@ -430,7 +477,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
                       type="button"
                       className="category-edit-btn"
                       onClick={() => openEditCustomTag(c)}
-                      aria-label="Edit tag"
+                      aria-label={t("pin.editTag")}
                     >
                       <Pencil size={10} />
                     </button>
@@ -438,7 +485,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
                       type="button"
                       className="category-delete-btn"
                       onClick={() => handleDeleteCustomTag(c.id)}
-                      aria-label="Delete tag"
+                      aria-label={t("pin.deleteTag")}
                     >
                       <Trash2 size={10} />
                     </button>
@@ -580,7 +627,11 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
               ) : (
                 <img src={getImageUrl(img.cloudinary_url, 200)} alt="" />
               )}
-              <button type="button" onClick={() => handleRemoveExisting(img)}>
+              <button
+                type="button"
+                onClick={() => handleRemoveExisting(img)}
+                aria-label={t("pin.removeMedia")}
+              >
                 <Trash2 size={12} />
               </button>
             </div>
@@ -600,7 +651,11 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
               ) : (
                 <img src={URL.createObjectURL(f)} alt="" />
               )}
-              <button type="button" onClick={() => handleRemoveNewFile(i)}>
+              <button
+                type="button"
+                onClick={() => handleRemoveNewFile(i)}
+                aria-label={t("pin.removeMedia")}
+              >
                 <Trash2 size={12} />
               </button>
             </div>
@@ -624,11 +679,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
             disabled={!currentSpaceWritable}
             onClick={() => {
               if (!canUploadVideo) {
-                setError(
-                  lang === "vi"
-                    ? "Video cần gói Pro"
-                    : "Video requires Pro plan",
-                );
+                setError(t("pin.videoRequiresPro"));
                 return;
               }
               if (videoInput.current) videoInput.current.value = "";

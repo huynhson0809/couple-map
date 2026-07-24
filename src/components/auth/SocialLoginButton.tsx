@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useI18n } from "../../hooks/I18nContext";
+import { localizedAuthError } from "../../lib/authErrorMessage";
 
 interface SocialLoginButtonProps {
   onGoogle: () => Promise<{ error?: { message?: string } | null }>;
@@ -23,7 +24,7 @@ export function SocialLoginButton({
     const { error } = await onGoogle();
     if (error) {
       setLoading(false);
-      onError(error.message || t("auth.oauthError"));
+      onError(localizedAuthError(error, t, "auth.oauthError"));
     }
   }
 

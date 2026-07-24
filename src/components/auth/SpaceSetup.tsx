@@ -6,57 +6,42 @@ import { LangSwitch } from "../ui/LangSwitch";
 import { useAuth } from "../../hooks/useAuth";
 import { useI18n } from "../../hooks/I18nContext";
 import { useSpaceCtx } from "../../hooks/SpaceContext";
+import { localizedSpaceError } from "../../lib/spaceErrorMessage";
 
 type Mode = "choice" | "shared";
 const PENDING_SHARED_SETUP_KEY = "pinly.pendingSharedSetupInvite";
 
-function quotaMessage(lang: string) {
-  return lang === "vi"
-    ? "Bạn đã đạt giới hạn tạo bản đồ của gói hiện tại."
-    : "You have reached the map creation limit for your current plan.";
+function pendingSharedSetupKey(userId: string | undefined) {
+  return userId ? `${PENDING_SHARED_SETUP_KEY}:${userId}` : null;
 }
 
-function readPendingSharedSetup() {
+function readPendingSharedSetup(userId: string | undefined) {
+  const key = pendingSharedSetupKey(userId);
+  if (!key) return false;
   try {
-    return sessionStorage.getItem(PENDING_SHARED_SETUP_KEY) === "1";
+    return sessionStorage.getItem(key) === "1";
   } catch {
     return false;
   }
 }
 
-function writePendingSharedSetup(pending: boolean) {
+function writePendingSharedSetup(userId: string | undefined, pending: boolean) {
+  const key = pendingSharedSetupKey(userId);
+  if (!key) return;
   try {
     if (pending) {
-      sessionStorage.setItem(PENDING_SHARED_SETUP_KEY, "1");
+      sessionStorage.setItem(key, "1");
     } else {
-      sessionStorage.removeItem(PENDING_SHARED_SETUP_KEY);
+      sessionStorage.removeItem(key);
     }
   } catch {
     /* Setup can continue even if sessionStorage is unavailable. */
   }
 }
 
-function formatSpaceError(err: unknown, lang: string) {
-  if (err instanceof Error) {
-    if (err.message === "space_quota_reached") {
-      return quotaMessage(lang);
-    }
-    return err.message;
-  }
-  if (err && typeof err === "object" && "message" in err) {
-    const message = String((err as { message: unknown }).message);
-    if (message === "space_quota_reached") {
-      return quotaMessage(lang);
-    }
-    return message;
-  }
-  const message = String(err);
-  return message === "space_quota_reached" ? quotaMessage(lang) : message;
-}
-
 export function SpaceSetup() {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const { lang, t } = useI18n();
   const {
     createPersonalSpace,
@@ -65,11 +50,11 @@ export function SpaceSetup() {
     joinSpaceByInvite,
     activeSpace,
   } = useSpaceCtx();
-  const [pendingSharedInvite, setPendingSharedInvite] = useState(
-    readPendingSharedSetup,
+  const [pendingSharedInvite, setPendingSharedInvite] = useState(() =>
+    readPendingSharedSetup(user?.id),
   );
   const [mode, setMode] = useState<Mode>(() =>
-    readPendingSharedSetup() ? "shared" : "choice",
+    readPendingSharedSetup(user?.id) ? "shared" : "choice",
   );
   const [inviteCode, setInviteCode] = useState("");
   const [sharedInviteCode, setSharedInviteCode] = useState<string | null>(null);
@@ -87,7 +72,7 @@ export function SpaceSetup() {
       await createPersonalSpace();
       navigate("/", { replace: true });
     } catch (err) {
-      setError(formatSpaceError(err, lang));
+      setError(localizedSpaceError(err, lang));
     } finally {
       setBusy(null);
     }
@@ -98,7 +83,7 @@ export function SpaceSetup() {
     setError(null);
     setCopied(false);
     setPendingSharedInvite(true);
-    writePendingSharedSetup(true);
+    writePendingSharedSetup(user?.id, true);
     recoveredInviteRef.current = true;
     let shouldKeepPendingInvite = false;
     try {
@@ -112,10 +97,10 @@ export function SpaceSetup() {
     } catch (err) {
       if (!shouldKeepPendingInvite) {
         setPendingSharedInvite(false);
-        writePendingSharedSetup(false);
+        writePendingSharedSetup(user?.id, false);
         recoveredInviteRef.current = false;
       }
-      setError(formatSpaceError(err, lang));
+      setError(localizedSpaceError(err, lang));
     } finally {
       setBusy(null);
     }
@@ -142,7 +127,7 @@ export function SpaceSetup() {
         if (!cancelled) setSharedInviteCode(code);
       })
       .catch((err) => {
-        if (!cancelled) setError(formatSpaceError(err, lang));
+        if (!cancelled) setError(localizedSpaceError(err, lang));
       })
       .finally(() => {
         if (!cancelled) setBusy((current) => (current === "shared" ? null : current));
@@ -166,11 +151,11 @@ export function SpaceSetup() {
     setError(null);
     try {
       await joinSpaceByInvite(inviteCode);
-      writePendingSharedSetup(false);
+      writePendingSharedSetup(user?.id, false);
       setPendingSharedInvite(false);
       navigate("/", { replace: true });
     } catch (err) {
-      setError(formatSpaceError(err, lang));
+      setError(localizedSpaceError(err, lang));
     } finally {
       setBusy(null);
     }
@@ -202,7 +187,7 @@ export function SpaceSetup() {
   }
 
   function continueToApp() {
-    writePendingSharedSetup(false);
+    writePendingSharedSetup(user?.id, false);
     setPendingSharedInvite(false);
     navigate("/", { replace: true });
   }

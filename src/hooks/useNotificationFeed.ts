@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { supabase } from "../lib/supabase";
 import type { AppNotification } from "../types";
 
@@ -56,11 +63,19 @@ export function useNotificationFeed(
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [dataUserId, setDataUserId] = useState(userId);
   const loadingRef = useRef(false);
   const nextOffsetRef = useRef(0);
   const notificationsRef = useRef<AppNotification[]>([]);
   const requestIdRef = useRef(0);
+  const activeUserIdRef = useRef(userId);
+  const dataUserIdRef = useRef(userId);
   const onNewNotifRef = useRef(onNewNotification);
+  useLayoutEffect(() => {
+    activeUserIdRef.current = userId;
+    requestIdRef.current += 1;
+    loadingRef.current = false;
+  }, [userId]);
   useEffect(() => {
     onNewNotifRef.current = onNewNotification;
   });
@@ -80,6 +95,7 @@ export function useNotificationFeed(
     async (reset = false) => {
       if (!userId || !activeSpaceId) return;
       if (loadingRef.current) return;
+      const targetUserId = userId;
 
       loadingRef.current = true;
       setLoading(true);
@@ -93,16 +109,29 @@ export function useNotificationFeed(
           p_space_id: activeSpaceId,
         });
 
-        if (error || requestId !== requestIdRef.current) return;
+        if (
+          error ||
+          requestId !== requestIdRef.current ||
+          activeUserIdRef.current !== targetUserId
+        ) return;
 
         const { rows, unreadCount: nextUnreadCount } =
           normalizeFeedPayload(data);
 
-        nextOffsetRef.current = reset
+        const replacingAccount = dataUserIdRef.current !== targetUserId;
+        if (replacingAccount) {
+          notificationsRef.current = [];
+          nextOffsetRef.current = 0;
+        }
+        dataUserIdRef.current = targetUserId;
+        setDataUserId(targetUserId);
+        nextOffsetRef.current = reset || replacingAccount
           ? rows.length
           : nextOffsetRef.current + rows.length;
         setNotificationState((prev) =>
-          reset ? mergeNotifications([], rows) : mergeNotifications(prev, rows),
+          reset || replacingAccount
+            ? mergeNotifications([], rows)
+            : mergeNotifications(prev, rows),
         );
         setHasMore(rows.length === PAGE_SIZE);
         setUnreadCount(nextUnreadCount);
@@ -130,6 +159,7 @@ export function useNotificationFeed(
         .eq("read", false);
 
       if (error) return;
+      if (activeUserIdRef.current !== userId) return;
 
       setNotificationState((prev) =>
         prev.map((notification) =>
@@ -145,6 +175,7 @@ export function useNotificationFeed(
 
   const markAllAsRead = useCallback(async () => {
     if (!userId) return;
+    const targetUserId = userId;
     const { error } = await supabase
       .from("notifications")
       .update({ read: true })
@@ -152,6 +183,7 @@ export function useNotificationFeed(
       .eq("read", false);
 
     if (error) return;
+    if (activeUserIdRef.current !== targetUserId) return;
 
     setNotificationState((prev) =>
       prev.map((notification) => ({ ...notification, read: true })),
@@ -172,6 +204,8 @@ export function useNotificationFeed(
   useEffect(() => {
     const timer = window.setTimeout(() => {
       requestIdRef.current += 1;
+      dataUserIdRef.current = userId;
+      setDataUserId(userId);
       notificationsRef.current = [];
       nextOffsetRef.current = 0;
       loadingRef.current = false;
@@ -208,15 +242,28 @@ export function useNotificationFeed(
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
+          if (activeUserIdRef.current !== userId) return;
           const newNotif = payload.new as AppNotification;
+          const replacingAccount = dataUserIdRef.current !== userId;
+          if (replacingAccount) {
+            dataUserIdRef.current = userId;
+            notificationsRef.current = [];
+            nextOffsetRef.current = 0;
+            setDataUserId(userId);
+            setHasMore(true);
+          }
           const alreadyLoaded = notificationsRef.current.some(
             (notification) => notification.id === newNotif.id,
           );
 
-          setNotificationState((prev) => mergeNotifications(prev, [newNotif]));
+          setNotificationState((prev) =>
+            mergeNotifications(replacingAccount ? [] : prev, [newNotif]),
+          );
           if (!alreadyLoaded && !newNotif.read) {
-            setUnreadCount((count) => count + 1);
+            setUnreadCount((count) => replacingAccount ? 1 : count + 1);
             onNewNotifRef.current?.(newNotif);
+          } else if (replacingAccount) {
+            setUnreadCount(0);
           }
         },
       )
@@ -227,11 +274,13 @@ export function useNotificationFeed(
     };
   }, [instanceId, setNotificationState, userId]);
 
+  const payloadMatchesUser = dataUserId === userId;
+
   return {
-    notifications,
-    unreadCount,
-    loading,
-    hasMore,
+    notifications: payloadMatchesUser ? notifications : [],
+    unreadCount: payloadMatchesUser ? unreadCount : 0,
+    loading: userId ? loading || !payloadMatchesUser : false,
+    hasMore: payloadMatchesUser ? hasMore : Boolean(userId),
     fetchMore,
     refresh,
     markAsRead,

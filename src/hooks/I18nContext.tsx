@@ -1,4 +1,5 @@
 import {
+  useCallback,
   createContext,
   useContext,
   useEffect,
@@ -63,6 +64,27 @@ const dict = {
     "auth.redirecting": "Redirecting…",
     "auth.socialDivider": "or continue with email",
     "auth.oauthError": "Could not continue with Google. Please try again.",
+    "auth.invalidCredentials": "Email or password is incorrect.",
+    "auth.emailNotConfirmed": "Confirm your email before signing in.",
+    "auth.passwordTooShort": "Use a password with at least 6 characters.",
+    "auth.passwordUnchanged":
+      "Choose a password that is different from your current password.",
+    "auth.resetLinkExpired":
+      "This reset link has expired. Request a new link and try again.",
+    "auth.loginError": "Could not sign in. Please try again.",
+    "auth.signupError": "Could not create your account. Please try again.",
+    "auth.emailError": "Could not send the email. Please try again.",
+    "auth.resendFailed":
+      "Could not resend the confirmation email. Please try again.",
+    "activation.codeRequired": "Enter an activation code.",
+    "activation.codeTooLong": "This activation code is too long.",
+    "activation.invalid": "This activation code is not valid.",
+    "activation.used": "This activation code has already been used.",
+    "activation.expired": "This activation code has expired.",
+    "activation.rateLimited":
+      "Too many attempts. Wait a moment and try again.",
+    "activation.failed": "Could not activate this plan. Please try again.",
+    "activation.success": "{{plan}} is active until {{date}}.",
     "legal.privacy": "Privacy Policy",
     "legal.terms": "Terms of Use",
     "legal.back": "Back",
@@ -74,6 +96,10 @@ const dict = {
     "legal.mediaDisclosureShort":
       "Photos and videos may be processed by media storage services so they can be uploaded and shown reliably. Share media links only in trusted contexts.",
     "legal.acceptAndContinue": "Accept and continue",
+    "legal.consentLoadError":
+      "Could not verify your privacy consent. Check your connection and try again.",
+    "legal.consentSaveError":
+      "Could not save your consent. Please try again.",
 
     "pair.title": "Start a shared map",
     "pair.create": "Create a shared map",
@@ -120,6 +146,7 @@ const dict = {
 
     "map.heatmap": "Heatmap",
     "map.heatmapHint": "Shows which areas have the most memories",
+    "map.memoriesHere": "{{count}} memories here",
 
     "pin.title": "Memory title (e.g. Coffee in Da Lat)",
     "pin.category": "Category",
@@ -158,6 +185,36 @@ const dict = {
     "pin.addPhoto": "Photo",
     "pin.addVideo": "Video",
     "pin.videoHint": "Video max 50MB",
+    "pin.mediaLimit":
+      "This plan allows up to {{count}} photos or videos per memory.",
+    "pin.videoTooLarge": "Video must be {{size}}MB or smaller.",
+    "pin.videoRequiresPro": "Video requires the Pro plan.",
+    "pin.categorySelectionLimit": "Choose up to {{count}} categories.",
+    "pin.customCategoryLimit":
+      "Custom category limit reached. Upgrade your plan to create more.",
+    "pin.categorySaveFailed": "Could not save this category. Please try again.",
+    "pin.categoryDeleteFailed": "Could not delete this category. Please try again.",
+    "pin.interactionsLoadFailed":
+      "Comments and reactions could not be loaded. Please try again.",
+    "pin.spaceChanged":
+      "The active space changed. Please reopen the create memory form.",
+    "pin.createFailed": "Could not create this memory. Please try again.",
+    "pin.updateFailed": "Could not update this memory. Please try again.",
+    "pin.memoryLimitReached":
+      "You have reached this plan's memory limit. Upgrade or remove a memory to continue.",
+    "pin.mediaPlanLimitReached":
+      "You have reached this plan's media limit for the memory.",
+    "pin.createRateLimited":
+      "You are creating memories too quickly. Please wait a moment and try again.",
+    "pin.mediaDeleteFailed":
+      "Could not remove this photo or video. Please try again.",
+    "pin.mediaLoadFailed":
+      "Photos and videos could not be loaded. Please try again.",
+    "pin.markerUploadFailed": "Could not upload the marker image.",
+    "pin.deleteTag": "Delete tag",
+    "pin.editTag": "Edit tag",
+    "pin.clearAddress": "Clear address",
+    "pin.removeMedia": "Remove media",
     "pin.edit": "Edit",
     "pin.editTitle": "Edit memory",
     "pin.editExpired": "Edit window closed (1h after create)",
@@ -176,6 +233,14 @@ const dict = {
     "pin.moreActions": "More",
     "pin.favorite": "Favorite",
     "pin.favorited": "Favorited",
+    "pin.viewFullImage": "View full image",
+    "reaction.like": "Like",
+    "reaction.love": "Love",
+    "reaction.care": "Care",
+    "reaction.haha": "Haha",
+    "reaction.wow": "Wow",
+    "reaction.sad": "Sad",
+    "reaction.angry": "Angry",
     "toast.memoryCreated": "Memory saved",
     "toast.memoryUpdated": "Memory updated",
     "toast.memoryUploading": "Uploading memory…",
@@ -188,23 +253,37 @@ const dict = {
     "toast.actionFailed": "Something went wrong",
     "toast.photosUploaded": "Photos uploaded",
     "toast.photoUploadFailed": "Photo upload failed",
+    "location.notSupported":
+      "Location is not available in this browser.",
+    "location.permissionDenied":
+      "Location access is off. Allow it in your browser settings and try again.",
+    "location.temporarilyUnavailable":
+      "Your current location is temporarily unavailable. Try again in a moment.",
+    "location.timeout": "Finding your location took too long. Please try again.",
+    "location.unavailable": "Could not find your current location.",
     "timeline.favorites": "Favorites",
     "settings.anniversary": "Started date",
     "settings.setAnniversary": "Set started date",
     "settings.background": "Background",
     "settings.uploadBg": "Upload background",
     "settings.removeBg": "Remove background",
+    "settings.backgroundUploadFailed":
+      "Could not update the background. Please try again.",
     "onboard.anniversaryTitle": "When did this space begin?",
     "onboard.anniversaryHint":
       "This is used to count days active. You can change it later.",
     "onboard.skip": "Skip for now",
     "onboard.save": "Save",
+    "onboard.anniversarySaveFailed":
+      "Could not save the start date. Please try again.",
     "notif.title": "Notifications",
     "notif.enable": "Enable notifications",
     "notif.disable": "Disable notifications",
     "notif.denied": "Permission denied — enable in browser settings",
     "notif.granted": "Notifications on",
     "notif.pushHint": "Get reminders about memories and your daily streak",
+    "notif.pushError":
+      "Could not update push notifications. Please try again.",
     "notif.newMemory": "added a new memory",
     "notif.memoryAdded": "New memories",
     "notif.memoryAddedHint": "When another member adds a memory",
@@ -219,6 +298,8 @@ const dict = {
     "notif.streakEmailReminders": "Email streak reminders",
     "notif.streakEmailRemindersHint":
       "Send an email if today's chain still needs a memory",
+    "notif.preferencesError":
+      "Could not update notification settings. Please try again.",
     "notif.viewOnMap": "View on map",
     "notif.all": "All",
     "notif.unread": "Unread",
@@ -229,6 +310,12 @@ const dict = {
     "notif.actionNewPin": "added a new memory",
     "notif.actionReaction": "reacted",
     "notif.actionComment": "commented",
+    "notif.actionFavorite": "favorited your memory",
+    "notif.actionCommentReply": "replied to your comment",
+    "notif.actionCommentReaction": "reacted to your comment",
+    "notif.actionNudge": "sent a gentle reminder",
+    "notif.nudgeBody": "Today's shared streak is still waiting for your moment.",
+    "notif.actorFallback": "A map member",
     "notif.justNow": "Just now",
     "notif.minutesAgo": "m ago",
     "notif.hoursAgo": "h ago",
@@ -246,6 +333,7 @@ const dict = {
     "notif.inSpace": "In {{name}}",
     "notif.sectionNew": "New",
     "notif.sectionToday": "Today",
+    "notif.sectionYesterday": "Yesterday",
     "notif.sectionEarlier": "Earlier",
 
     "share.card": "Card",
@@ -273,6 +361,15 @@ const dict = {
     "timeline.addressPlaceholder": "Search title, city, street, place…",
     "timeline.clearFilters": "Clear filters",
     "timeline.noResults": "No memories match these filters.",
+    "timeline.memoryNotFound": "This memory could not be found.",
+    "timeline.openFailed": "Could not open this memory. Please try again.",
+    "timeline.loadFailed": "Could not load memories. Please try again.",
+    "timeline.loading": "Loading memories…",
+    "timeline.filters": "Filters",
+    "timeline.all": "All",
+    "timeline.searchAction": "Search",
+    "timeline.opening": "Opening memory…",
+    "timeline.backToTimeline": "Back to Timeline",
 
     "streak.title": "Memory streak",
     "streak.days": "days",
@@ -293,6 +390,13 @@ const dict = {
     "streak.nudgeSent": "Sent",
     "streak.nudgeSending": "Sending…",
     "streak.nudgeHint": "Remind the other member",
+    "streak.nudgeFailed": "Could not send the reminder. Please try again.",
+    "streak.nudgeAlreadyPosted":
+      "The other member has already saved a memory today.",
+    "streak.nudgePostFirst":
+      "Save your memory for today before sending a reminder.",
+    "streak.nudgeDisabled":
+      "The other member has turned off streak reminders.",
 
     "stats.title": "Memory space",
     "stats.memories": "Memories",
@@ -302,6 +406,7 @@ const dict = {
     "stats.farthest": "Farthest apart",
     "stats.firstMemory": "First memory",
     "stats.placesBeen": "Places saved",
+    "stats.memoryFallback": "Memory {{index}}",
 
     "wish.title": "Streak & wishlist",
     "wish.subtitle": "Keep the daily chain alive and plan places to remember.",
@@ -318,6 +423,7 @@ const dict = {
     "wish.nicknamePh": "e.g. Weekend in Da Lat",
     "wish.addToList": "✨ Add to wishlist",
     "wish.pickFirst": "Pick a place first",
+    "wish.saveFailed": "Could not save this place. Please try again.",
     "wish.saving": "Saving…",
     "wish.markVisited": "Mark as visited",
     "wish.markDreaming": "Move back to dreaming",
@@ -343,6 +449,12 @@ const dict = {
     "settings.joinSpaceHint":
       "Joining someone else's map does not count toward your map creation limit.",
     "settings.joinSpaceSuccess": "Joined map.",
+    "settings.spaceInviteInvalid": "This invite code is not valid.",
+    "settings.spaceFull": "This map already has the maximum number of members.",
+    "settings.spaceInviteOwnerOnly":
+      "Only the map owner can create or manage invite codes.",
+    "settings.spaceActionError":
+      "Could not update your maps. Please try again.",
     "settings.spaceQuotaCreateOnly":
       "You have reached your map creation limit. You can still join maps you are invited to.",
     "settings.spaceQuotaGraceTitle": "Choose the maps to keep editable",
@@ -497,7 +609,27 @@ const dict = {
     "common.cancel": "Cancel",
     "common.save": "Save",
     "common.back": "Back",
+    "common.close": "Close",
+    "common.dismiss": "Dismiss",
+    "common.remove": "Remove",
+    "common.download": "Download",
+    "nav.primary": "Primary navigation",
+    "lightbox.viewer": "Image viewer",
+    "map.pinHere": "Pin here",
+    "map.loading": "Loading map…",
+    "notifications.title": "Notifications",
+    "notifications.markAllRead": "Mark all as read",
+    "notifications.empty": "No notifications yet",
+    "notifications.loading": "Loading…",
+    "app.updateAvailable": "A new version is available",
+    "app.updateAction": "Update",
     "common.something": "Something went wrong",
+    "common.noData": "No data yet",
+    "common.retry": "Try again",
+    "app.loading": "Loading Pinly…",
+    "app.loadErrorTitle": "Pinly could not load",
+    "app.loadErrorBody":
+      "Reload the app and try again. Contact support if the problem continues.",
 
     "landing.heroTitle": "Memories come alive",
     "landing.heroAccent": "in every place.",
@@ -652,6 +784,27 @@ const dict = {
     "auth.redirecting": "Đang chuyển…",
     "auth.socialDivider": "hoặc tiếp tục bằng email",
     "auth.oauthError": "Không thể tiếp tục với Google. Vui lòng thử lại.",
+    "auth.invalidCredentials": "Email hoặc mật khẩu chưa đúng.",
+    "auth.emailNotConfirmed": "Hãy xác nhận email trước khi đăng nhập.",
+    "auth.passwordTooShort": "Mật khẩu cần có ít nhất 6 ký tự.",
+    "auth.passwordUnchanged":
+      "Hãy chọn mật khẩu khác với mật khẩu hiện tại.",
+    "auth.resetLinkExpired":
+      "Liên kết đặt lại mật khẩu đã hết hạn. Hãy yêu cầu một liên kết mới.",
+    "auth.loginError": "Chưa thể đăng nhập. Vui lòng thử lại.",
+    "auth.signupError": "Chưa thể tạo tài khoản. Vui lòng thử lại.",
+    "auth.emailError": "Chưa thể gửi email. Vui lòng thử lại.",
+    "auth.resendFailed":
+      "Chưa thể gửi lại email xác nhận. Vui lòng thử lại.",
+    "activation.codeRequired": "Hãy nhập mã kích hoạt.",
+    "activation.codeTooLong": "Mã kích hoạt này quá dài.",
+    "activation.invalid": "Mã kích hoạt này không hợp lệ.",
+    "activation.used": "Mã kích hoạt này đã được sử dụng.",
+    "activation.expired": "Mã kích hoạt này đã hết hạn.",
+    "activation.rateLimited":
+      "Bạn đã thử quá nhiều lần. Hãy đợi một lát rồi thử lại.",
+    "activation.failed": "Chưa thể kích hoạt gói. Vui lòng thử lại.",
+    "activation.success": "Gói {{plan}} có hiệu lực đến {{date}}.",
     "legal.privacy": "Chính sách quyền riêng tư",
     "legal.terms": "Điều khoản sử dụng",
     "legal.back": "Quay lại",
@@ -663,6 +816,10 @@ const dict = {
     "legal.mediaDisclosureShort":
       "Ảnh và video có thể được xử lý qua dịch vụ lưu trữ media để tải lên và hiển thị ổn định. Chỉ chia sẻ đường dẫn media trong những ngữ cảnh đáng tin cậy.",
     "legal.acceptAndContinue": "Đồng ý và tiếp tục",
+    "legal.consentLoadError":
+      "Chưa thể kiểm tra trạng thái đồng ý quyền riêng tư. Hãy kiểm tra kết nối rồi thử lại.",
+    "legal.consentSaveError":
+      "Chưa thể lưu lựa chọn của bạn. Vui lòng thử lại.",
 
     "pair.title": "Bắt đầu bản đồ chung",
     "pair.create": "Tạo bản đồ chung",
@@ -709,6 +866,7 @@ const dict = {
 
     "map.heatmap": "Heatmap",
     "map.heatmapHint": "Hiện khu vực có nhiều kỷ niệm nhất",
+    "map.memoriesHere": "{{count}} kỷ niệm tại đây",
 
     "pin.title": "Tên kỷ niệm (vd: Cà phê ở Đà Lạt)",
     "pin.category": "Loại kỷ niệm",
@@ -747,6 +905,36 @@ const dict = {
     "pin.addPhoto": "Ảnh",
     "pin.addVideo": "Video",
     "pin.videoHint": "Video tối đa 50MB",
+    "pin.mediaLimit":
+      "Gói hiện tại cho phép tối đa {{count}} ảnh hoặc video trong mỗi kỷ niệm.",
+    "pin.videoTooLarge": "Video phải có dung lượng từ {{size}}MB trở xuống.",
+    "pin.videoRequiresPro": "Tính năng lưu video chỉ có trong gói Pro.",
+    "pin.categorySelectionLimit": "Bạn có thể chọn tối đa {{count}} danh mục.",
+    "pin.customCategoryLimit":
+      "Bạn đã dùng hết số danh mục tùy chỉnh của gói hiện tại.",
+    "pin.categorySaveFailed": "Chưa thể lưu danh mục này. Vui lòng thử lại.",
+    "pin.categoryDeleteFailed": "Chưa thể xóa danh mục này. Vui lòng thử lại.",
+    "pin.interactionsLoadFailed":
+      "Chưa tải được bình luận và lượt thả cảm xúc. Vui lòng thử lại.",
+    "pin.spaceChanged":
+      "Bạn vừa chuyển sang không gian khác. Hãy mở lại form tạo kỷ niệm.",
+    "pin.createFailed": "Chưa thể tạo kỷ niệm. Vui lòng thử lại.",
+    "pin.updateFailed": "Chưa thể cập nhật kỷ niệm. Vui lòng thử lại.",
+    "pin.memoryLimitReached":
+      "Bạn đã dùng hết số kỷ niệm của gói hiện tại. Hãy nâng cấp hoặc xóa bớt kỷ niệm để tiếp tục.",
+    "pin.mediaPlanLimitReached":
+      "Kỷ niệm này đã dùng hết số ảnh và video của gói hiện tại.",
+    "pin.createRateLimited":
+      "Bạn đang tạo kỷ niệm quá nhanh. Vui lòng chờ một chút rồi thử lại.",
+    "pin.mediaDeleteFailed":
+      "Chưa thể xóa ảnh hoặc video này. Vui lòng thử lại.",
+    "pin.mediaLoadFailed":
+      "Chưa tải được ảnh và video. Vui lòng thử lại.",
+    "pin.markerUploadFailed": "Chưa thể tải ảnh đánh dấu lên.",
+    "pin.deleteTag": "Xóa tag",
+    "pin.editTag": "Sửa tag",
+    "pin.clearAddress": "Xóa địa chỉ",
+    "pin.removeMedia": "Xóa ảnh hoặc video",
     "pin.edit": "Sửa",
     "pin.editTitle": "Sửa kỷ niệm",
     "pin.editExpired": "Hết thời gian sửa (1h sau khi tạo)",
@@ -765,6 +953,14 @@ const dict = {
     "pin.moreActions": "Thêm",
     "pin.favorite": "Yêu thích",
     "pin.favorited": "Đã yêu thích",
+    "pin.viewFullImage": "Xem ảnh đầy đủ",
+    "reaction.like": "Thích",
+    "reaction.love": "Yêu thích",
+    "reaction.care": "Thương thương",
+    "reaction.haha": "Haha",
+    "reaction.wow": "Ngạc nhiên",
+    "reaction.sad": "Buồn",
+    "reaction.angry": "Phẫn nộ",
     "toast.memoryCreated": "Đã lưu kỷ niệm",
     "toast.memoryUpdated": "Đã cập nhật kỷ niệm",
     "toast.memoryUploading": "Đang upload kỷ niệm…",
@@ -777,22 +973,36 @@ const dict = {
     "toast.actionFailed": "Có lỗi xảy ra",
     "toast.photosUploaded": "Đã tải ảnh lên",
     "toast.photoUploadFailed": "Tải ảnh thất bại",
+    "location.notSupported":
+      "Trình duyệt này không hỗ trợ xác định vị trí.",
+    "location.permissionDenied":
+      "Quyền truy cập vị trí đang tắt. Hãy bật lại trong cài đặt trình duyệt.",
+    "location.temporarilyUnavailable":
+      "Chưa thể xác định vị trí hiện tại. Hãy thử lại sau ít phút.",
+    "location.timeout": "Việc xác định vị trí mất quá lâu. Hãy thử lại.",
+    "location.unavailable": "Không thể xác định vị trí hiện tại.",
     "timeline.favorites": "Yêu thích",
     "settings.anniversary": "Ngày bắt đầu",
     "settings.setAnniversary": "Đặt ngày bắt đầu",
     "settings.background": "Hình nền",
     "settings.uploadBg": "Tải hình nền",
     "settings.removeBg": "Xóa hình nền",
+    "settings.backgroundUploadFailed":
+      "Chưa thể cập nhật hình nền. Vui lòng thử lại.",
     "onboard.anniversaryTitle": "Không gian này bắt đầu khi nào?",
     "onboard.anniversaryHint": "Dùng để đếm số ngày lưu giữ. Có thể đổi sau.",
     "onboard.skip": "Để sau",
     "onboard.save": "Lưu",
+    "onboard.anniversarySaveFailed":
+      "Chưa thể lưu ngày bắt đầu. Vui lòng thử lại.",
     "notif.title": "Thông báo",
     "notif.enable": "Bật thông báo",
     "notif.disable": "Tắt thông báo",
     "notif.denied": "Bị chặn — bật lại trong cài đặt trình duyệt",
     "notif.granted": "Thông báo đang bật",
     "notif.pushHint": "Nhận lời nhắc về kỷ niệm và chuỗi mỗi ngày",
+    "notif.pushError":
+      "Chưa thể cập nhật thông báo đẩy. Vui lòng thử lại.",
     "notif.newMemory": "vừa thêm 1 kỷ niệm",
     "notif.memoryAdded": "Kỷ niệm mới",
     "notif.memoryAddedHint": "Khi thành viên khác thêm kỷ niệm",
@@ -807,6 +1017,8 @@ const dict = {
     "notif.streakEmailReminders": "Nhắc chuỗi qua email",
     "notif.streakEmailRemindersHint":
       "Gửi email nếu hôm nay vẫn còn thiếu một kỷ niệm",
+    "notif.preferencesError":
+      "Chưa thể cập nhật cài đặt thông báo. Vui lòng thử lại.",
     "notif.viewOnMap": "Xem trên map",
     "notif.all": "Tất cả",
     "notif.unread": "Chưa đọc",
@@ -817,6 +1029,12 @@ const dict = {
     "notif.actionNewPin": "đã thêm một kỷ niệm mới",
     "notif.actionReaction": "đã bày tỏ cảm xúc",
     "notif.actionComment": "đã bình luận",
+    "notif.actionFavorite": "đã đánh dấu yêu thích kỷ niệm của bạn",
+    "notif.actionCommentReply": "đã trả lời bình luận của bạn",
+    "notif.actionCommentReaction": "đã bày tỏ cảm xúc với bình luận của bạn",
+    "notif.actionNudge": "nhắc nhẹ",
+    "notif.nudgeBody": "Chuỗi chung hôm nay vẫn đang chờ khoảnh khắc của bạn.",
+    "notif.actorFallback": "Một thành viên",
     "notif.justNow": "Vừa xong",
     "notif.minutesAgo": " phút trước",
     "notif.hoursAgo": " giờ trước",
@@ -834,6 +1052,7 @@ const dict = {
     "notif.inSpace": "Trong {{name}}",
     "notif.sectionNew": "Mới",
     "notif.sectionToday": "Hôm nay",
+    "notif.sectionYesterday": "Hôm qua",
     "notif.sectionEarlier": "Trước đó",
 
     "share.card": "Card",
@@ -861,6 +1080,15 @@ const dict = {
       "Tìm tên kỷ niệm, thành phố, đường, địa điểm…",
     "timeline.clearFilters": "Xóa lọc",
     "timeline.noResults": "Không có kỷ niệm nào khớp bộ lọc.",
+    "timeline.memoryNotFound": "Không tìm thấy kỷ niệm này.",
+    "timeline.openFailed": "Chưa thể mở kỷ niệm này. Vui lòng thử lại.",
+    "timeline.loadFailed": "Chưa thể tải kỷ niệm. Vui lòng thử lại.",
+    "timeline.loading": "Đang tải kỷ niệm…",
+    "timeline.filters": "Bộ lọc",
+    "timeline.all": "Tất cả",
+    "timeline.searchAction": "Tìm kiếm",
+    "timeline.opening": "Đang mở kỷ niệm…",
+    "timeline.backToTimeline": "Về Timeline",
 
     "streak.title": "Chuỗi kỷ niệm",
     "streak.days": "ngày",
@@ -881,6 +1109,13 @@ const dict = {
     "streak.nudgeSent": "Đã gửi",
     "streak.nudgeSending": "Đang gửi…",
     "streak.nudgeHint": "Nhắc thành viên còn lại",
+    "streak.nudgeFailed": "Chưa thể gửi lời nhắc. Vui lòng thử lại.",
+    "streak.nudgeAlreadyPosted":
+      "Thành viên còn lại đã lưu kỷ niệm hôm nay rồi.",
+    "streak.nudgePostFirst":
+      "Hãy lưu kỷ niệm hôm nay trước khi gửi lời nhắc.",
+    "streak.nudgeDisabled":
+      "Thành viên còn lại đã tắt lời nhắc chuỗi.",
 
     "stats.title": "Không gian kỷ niệm",
     "stats.memories": "Kỷ niệm",
@@ -890,6 +1125,7 @@ const dict = {
     "stats.farthest": "Xa nhất",
     "stats.firstMemory": "Lần đầu",
     "stats.placesBeen": "Những nơi đã lưu",
+    "stats.memoryFallback": "Kỷ niệm {{index}}",
 
     "wish.title": "Chuỗi & Danh sách muốn đi",
     "wish.subtitle": "Giữ chuỗi mỗi ngày và lưu những nơi muốn đến.",
@@ -906,6 +1142,7 @@ const dict = {
     "wish.nicknamePh": "vd: Cuối tuần ở Đà Lạt",
     "wish.addToList": "✨ Thêm vào wishlist",
     "wish.pickFirst": "Chọn 1 địa điểm trước",
+    "wish.saveFailed": "Chưa thể lưu địa điểm này. Vui lòng thử lại.",
     "wish.saving": "Đang lưu…",
     "wish.markVisited": "Đánh dấu đã đi",
     "wish.markDreaming": "Chuyển lại đang mơ",
@@ -931,6 +1168,12 @@ const dict = {
     "settings.joinSpaceHint":
       "Bản đồ người khác mời bạn tham gia sẽ không tính vào giới hạn tạo bản đồ của bạn.",
     "settings.joinSpaceSuccess": "Đã tham gia bản đồ.",
+    "settings.spaceInviteInvalid": "Mã mời này không hợp lệ.",
+    "settings.spaceFull": "Bản đồ này đã đủ số thành viên.",
+    "settings.spaceInviteOwnerOnly":
+      "Chỉ chủ bản đồ mới có thể tạo hoặc quản lý mã mời.",
+    "settings.spaceActionError":
+      "Chưa thể cập nhật danh sách bản đồ. Vui lòng thử lại.",
     "settings.spaceQuotaCreateOnly":
       "Bạn đã đạt giới hạn tạo bản đồ. Bạn vẫn có thể tham gia bản đồ được mời.",
     "settings.spaceQuotaGraceTitle": "Chọn bản đồ được tiếp tục chỉnh sửa",
@@ -1086,7 +1329,27 @@ const dict = {
     "common.cancel": "Hủy",
     "common.save": "Lưu",
     "common.back": "Quay lại",
+    "common.close": "Đóng",
+    "common.dismiss": "Bỏ qua",
+    "common.remove": "Xóa",
+    "common.download": "Tải xuống",
+    "nav.primary": "Điều hướng chính",
+    "lightbox.viewer": "Trình xem ảnh",
+    "map.pinHere": "Ghim tại đây",
+    "map.loading": "Đang tải bản đồ…",
+    "notifications.title": "Thông báo",
+    "notifications.markAllRead": "Đánh dấu tất cả là đã đọc",
+    "notifications.empty": "Bạn chưa có thông báo nào",
+    "notifications.loading": "Đang tải…",
+    "app.updateAvailable": "Đã có phiên bản mới",
+    "app.updateAction": "Cập nhật",
     "common.something": "Có gì đó không ổn",
+    "common.noData": "Chưa có dữ liệu",
+    "common.retry": "Thử lại",
+    "app.loading": "Đang mở Pinly…",
+    "app.loadErrorTitle": "Chưa thể mở Pinly",
+    "app.loadErrorBody":
+      "Hãy tải lại ứng dụng và thử lần nữa. Liên hệ hỗ trợ nếu lỗi vẫn tiếp diễn.",
 
     "landing.heroTitle": "Mỗi nơi chốn,",
     "landing.heroAccent": "một câu chuyện để nhớ.",
@@ -1210,12 +1473,18 @@ export function translate(
 interface Ctx {
   lang: Lang;
   setLang: (l: Lang) => void;
+  setLangFromAccount: (l: Lang) => void;
+  hasLocalPreference: boolean;
   t: (k: I18nKey, values?: Record<string, string | number>) => string;
 }
 
 const I18nCtx = createContext<Ctx | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
+  const [hasLocalPreference, setHasLocalPreference] = useState(() => {
+    const stored = localStorage.getItem(KEY);
+    return stored === "en" || stored === "vi";
+  });
   const [lang, setLangState] = useState<Lang>(() => {
     const stored = localStorage.getItem(KEY);
     if (stored === "en" || stored === "vi") return stored;
@@ -1226,10 +1495,20 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = lang;
   }, [lang]);
 
+  const setLang = useCallback((nextLang: Lang) => {
+    setHasLocalPreference(true);
+    setLangState(nextLang);
+  }, []);
+  const setLangFromAccount = useCallback((nextLang: Lang) => {
+    setLangState(nextLang);
+  }, []);
+
   const t = (k: I18nKey, values?: Record<string, string | number>) =>
     translate(lang, k, values);
   return (
-    <I18nCtx.Provider value={{ lang, setLang: setLangState, t }}>
+    <I18nCtx.Provider
+      value={{ lang, setLang, setLangFromAccount, hasLocalPreference, t }}
+    >
       {children}
     </I18nCtx.Provider>
   );

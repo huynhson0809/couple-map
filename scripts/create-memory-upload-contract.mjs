@@ -15,6 +15,7 @@ const editForm = read("src/components/pins/EditPinForm.tsx");
 const cloudinary = read("src/lib/cloudinary.ts");
 const pinMediaUpload = read("src/lib/pinMediaUpload.ts");
 const pendingUploads = read("src/lib/pendingUploads.ts");
+const pinsContext = read("src/hooks/PinsContext.tsx");
 const errorMessage = read("src/lib/errorMessage.ts");
 const viewportPins = read("src/hooks/useViewportPins.ts");
 const coupleRealtime = read("src/hooks/useCoupleRealtime.ts");
@@ -102,6 +103,21 @@ assert.doesNotMatch(
   /filter: `couple_id=eq\.\$\{coupleId\}`/,
   "Pin realtime subscriptions should listen by space_id, not legacy couple_id.",
 );
+assert.match(
+  coupleRealtime,
+  /activeSpaceIdRef\.current !== spaceId/,
+  "Late events from a removed realtime channel must not update the next active space.",
+);
+assert.match(
+  usePins,
+  /fetchRequestIdRef[\s\S]*activeSpaceIdRef\.current === targetSpaceId[\s\S]*activeUserIdRef\.current === targetUserId/,
+  "Full pin fetches must be scoped to the account and space that started the request.",
+);
+assert.match(
+  usePins,
+  /if \(imageError\)[\s\S]*throw new Error\('pin_images_load_failed'/,
+  "A media read failure must not be interpreted as an empty media collection.",
+);
 
 for (const [name, source] of [
   ["CreatePinForm", createForm],
@@ -154,13 +170,73 @@ assert.match(
 );
 assert.match(
   createForm,
-  /const pendingUploadIds = await savePendingUploads\([\s\S]*await removePendingUploads\(pendingUploadIds\);/,
+  /pendingUploadIds = await savePendingUploads\([\s\S]*await removePendingUploads\(pendingUploadIds\);/,
   "CreatePinForm should clear only the pending ids created for the current upload batch.",
 );
 assert.match(
   editForm,
-  /const pendingUploadIds = await savePendingUploads\([\s\S]*await removePendingUploads\(pendingUploadIds\);/,
+  /let pendingUploadIds: string\[\] = \[\];[\s\S]*pendingUploadIds = await savePendingUploads\([\s\S]*await removePendingUploads\(pendingUploadIds\);/,
   "EditPinForm should clear only the pending ids created for the current upload batch.",
+);
+assert.match(
+  pendingUploads,
+  /claimedPendingUploadIds[\s\S]*entry\.coupleId === coupleId[\s\S]*!claimedPendingUploadIds\.has\(entry\.id\)/,
+  "Pending upload recovery should process only the active space and skip batches already uploading directly.",
+);
+assert.match(
+  pendingUploads,
+  /pendingUploadRuns\.get\(coupleId\)[\s\S]*pendingUploadRuns\.set\(coupleId, run\)/,
+  "Pending upload recovery should be single-flight per space.",
+);
+assert.match(
+  pendingUploads,
+  /\.select\("sort_order"\)[\s\S]*existingOrders[\s\S]*alreadyAttached/,
+  "Recovery must not attach a batch again after its DB insert already succeeded.",
+);
+assert.match(
+  pendingUploads,
+  /\.from\("pins"\)[\s\S]*\.eq\("space_id", coupleId\)[\s\S]*if \(!pin\)/,
+  "Recovery must discard queued media when its memory no longer exists in the active space.",
+);
+assert.match(
+  editForm,
+  /existingImages\.reduce\([\s\S]*image\.sort_order \+ 1/,
+  "Editing media must append after the highest existing sort order, even after removals.",
+);
+assert.match(
+  createForm,
+  /catch \(queueError\)[\s\S]*continuing with the direct upload/,
+  "A failed IndexedDB retry queue must not block a direct create upload.",
+);
+assert.match(
+  editForm,
+  /catch \(queueError\)[\s\S]*continuing with the direct upload/,
+  "A failed IndexedDB retry queue must not block a direct edit upload.",
+);
+assert.match(
+  createForm,
+  /\.catch\(\(err\) => \{[\s\S]*releasePendingUploads\(pendingUploadIds\)/,
+  "CreatePinForm should release failed batches so recovery can retry them.",
+);
+assert.match(
+  editForm,
+  /\.catch\(\(err\) => \{[\s\S]*releasePendingUploads\(pendingUploadIds\)/,
+  "EditPinForm should release failed batches so recovery can retry them.",
+);
+assert.match(
+  pinsContext,
+  /processPendingUploads\(\s*spaceId,/,
+  "PinsProvider should resume pending uploads only for the active space.",
+);
+assert.match(
+  pinsContext,
+  /uploadSnapshot\.spaceId === spaceId/,
+  "Upload progress from a previous space must not appear in the active space.",
+);
+assert.match(
+  pinsContext,
+  /useLayoutEffect\(\(\) => \{[\s\S]*userIdRef\.current = userId;[\s\S]*activeSpaceIdRef\.current = spaceId;/,
+  "PinsProvider async guards must update before passive effects after an account or space change.",
 );
 
 assert.match(

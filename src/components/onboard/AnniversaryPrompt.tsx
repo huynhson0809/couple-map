@@ -4,6 +4,7 @@ import { Button } from '../ui/Button'
 import { useCoupleCtx } from '../../hooks/CoupleContext'
 import { useI18n } from '../../hooks/I18nContext'
 import { useSpaceCtx } from '../../hooks/SpaceContext'
+import { formatLocalDateInputValue } from '../../lib/localeFormat'
 
 export function AnniversaryPrompt() {
   const { couple, updateCouple } = useCoupleCtx()
@@ -29,8 +30,8 @@ export function AnniversaryPrompt() {
     setError(null)
     try {
       await updateCouple({ anniversary_date: date })
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+    } catch {
+      setError(t('onboard.anniversarySaveFailed'))
     } finally {
       setSaving(false)
     }
@@ -47,7 +48,7 @@ export function AnniversaryPrompt() {
         <input
           type="date"
           value={date}
-          max={new Date().toISOString().split('T')[0]}
+          max={formatLocalDateInputValue()}
           onChange={(e) => setDate(e.target.value)}
           className="onboard-date"
         />

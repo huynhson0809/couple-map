@@ -21,7 +21,7 @@ import {
 import { Button } from "../ui/Button";
 import { ImageLightbox } from "../ui/ImageLightbox";
 import { EditPinForm } from "./EditPinForm";
-import { useI18n } from "../../hooks/I18nContext";
+import { useI18n, type I18nKey } from "../../hooks/I18nContext";
 import { useCategoriesCtx } from "../../hooks/CategoriesContext";
 import { usePinInteractions } from "../../hooks/usePinInteractions";
 import { usePinsCtx } from "../../hooks/PinsContext";
@@ -29,6 +29,7 @@ import type { ReactionType } from "../../types";
 import { useToast } from "../../hooks/ToastContext";
 import { resolvePinCategories } from "../../lib/pinCategories";
 import { useSubscription } from "../../hooks/useSubscription";
+import { formatLocalizedDate } from "../../lib/localeFormat";
 
 interface Props {
   pin: Pin;
@@ -46,15 +47,25 @@ const ShareCard = lazy(() =>
     default: module.ShareCard,
   })),
 );
-const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
-  { type: "like", emoji: "👍", label: "Like" },
-  { type: "love", emoji: "❤️", label: "Love" },
-  { type: "care", emoji: "🥰", label: "Care" },
-  { type: "haha", emoji: "😆", label: "Haha" },
-  { type: "wow", emoji: "😮", label: "Wow" },
-  { type: "sad", emoji: "😢", label: "Sad" },
-  { type: "angry", emoji: "😡", label: "Angry" },
+const REACTIONS: { type: ReactionType; emoji: string }[] = [
+  { type: "like", emoji: "👍" },
+  { type: "love", emoji: "❤️" },
+  { type: "care", emoji: "🥰" },
+  { type: "haha", emoji: "😆" },
+  { type: "wow", emoji: "😮" },
+  { type: "sad", emoji: "😢" },
+  { type: "angry", emoji: "😡" },
 ];
+
+const REACTION_LABEL_KEYS: Record<ReactionType, I18nKey> = {
+  like: "reaction.like",
+  love: "reaction.love",
+  care: "reaction.care",
+  haha: "reaction.haha",
+  wow: "reaction.wow",
+  sad: "reaction.sad",
+  angry: "reaction.angry",
+};
 
 function reactionMeta(type: ReactionType | null) {
   return REACTIONS.find((r) => r.type === type) ?? null;
@@ -80,7 +91,7 @@ function formatCommentTime(value: string, lang: string) {
     const n = Math.max(1, Math.floor(diffMs / day));
     return lang === "vi" ? `${n} ngày trước` : `${n}d ago`;
   }
-  return date.toLocaleDateString(lang === "vi" ? "vi-VN" : undefined, {
+  return formatLocalizedDate(date, lang, {
     day: "numeric",
     month: "short",
     year:
@@ -108,6 +119,7 @@ export function PinDetail({
   const [showShareCard, setShowShareCard] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [interactionError, setInteractionError] = useState<string | null>(null);
+  const mediaLoadError = t("pin.mediaLoadFailed");
   const [sendingComment, setSendingComment] = useState(false);
   const [favoriteBusy, setFavoriteBusy] = useState(false);
   const [favoriteOverride, setFavoriteOverride] = useState<{
@@ -154,10 +166,20 @@ export function PinDetail({
 
   // Lazy-load full image details (width, height, public_id) when pin detail opens
   useEffect(() => {
-    if (!fullImagesLoaded && pin.id) {
-      fetchPinImages(pin.id).then(() => setFullImagesLoaded(true));
-    }
-  }, [pin.id, fullImagesLoaded, fetchPinImages]);
+    if (fullImagesLoaded || !pin.id) return;
+    let active = true;
+    void fetchPinImages(pin.id)
+      .then(() => {
+        if (active) setFullImagesLoaded(true);
+      })
+      .catch((loadError) => {
+        console.warn("Failed to load memory media:", loadError);
+        if (active) setInteractionError(mediaLoadError);
+      });
+    return () => {
+      active = false;
+    };
+  }, [pin.id, fullImagesLoaded, fetchPinImages, mediaLoadError]);
 
   const photoImages = useMemo(
     () => images.filter((img) => !isVideoUrl(img.cloudinary_url)),
@@ -228,8 +250,8 @@ export function PinDetail({
     try {
       await onDelete(pin.id);
       showToast({ type: "success", title: t("toast.memoryDeleted") });
-    } catch (err) {
-      setInteractionError(err instanceof Error ? err.message : String(err));
+    } catch {
+      setInteractionError(t("toast.actionFailed"));
       showToast({ type: "error", title: t("toast.actionFailed") });
     } finally {
       setDeleting(false);
@@ -270,9 +292,9 @@ export function PinDetail({
           ? t("toast.favoriteAdded")
           : t("toast.favoriteRemoved"),
       });
-    } catch (err) {
+    } catch {
       setFavoriteOverride({ pinId: pin.id, value: !nextFavorite });
-      setInteractionError(err instanceof Error ? err.message : String(err));
+      setInteractionError(t("toast.actionFailed"));
       showToast({ type: "error", title: t("toast.actionFailed") });
     } finally {
       setFavoriteBusy(false);
@@ -284,8 +306,8 @@ export function PinDetail({
     setReactionPickerOpen(false);
     try {
       await setReaction(reaction);
-    } catch (err) {
-      setInteractionError(err instanceof Error ? err.message : String(err));
+    } catch {
+      setInteractionError(t("toast.actionFailed"));
     }
   }
 
@@ -323,8 +345,8 @@ export function PinDetail({
       setCommentText("");
       setReplyingToComment(null);
       showToast({ type: "success", title: t("toast.commentAdded") });
-    } catch (err) {
-      setInteractionError(err instanceof Error ? err.message : String(err));
+    } catch {
+      setInteractionError(t("toast.actionFailed"));
       showToast({ type: "error", title: t("toast.actionFailed") });
     } finally {
       setSendingComment(false);
@@ -337,8 +359,8 @@ export function PinDetail({
     try {
       await deleteComment(id);
       showToast({ type: "success", title: t("toast.commentDeleted") });
-    } catch (err) {
-      setInteractionError(err instanceof Error ? err.message : String(err));
+    } catch {
+      setInteractionError(t("toast.actionFailed"));
       showToast({ type: "error", title: t("toast.actionFailed") });
     }
   }
@@ -358,8 +380,8 @@ export function PinDetail({
       setEditingCommentId(null);
       setEditingCommentText("");
       showToast({ type: "success", title: t("toast.commentUpdated") });
-    } catch (err) {
-      setInteractionError(err instanceof Error ? err.message : String(err));
+    } catch {
+      setInteractionError(t("toast.actionFailed"));
       showToast({ type: "error", title: t("toast.actionFailed") });
     }
   }
@@ -372,8 +394,8 @@ export function PinDetail({
     setCommentReactionPickerOpenId(null);
     try {
       await setCommentReaction(commentId, reaction);
-    } catch (err) {
-      setInteractionError(err instanceof Error ? err.message : String(err));
+    } catch {
+      setInteractionError(t("toast.actionFailed"));
       showToast({ type: "error", title: t("toast.actionFailed") });
     }
   }
@@ -548,7 +570,7 @@ export function PinDetail({
                             handleCommentReaction(comment.id, reaction.type)
                           }
                           disabled={!currentSpaceWritable}
-                          aria-label={reaction.label}
+                          aria-label={t(REACTION_LABEL_KEYS[reaction.type])}
                         >
                           {reaction.emoji}
                         </button>
@@ -696,7 +718,7 @@ export function PinDetail({
                 type="button"
                 className="image-strip-item"
                 onClick={() => openPhotoLightbox(img.id)}
-                aria-label="View full image"
+                aria-label={t("pin.viewFullImage")}
               >
                 <img src={getImageUrl(img.cloudinary_url, 800)} alt="" />
               </button>
@@ -788,14 +810,11 @@ export function PinDetail({
             </span>
           </div>
           <div className="meta-row meta-date">
-            {new Date(pin.created_at).toLocaleDateString(
-              lang === "vi" ? "vi-VN" : undefined,
-              {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              },
-            )}
+            {formatLocalizedDate(pin.created_at, lang, {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
           </div>
         </div>
       </div>
@@ -812,7 +831,7 @@ export function PinDetail({
                     onPointerDown={(e) => e.preventDefault()}
                     onClick={() => handleReaction(reaction.type)}
                     disabled={!currentSpaceWritable}
-                    aria-label={reaction.label}
+                    aria-label={t(REACTION_LABEL_KEYS[reaction.type])}
                   >
                     {reaction.emoji}
                   </button>

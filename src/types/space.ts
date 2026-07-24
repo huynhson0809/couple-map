@@ -11,6 +11,8 @@ export interface SpaceProfile {
   couple_id: string | null;
   first_couple_id: string | null;
   active_space_id: string | null;
+  locale: "en" | "vi" | null;
+  timezone: string | null;
   couple_locked_at: string | null;
   created_at: string;
 }

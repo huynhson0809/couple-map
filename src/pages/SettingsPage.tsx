@@ -53,10 +53,15 @@ import { UpgradePrompt } from "../components/ui/UpgradePrompt";
 import { Button } from "../components/ui/Button";
 import { GlassSurface } from "../components/ui/GlassSurface";
 import { SegmentedControl } from "../components/ui/SegmentedControl";
+import {
+  formatLocalizedDate,
+  formatLocalDateInputValue,
+} from "../lib/localeFormat";
 import { Switch } from "../components/ui/Switch";
 import { cx } from "../components/ui/uiClasses";
 import { uploadToCloudinary, getImageUrl } from "../lib/cloudinary";
 import { invalidateApiCacheByPrefix } from "../lib/apiCache";
+import { getMapStylePreviewCenter } from "../lib/mapDefaults";
 import {
   MULTI_SPACE_ENABLED,
   YEAR_REPLAY_ENABLED,
@@ -123,6 +128,7 @@ export function SettingsPage() {
     canUseMap3D,
     currentSpaceWritable,
     loading: subscriptionLoading,
+    accountLoading: accountPlanLoading,
   } = useSubscription();
   const { styleId, setStyleId } = useMapStyle(canUseMapStyle);
   const { map3DEnabled, setMap3DEnabled } = useMap3DMode(canUseMap3D);
@@ -132,7 +138,7 @@ export function SettingsPage() {
     capabilities.canDeleteSpace && currentSpaceWritable;
   const duoFeaturesEnabled = capabilities.canUseDuoFeatures;
   const canUseEmailStreakReminders =
-    !subscriptionLoading && accountPlan === "pro";
+    !accountPlanLoading && accountPlan === "pro";
   const sortedStyles = useMemo(
     () =>
       [...MAP_STYLES].sort((a, b) => {
@@ -146,7 +152,23 @@ export function SettingsPage() {
   const [planActionBusy, setPlanActionBusy] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
   const [upgradeFeature, setUpgradeFeature] = useState<string | null>(null);
-  const [annivDate, setAnnivDate] = useState(couple?.anniversary_date ?? "");
+  const currentSpaceId = couple?.id ?? null;
+  const [anniversaryDraft, setAnniversaryDraft] = useState({
+    spaceId: currentSpaceId,
+    value: couple?.anniversary_date ?? "",
+  });
+  const annivDate =
+    anniversaryDraft.spaceId === currentSpaceId
+      ? anniversaryDraft.value
+      : couple?.anniversary_date ?? "";
+  const [anniversaryError, setAnniversaryError] = useState<{
+    spaceId: string | null;
+    message: string;
+  } | null>(null);
+  const currentAnniversaryError =
+    anniversaryError?.spaceId === currentSpaceId
+      ? anniversaryError.message
+      : null;
   const [annivSaving, setAnnivSaving] = useState(false);
   const [bgUploading, setBgUploading] = useState(false);
   const [bgError, setBgError] = useState<string | null>(null);
@@ -157,7 +179,7 @@ export function SettingsPage() {
   const [breakupBusy, setBreakupBusy] = useState(false);
   const [breakupError, setBreakupError] = useState<string | null>(null);
   const [supportView, setSupportView] = useState<SupportView | null>(null);
-  const mapStylePreviewCenter = { lat: 10.8231, lng: 106.6297 };
+  const mapStylePreviewCenter = getMapStylePreviewCenter(lang);
   const breakupConfirmValid =
     breakupConfirmText.trim().toUpperCase() === BREAKUP_CONFIRM_TEXT;
   const subscriptionSource =
@@ -178,8 +200,15 @@ export function SettingsPage() {
   async function saveAnniversary() {
     if (!annivDate || !canManageSpaceDetails) return;
     setAnnivSaving(true);
+    setAnniversaryError(null);
     try {
       await updateCouple({ anniversary_date: annivDate });
+    } catch (error) {
+      console.error("Failed to save anniversary date:", error);
+      setAnniversaryError({
+        spaceId: currentSpaceId,
+        message: t("onboard.anniversarySaveFailed"),
+      });
     } finally {
       setAnnivSaving(false);
     }
@@ -195,8 +224,8 @@ export function SettingsPage() {
         folder: `pinly/${couple?.id ?? "shared"}`,
       });
       await updateCouple({ background_image_url: res.url });
-    } catch (e) {
-      setBgError(e instanceof Error ? e.message : String(e));
+    } catch {
+      setBgError(t("settings.backgroundUploadFailed"));
     } finally {
       setBgUploading(false);
     }
@@ -230,17 +259,16 @@ export function SettingsPage() {
       setBreakupConfirmText("");
       await refresh({ silent: true });
       navigate("/", { replace: true });
-    } catch (e) {
-      setBreakupError(
-        e instanceof Error ? e.message : t("settings.breakupError"),
-      );
+    } catch (error) {
+      console.error("Failed to end space:", error);
+      setBreakupError(t("settings.breakupError"));
     } finally {
       setBreakupBusy(false);
     }
   }
 
   async function handleManagePlan() {
-    if (subscriptionLoading || planActionBusy) return;
+    if (accountPlanLoading || planActionBusy) return;
 
     if (accountPlan === "free" || subscriptionSource !== "polar") {
       setPortalError(null);
@@ -263,7 +291,7 @@ export function SettingsPage() {
     }
   }
 
-  const accountPlanName = subscriptionLoading
+  const accountPlanName = accountPlanLoading
     ? "..."
     : accountPlan === "free"
       ? "Free"
@@ -286,6 +314,15 @@ export function SettingsPage() {
         : lang === "vi"
           ? "Gia hạn qua Polar"
           : "Renew with Polar";
+  const planActionDisplayLabel = accountPlanLoading
+    ? lang === "vi"
+      ? "Đang tải..."
+      : "Loading..."
+    : planActionBusy
+      ? lang === "vi"
+        ? "Đang mở..."
+        : "Opening..."
+      : planActionLabel;
   const planSourceLabel =
     subscriptionSource === "activation_code"
       ? lang === "vi"
@@ -325,15 +362,11 @@ export function SettingsPage() {
                   variant="primary"
                   size="sm"
                   onClick={() => void handleManagePlan()}
-                  loading={planActionBusy}
-                  disabled={subscriptionLoading || planActionBusy}
+                  loading={accountPlanLoading || planActionBusy}
+                  disabled={accountPlanLoading || planActionBusy}
                   className="setting-plan-upgrade"
                 >
-                  {planActionBusy
-                    ? lang === "vi"
-                      ? "Đang mở..."
-                      : "Opening..."
-                    : planActionLabel}
+                  {planActionDisplayLabel}
                 </Button>
               ) : (
                 <Button
@@ -341,15 +374,11 @@ export function SettingsPage() {
                   variant="secondary"
                   size="sm"
                   onClick={() => void handleManagePlan()}
-                  loading={planActionBusy}
-                  disabled={subscriptionLoading || planActionBusy}
+                  loading={accountPlanLoading || planActionBusy}
+                  disabled={accountPlanLoading || planActionBusy}
                   className="setting-plan-manage"
                 >
-                  {planActionBusy
-                    ? lang === "vi"
-                      ? "Đang mở..."
-                      : "Opening..."
-                    : planActionLabel}
+                  {planActionDisplayLabel}
                 </Button>
               )}
             </div>
@@ -360,7 +389,7 @@ export function SettingsPage() {
           {accountPlan !== "free" && (
             <span className="muted setting-plan-meta">
               {subscription
-                ? `${lang === "vi" ? "Hết hạn" : "Expires"}: ${new Date(subscription.current_period_end).toLocaleDateString("vi-VN")}`
+                ? `${lang === "vi" ? "Hết hạn" : "Expires"}: ${formatLocalizedDate(subscription.current_period_end, lang)}`
                 : lang === "vi"
                   ? "Đang hoạt động"
                   : "Active"}
@@ -368,6 +397,13 @@ export function SettingsPage() {
           )}
           {accountPlan !== "free" && planSourceLabel && (
             <span className="muted setting-plan-meta">{planSourceLabel}</span>
+          )}
+          {accountPlan === "pro" && (
+            <span className="muted setting-plan-meta">
+              {lang === "vi"
+                ? "Bao gồm nhắc chuỗi qua email"
+                : "Includes email streak reminders"}
+            </span>
           )}
           {MULTI_SPACE_ENABLED && !subscriptionLoading && (
             <span className="muted setting-plan-meta">
@@ -700,6 +736,9 @@ export function SettingsPage() {
           )}
         </div>
         <div className="notif-pref-list">
+          {push.error && (
+            <p className="error small">{t("notif.pushError")}</p>
+          )}
           {duoFeaturesEnabled && (
             <>
               <div className="notif-pref-row">
@@ -780,6 +819,9 @@ export function SettingsPage() {
               />
             </div>
           )}
+          {notifPrefs.error && (
+            <p className="error small">{t("notif.preferencesError")}</p>
+          )}
         </div>
       </SettingSection>
 
@@ -792,8 +834,14 @@ export function SettingsPage() {
             <input
               type="date"
               value={annivDate}
-              max={new Date().toISOString().split("T")[0]}
-              onChange={(e) => setAnnivDate(e.target.value)}
+              max={formatLocalDateInputValue()}
+              onChange={(e) => {
+                setAnniversaryDraft({
+                  spaceId: currentSpaceId,
+                  value: e.target.value,
+                });
+                setAnniversaryError(null);
+              }}
               className="setting-input"
             />
             <Button
@@ -807,6 +855,11 @@ export function SettingsPage() {
               {annivSaving ? "…" : t("onboard.save")}
             </Button>
           </div>
+          {currentAnniversaryError && (
+            <p className="error" role="alert">
+              {currentAnniversaryError}
+            </p>
+          )}
         </SettingSection>
       )}
 
@@ -1049,6 +1102,7 @@ export function SettingsPage() {
 
       {supportView && user?.id && (
         <SupportCenter
+          key={user.id}
           initialView={supportView}
           userId={user.id}
           userEmail={user.email}

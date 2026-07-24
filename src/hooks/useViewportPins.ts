@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { supabase } from "../lib/supabase";
 import type { Pin } from "../types";
 
@@ -30,18 +37,30 @@ export function useViewportPins(spaceId: string | null | undefined) {
   const [pins, setPins] = useState<Pin[]>([]);
   const [loading, setLoading] = useState(false);
   const [allLoaded, setAllLoaded] = useState(false);
+  const [dataSpaceId, setDataSpaceId] = useState<string | null>(spaceId ?? null);
   const loadedBoundsRef = useRef<Viewport | null>(null);
   const debounceRef = useRef<number | null>(null);
   const requestIdRef = useRef(0);
+  const activeSpaceIdRef = useRef(spaceId);
+  useLayoutEffect(() => {
+    activeSpaceIdRef.current = spaceId;
+  }, [spaceId]);
   // Cache of all pin IDs already loaded to avoid duplicates
   const loadedIdsRef = useRef<Set<string>>(new Set());
+  const scopedPins = useMemo(
+    () => dataSpaceId === spaceId ? pins : [],
+    [dataSpaceId, pins, spaceId],
+  );
+  const scopedAllLoaded = dataSpaceId === spaceId ? allLoaded : false;
+  const scopedLoading = dataSpaceId === spaceId ? loading : Boolean(spaceId);
 
   const fetchForViewport = useCallback(
     async (viewport: Viewport) => {
       if (!spaceId) return;
+      const targetSpaceId = spaceId;
 
       // If we already loaded all pins, skip
-      if (allLoaded) return;
+      if (scopedAllLoaded) return;
 
       // If new viewport is within previously loaded bounds, skip
       const prev = loadedBoundsRef.current;
@@ -62,12 +81,13 @@ export function useViewportPins(spaceId: string | null | undefined) {
       // Paginated fetch - load PAGE_SIZE at a time
       let offset = 0;
       let hasMore = true;
+      let failed = false;
 
       while (hasMore) {
         const { data, error } = await supabase
           .from("pins")
           .select(PIN_SELECT_WITH_CATEGORIES)
-          .eq("space_id", spaceId)
+          .eq("space_id", targetSpaceId)
           .gte("lat", expanded.south)
           .lte("lat", expanded.north)
           .gte("lng", expanded.west)
@@ -76,9 +96,14 @@ export function useViewportPins(spaceId: string | null | undefined) {
           .order("created_at", { ascending: false })
           .range(offset, offset + PAGE_SIZE - 1);
 
-        if (reqId !== requestIdRef.current) return;
+        if (
+          reqId !== requestIdRef.current ||
+          activeSpaceIdRef.current !== targetSpaceId
+        ) return;
 
         if (error || !data) {
+          if (error) console.error("Failed to load pins for map viewport:", error);
+          failed = true;
           break;
         }
 
@@ -87,6 +112,7 @@ export function useViewportPins(spaceId: string | null | undefined) {
         );
         if (newPins.length > 0) {
           newPins.forEach((p) => loadedIdsRef.current.add(p.id));
+          setDataSpaceId(targetSpaceId);
           setPins((prev) => [...prev, ...newPins]);
         }
 
@@ -94,20 +120,22 @@ export function useViewportPins(spaceId: string | null | undefined) {
         offset += PAGE_SIZE;
       }
 
-      // Expand loaded bounds
-      if (prev) {
-        loadedBoundsRef.current = {
-          north: Math.max(prev.north, expanded.north),
-          south: Math.min(prev.south, expanded.south),
-          east: Math.max(prev.east, expanded.east),
-          west: Math.min(prev.west, expanded.west),
-        };
-      } else {
-        loadedBoundsRef.current = expanded;
+      if (!failed) {
+        // Only cache bounds after a complete request so transient failures can retry.
+        if (prev) {
+          loadedBoundsRef.current = {
+            north: Math.max(prev.north, expanded.north),
+            south: Math.min(prev.south, expanded.south),
+            east: Math.max(prev.east, expanded.east),
+            west: Math.min(prev.west, expanded.west),
+          };
+        } else {
+          loadedBoundsRef.current = expanded;
+        }
       }
       setLoading(false);
     },
-    [spaceId, allLoaded],
+    [spaceId, scopedAllLoaded],
   );
 
   /** Call this when map viewport changes (debounced) */
@@ -123,37 +151,52 @@ export function useViewportPins(spaceId: string | null | undefined) {
 
   /** Load ALL pins (for stats/search that need full dataset) */
   const loadAll = useCallback(async () => {
-    if (!spaceId || allLoaded) return;
+    if (!spaceId || scopedAllLoaded) return;
+    const targetSpaceId = spaceId;
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     const { data, error } = await supabase
       .from("pins")
       .select(PIN_SELECT_WITH_CATEGORIES)
-      .eq("space_id", spaceId)
+      .eq("space_id", targetSpaceId)
       .order("position", { referencedTable: "categories", ascending: true })
       .order("created_at", { ascending: false });
+    if (
+      requestId !== requestIdRef.current ||
+      activeSpaceIdRef.current !== targetSpaceId
+    ) return;
     if (!error && data) {
       const allPins = data as Pin[];
       loadedIdsRef.current = new Set(allPins.map((p) => p.id));
+      setDataSpaceId(targetSpaceId);
       setPins(allPins);
       setAllLoaded(true);
+    } else if (error) {
+      console.error("Failed to load all pins:", error);
     }
     setLoading(false);
-  }, [spaceId, allLoaded]);
+  }, [spaceId, scopedAllLoaded]);
 
   const loadPinById = useCallback(
     async (id: string): Promise<Pin | null> => {
       if (!spaceId) return null;
+      const targetSpaceId = spaceId;
       const { data, error } = await supabase
         .from("pins")
         .select(PIN_SELECT_WITH_CATEGORIES)
-        .eq("space_id", spaceId)
+        .eq("space_id", targetSpaceId)
         .eq("id", id)
         .order("position", { referencedTable: "categories", ascending: true })
         .maybeSingle();
 
-      if (error || !data) return null;
+      if (activeSpaceIdRef.current !== targetSpaceId) return null;
+      if (error || !data) {
+        if (error) console.error("Failed to load pin by id:", error);
+        return null;
+      }
       const pin = data as Pin;
       loadedIdsRef.current.add(pin.id);
+      setDataSpaceId(targetSpaceId);
       setPins((prev) => {
         const exists = prev.some((p) => p.id === pin.id);
         if (exists) return prev.map((p) => (p.id === pin.id ? pin : p));
@@ -166,7 +209,10 @@ export function useViewportPins(spaceId: string | null | undefined) {
 
   /** Add a newly created pin to local state */
   const addPin = useCallback((pin: Pin) => {
+    const pinSpaceId = pin.space_id ?? pin.couple_id;
+    if (pinSpaceId !== activeSpaceIdRef.current) return;
     loadedIdsRef.current.add(pin.id);
+    setDataSpaceId(pinSpaceId);
     setPins((prev) => [pin, ...prev.filter((p) => p.id !== pin.id)]);
   }, []);
 
@@ -183,21 +229,28 @@ export function useViewportPins(spaceId: string | null | undefined) {
 
   // Reset when spaceId changes
   useEffect(() => {
+    activeSpaceIdRef.current = spaceId;
     requestIdRef.current += 1;
     loadedBoundsRef.current = null;
     loadedIdsRef.current = new Set();
+    if (debounceRef.current) {
+      window.clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
 
     const timer = window.setTimeout(() => {
+      setDataSpaceId(spaceId ?? null);
       setPins([]);
       setAllLoaded(false);
+      setLoading(false);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [spaceId]);
 
   return {
-    pins,
-    loading,
-    allLoaded,
+    pins: scopedPins,
+    loading: scopedLoading,
+    allLoaded: scopedAllLoaded,
     onViewportChange,
     loadAll,
     loadPinById,

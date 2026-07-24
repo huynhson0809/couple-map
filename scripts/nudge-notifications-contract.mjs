@@ -28,13 +28,33 @@ assert.match(
 );
 assert.match(
   useNudge,
-  /body:\s*\{\s*coupleId\s*\}/,
+  /body:\s*\{\s*coupleId:\s*targetCoupleId\s*\}/,
   "useNudge should pass the active space/couple id to send-nudge.",
 );
 assert.match(
   useNudge,
-  /function\s+cooldownKey[\s\S]*coupleId/,
-  "useNudge should scope local nudge cooldown by active space/couple id.",
+  /snapshot\.coupleId === coupleId/,
+  "useNudge should not expose sent/sending state from a previous space.",
+);
+assert.match(
+  useNudge,
+  /requestId !== sendRequestRef\.current/,
+  "A late send-nudge response from a previous space must be ignored.",
+);
+assert.match(
+  useNudge,
+  /function\s+cooldownKey[\s\S]*coupleId[\s\S]*userId/,
+  "useNudge should scope local nudge cooldown by both account and active space.",
+);
+assert.match(
+  useNudge,
+  /\.then\(\(\{ data, error: checkError \}\)[\s\S]*markNudgedToday\(coupleId, userId\)/,
+  "The backend must remain the source of truth even when a local cooldown exists.",
+);
+assert.match(
+  useNudge,
+  /if \(data\?\.sent !== true\)[\s\S]*partner_already_posted[\s\S]*sender_not_posted[\s\S]*partner_disabled_reminders/,
+  "Skipped nudge responses must not be reported as successful deliveries.",
 );
 assert.match(
   sendNudge,

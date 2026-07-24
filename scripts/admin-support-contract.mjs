@@ -27,6 +27,11 @@ assert.match(
 );
 assert.match(
   app,
+  /<AdminSupportPage[\s\S]{0,120}key=\{user\.id\}/,
+  "The admin support dashboard must remount when the authenticated account changes.",
+);
+assert.match(
+  app,
   /path="\/admin\/support"[\s\S]*path="\*"[\s\S]*DesktopGate/,
   "The admin route should be declared before the mobile app DesktopGate wildcard.",
 );
@@ -41,9 +46,29 @@ assert.doesNotMatch(
   "Admin access must not rely on a frontend email allowlist.",
 );
 assert.match(
+  accessHook,
+  /state\.userId !== userId[\s\S]*isAdmin:\s*false/,
+  "Admin access state must never carry over to a different authenticated account.",
+);
+assert.doesNotMatch(
+  accessHook,
+  /error:\s*error\?\.message/,
+  "Admin authorization errors must not expose raw database messages in the UI.",
+);
+assert.match(
   settingsPage,
   /isAdmin[\s\S]*navigate\("\/admin\/support"\)/,
   "Settings should show an admin-only shortcut to the support dashboard.",
+);
+assert.match(
+  settingsPage,
+  /<SupportCenter[\s\S]{0,120}key=\{user\.id\}/,
+  "The customer support conversation must remount when the authenticated account changes.",
+);
+assert.match(
+  read("src/components/settings/SupportCenter.tsx"),
+  /requestId !== ticketsRequestIdRef\.current/,
+  "An older customer support refresh must not overwrite a newer conversation response.",
 );
 
 assert.match(page, /rpc\("admin_list_support_tickets"/, "Admin page should load tickets through the protected RPC.");
@@ -54,6 +79,16 @@ assert.match(page, /admin-support-layout/, "Admin support should use its desktop
 assert.match(page, /aria-pressed=\{statusFilter === status\}/, "Queue filters should expose their selected state.");
 assert.match(page, /className=\{statusFilter === "all" \? "active" : ""\}/, "Summary filters should visibly track the selected state.");
 assert.match(page, /scrollIntoView/, "Selecting a ticket on a small screen should reveal its detail panel.");
+assert.match(
+  page,
+  /requestId !== threadRequestIdRef\.current[\s\S]*activeTicketIdRef\.current !== ticketId/,
+  "A late conversation response must not render under a newly selected ticket.",
+);
+assert.match(
+  page,
+  /requestId !== dashboardRequestIdRef\.current/,
+  "An older dashboard refresh must not overwrite a newer support queue response.",
+);
 assert.doesNotMatch(pageStyles, /min-width:\s*1080px/, "The admin dashboard must not force a desktop-only width.");
 assert.match(globalStyles, /#root:has\(\.admin-support-page\)[\s\S]*max-width:\s*none/, "The global mobile shell must release its width limit for the admin dashboard.");
 assert.match(pageStyles, /@media \(max-width: 1024px\)[\s\S]*"queue detail"/, "The dashboard should provide a tablet layout.");

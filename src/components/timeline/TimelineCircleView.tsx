@@ -19,6 +19,7 @@ import {
   getTimelineCircleBounds,
 } from "../../lib/timelineCircleLayout";
 import { getPrimaryCategoryId } from "../../lib/pinCategories";
+import { formatLocalizedDate } from "../../lib/localeFormat";
 import type { Pin } from "../../types";
 
 interface TimelineCircleViewProps {
@@ -98,7 +99,7 @@ function getPinMediaUrl(pin: Pin) {
 }
 
 function formatPinDate(value: string, lang: string) {
-  return new Date(value).toLocaleDateString(lang === "vi" ? "vi-VN" : undefined, {
+  return formatLocalizedDate(value, lang, {
     month: "short",
     day: "numeric",
     year: "numeric",

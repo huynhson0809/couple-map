@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   CATEGORIES,
   fetchCustomCategories,
@@ -9,6 +9,7 @@ import {
   type Category,
 } from '../lib/categories'
 import { supabase } from '../lib/supabase'
+import { useI18n } from './I18nContext'
 
 interface Ctx {
   allCategories: Category[]
@@ -29,21 +30,53 @@ export function CategoriesProvider({
   userId: string | undefined
   children: ReactNode
 }) {
-  const [customCategories, setCustomCategories] = useState<Category[]>([])
+  const { lang } = useI18n()
+  const [snapshot, setSnapshot] = useState<{
+    spaceId: string | null
+    categories: Category[]
+  }>({ spaceId: null, categories: [] })
+  const requestIdRef = useRef(0)
+  const activeSpaceIdRef = useRef(spaceId)
+  const customCategories = useMemo(
+    () => snapshot.spaceId === spaceId ? snapshot.categories : [],
+    [snapshot, spaceId],
+  )
 
   const refresh = useCallback(async () => {
     if (!spaceId) {
-      setCustomCategories([])
+      requestIdRef.current += 1
+      setSnapshot({ spaceId: null, categories: [] })
       return
     }
-    const rows = await fetchCustomCategories(spaceId)
-    setCustomCategories(rows)
+    const targetSpaceId = spaceId
+    const requestId = ++requestIdRef.current
+    let rows: Category[]
+    try {
+      rows = await fetchCustomCategories(targetSpaceId)
+    } catch (error) {
+      if (
+        requestId === requestIdRef.current &&
+        activeSpaceIdRef.current === targetSpaceId
+      ) {
+        console.error('Could not load custom categories:', error)
+      }
+      return
+    }
+    if (
+      requestId !== requestIdRef.current ||
+      activeSpaceIdRef.current !== targetSpaceId
+    ) return
+    setSnapshot({ spaceId: targetSpaceId, categories: rows })
   }, [spaceId])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void refresh()
-  }, [refresh])
+    activeSpaceIdRef.current = spaceId
+    const timer = window.setTimeout(() => void refresh(), 0)
+    return () => {
+      window.clearTimeout(timer)
+      requestIdRef.current += 1
+    }
+  }, [refresh, spaceId])
 
   useEffect(() => {
     if (!spaceId) return
@@ -70,12 +103,16 @@ export function CategoriesProvider({
     async (cat: Category) => {
       if (!spaceId || !userId) throw new Error('Missing space')
       const saved = await upsertCustomCategory(spaceId, userId, cat)
-      setCustomCategories((prev) => {
-        const idx = prev.findIndex((c) => c.id === saved.id)
-        if (idx < 0) return [...prev, saved]
-        const next = [...prev]
-        next[idx] = saved
-        return next
+      if (activeSpaceIdRef.current !== spaceId) return saved
+      setSnapshot((current) => {
+        const categories = current.spaceId === spaceId ? current.categories : []
+        const index = categories.findIndex((category) => category.id === saved.id)
+        if (index < 0) {
+          return { spaceId, categories: [...categories, saved] }
+        }
+        const next = [...categories]
+        next[index] = saved
+        return { spaceId, categories: next }
       })
       return saved
     },
@@ -86,15 +123,24 @@ export function CategoriesProvider({
     async (id: string) => {
       if (!spaceId) throw new Error('Missing space')
       await removeCustomCategory(spaceId, id)
-      setCustomCategories((prev) => prev.filter((c) => c.id !== id))
+      if (activeSpaceIdRef.current !== spaceId) return
+      setSnapshot((current) => current.spaceId === spaceId
+        ? {
+            ...current,
+            categories: current.categories.filter((category) => category.id !== id),
+          }
+        : current)
     },
     [spaceId],
   )
 
-  const allCategories = useMemo(() => getAllCategories(customCategories), [customCategories])
+  const allCategories = useMemo(
+    () => getAllCategories(customCategories, lang),
+    [customCategories, lang],
+  )
   const getCategoryById = useCallback(
-    (id: string | null | undefined) => getCategory(id, customCategories),
-    [customCategories],
+    (id: string | null | undefined) => getCategory(id, customCategories, lang),
+    [customCategories, lang],
   )
 
   return (

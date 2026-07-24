@@ -54,6 +54,7 @@ export function useCouple(userId: string | undefined) {
   const [partner, setPartner] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [payloadUserId, setPayloadUserId] = useState<string | undefined>()
   const requestIdRef = useRef(0)
 
   const refresh = useCallback(async (opts?: { silent?: boolean }) => {
@@ -64,6 +65,8 @@ export function useCouple(userId: string | undefined) {
       setProfile(null)
       setCouple(null)
       setPartner(null)
+      setPayloadUserId(undefined)
+      setError(null)
       setLoading(false)
       return
     }
@@ -81,12 +84,15 @@ export function useCouple(userId: string | undefined) {
       setProfile(payload.profile ?? null)
       setCouple(payload.couple ?? null)
       setPartner(payload.partner ?? null)
+      setPayloadUserId(userId)
     } catch (err) {
       if (requestIdRef.current === requestId) {
-        setError(err instanceof Error ? err.message : 'Could not load couple')
+        console.error('Could not load couple context:', err)
+        setError('couple_load_failed')
         setProfile(null)
         setCouple(null)
         setPartner(null)
+        setPayloadUserId(userId)
       }
     } finally {
       if (requestIdRef.current === requestId) setLoading(false)
@@ -97,8 +103,18 @@ export function useCouple(userId: string | undefined) {
     const timer = window.setTimeout(() => {
       void refresh()
     }, 0)
-    return () => window.clearTimeout(timer)
+    return () => {
+      window.clearTimeout(timer)
+      requestIdRef.current += 1
+    }
   }, [refresh])
+
+  const payloadMatchesUser = payloadUserId === userId
+  const safeProfile = payloadMatchesUser ? profile : null
+  const safeCouple = payloadMatchesUser ? couple : null
+  const safePartner = payloadMatchesUser ? partner : null
+  const safeLoading = userId ? loading || !payloadMatchesUser : false
+  const safeError = payloadMatchesUser ? error : null
 
   const createCouple = useCallback(async () => {
     if (!userId) throw new Error('Not signed in')
@@ -122,18 +138,18 @@ export function useCouple(userId: string | undefined) {
 
   const updateCouple = useCallback(
     async (patch: Partial<Pick<Couple, 'anniversary_date'>> & { background_image_url?: string | null }) => {
-      if (!couple) throw new Error('No couple')
+      if (!safeCouple) throw new Error('No couple')
       const { data, error } = await supabase
         .from('couples')
         .update(patch)
-        .eq('id', couple.id)
+        .eq('id', safeCouple.id)
         .select()
         .single()
       if (error) throw error
       setCouple(data as Couple)
       return data as Couple
     },
-    [couple],
+    [safeCouple],
   )
 
   const breakupCouple = useCallback(async (confirmText: string) => {
@@ -168,5 +184,16 @@ export function useCouple(userId: string | undefined) {
     await refresh({ silent: true })
   }, [refresh, userId])
 
-  return { profile, couple, partner, loading, error, refresh, createCouple, joinCouple, updateCouple, breakupCouple }
+  return {
+    profile: safeProfile,
+    couple: safeCouple,
+    partner: safePartner,
+    loading: safeLoading,
+    error: safeError,
+    refresh,
+    createCouple,
+    joinCouple,
+    updateCouple,
+    breakupCouple,
+  }
 }

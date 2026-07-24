@@ -8,18 +8,13 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import webpush from "npm:web-push@3.6.7";
+import { buildCorsHeaders } from "../_shared/cors.ts";
 import {
-  buildCorsHeaders,
-  handleCorsPreflightIfNeeded,
-} from "../_shared/cors.ts";
+  interactionNotificationCopy,
+  type InteractionNotificationEvent,
+} from "../_shared/notification-copy.ts";
 
-type EventType =
-  | "memory_added"
-  | "reaction"
-  | "favorite"
-  | "comment"
-  | "comment_reply"
-  | "comment_reaction";
+type EventType = InteractionNotificationEvent;
 
 type NotificationKind = "memory_added" | "reactions" | "comments";
 
@@ -180,7 +175,7 @@ async function loadEventContext(
       actorId: pin.created_by,
       recipientId,
       pinId: pin.id,
-      pinTitle: pin.title || "một kỷ niệm",
+      pinTitle: pin.title || "",
       interactionBody: null,
       reaction: "love",
     };
@@ -214,7 +209,7 @@ async function loadEventContext(
       actorId,
       recipientId: pin.created_by,
       pinId,
-      pinTitle: pin.title || "một kỷ niệm",
+      pinTitle: pin.title || "",
       interactionBody: null,
       reaction: reactionRow.reaction || "love",
     };
@@ -239,7 +234,7 @@ async function loadEventContext(
         actorId,
         recipientId: null,
         pinId,
-        pinTitle: pin.title || "một kỷ niệm",
+        pinTitle: pin.title || "",
         interactionBody: null,
         reaction: "favorite",
       };
@@ -252,7 +247,7 @@ async function loadEventContext(
       actorId,
       recipientId: pin.created_by,
       pinId,
-      pinTitle: pin.title || "một kỷ niệm",
+      pinTitle: pin.title || "",
       interactionBody: null,
       reaction: "favorite",
     };
@@ -303,7 +298,7 @@ async function loadEventContext(
       actorId: comment.user_id,
       recipientId,
       pinId: pin.id,
-      pinTitle: pin.title || "một kỷ niệm",
+      pinTitle: pin.title || "",
       interactionBody: String(comment.body || ""),
       reaction: "love",
     };
@@ -345,7 +340,7 @@ async function loadEventContext(
     actorId,
     recipientId: comment.user_id,
     pinId: comment.pin_id,
-    pinTitle: pin?.title || "một kỷ niệm",
+    pinTitle: pin?.title || "",
     interactionBody: String(comment.body || ""),
     reaction: reactionRow.reaction || "love",
   };
@@ -461,45 +456,30 @@ serve(async (req) => {
       });
     }
 
-    const { data: creator } = await supabase
-      .from("users")
-      .select("display_name")
-      .eq("id", context.actorId)
-      .single();
-
-    const creatorName = creator?.display_name || "Một thành viên";
-    const bodyPreview = context.interactionBody
-      ? `“${context.interactionBody.slice(0, 80)}”`
-      : context.pinTitle;
-
-    const title =
-      context.eventType === "reaction"
-        ? `💞 ${creatorName} đã bày tỏ cảm xúc`
-        : context.eventType === "favorite"
-          ? `⭐ ${creatorName} đã đánh dấu yêu thích`
-          : context.eventType === "comment"
-            ? `💬 ${creatorName} đã bình luận`
-            : context.eventType === "comment_reply"
-              ? `↩️ ${creatorName} đã trả lời bình luận`
-              : context.eventType === "comment_reaction"
-                ? `💞 ${creatorName} đã bày tỏ cảm xúc với bình luận`
-                : `📍 ${creatorName} đã ghim`;
-
-    const notificationBody =
-      context.eventType === "reaction"
-        ? `${context.reaction} · ${context.pinTitle}`
-        : context.eventType === "favorite"
-          ? context.pinTitle
-          : context.eventType === "comment" ||
-              context.eventType === "comment_reply"
-            ? bodyPreview
-            : context.eventType === "comment_reaction"
-              ? `${context.reaction} · ${bodyPreview}`
-              : context.pinTitle;
+    const [{ data: creator }, { data: recipientProfile }] = await Promise.all([
+      supabase
+        .from("users")
+        .select("display_name")
+        .eq("id", context.actorId)
+        .single(),
+      supabase
+        .from("users")
+        .select("locale")
+        .eq("id", context.recipientId)
+        .single(),
+    ]);
+    const copy = interactionNotificationCopy({
+      locale: recipientProfile?.locale,
+      eventType: context.eventType,
+      actorName: creator?.display_name,
+      pinTitle: context.pinTitle,
+      interactionBody: context.interactionBody,
+      reaction: context.reaction,
+    });
 
     const notificationPayload = JSON.stringify({
-      title,
-      body: notificationBody,
+      title: copy.title,
+      body: copy.body,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
       data: { url: context.pinId ? `/memory/${context.pinId}` : "/" },

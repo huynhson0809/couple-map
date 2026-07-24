@@ -18,78 +18,10 @@ import { useSpaceCtx } from "../hooks/SpaceContext";
 import { Button } from "../components/ui/Button";
 import { SegmentedControl } from "../components/ui/SegmentedControl";
 import type { AppNotification } from "../types";
-
-const VI_ACTIONS = [
-  " đã thêm một kỷ niệm mới",
-  " đã bày tỏ cảm xúc",
-  " đã bình luận",
-  " đã hoàn thành streak",
-  " streak đã bị mất",
-];
+import { localizedNotificationCopy } from "../lib/notificationCopy";
+import { formatRelativeTime } from "../lib/relativeTime";
 
 type Translate = ReturnType<typeof useI18n>["t"];
-
-function extractActorName(title: string): string {
-  for (const action of VI_ACTIONS) {
-    if (title.includes(action)) return title.split(action)[0];
-  }
-  // Fallback: take everything before last " đã "
-  const idx = title.lastIndexOf(" đã ");
-  if (idx > 0) return title.substring(0, idx);
-  return title;
-}
-
-function notifTitle(n: AppNotification, t: Translate): string {
-  const name = extractActorName(n.title);
-  switch (n.type) {
-    case "new_pin":
-      return `${name} ${t("notif.actionNewPin")}`;
-    case "reaction":
-      return `${name} ${t("notif.actionReaction")}`;
-    case "comment":
-      return `${name} ${t("notif.actionComment")}`;
-    case "support_reply":
-      return t("notif.supportReply");
-    case "space_quota_warning":
-      return t("notif.spaceQuotaWarning");
-    case "space_quota_restricted":
-      return t("notif.spaceQuotaRestricted");
-    case "space_quota_restored":
-      return t("notif.spaceQuotaRestored");
-    default:
-      return n.title;
-  }
-}
-
-function notifBody(n: AppNotification, t: Translate): string | null {
-  switch (n.type) {
-    case "space_quota_warning":
-      return t("notif.spaceQuotaWarningBody");
-    case "space_quota_restricted":
-      return t("notif.spaceQuotaRestrictedBody");
-    case "space_quota_restored":
-      return t("notif.spaceQuotaRestoredBody");
-    default:
-      return n.body;
-  }
-}
-
-function timeAgo(dateStr: string, t: Translate): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = now - then;
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return t("notif.justNow");
-  if (minutes < 60) return `${minutes}${t("notif.minutesAgo")}`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}${t("notif.hoursAgo")}`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}${t("notif.daysAgo")}`;
-  return new Date(dateStr).toLocaleDateString("vi-VN", {
-    day: "numeric",
-    month: "short",
-  });
-}
 
 function notifIcon(type: AppNotification["type"]) {
   switch (type) {
@@ -157,10 +89,15 @@ function groupByTime(
     now.getMonth(),
     now.getDate(),
   ).getTime();
-  const startOfYesterday = startOfToday - 86_400_000;
+  const startOfYesterday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - 1,
+  ).getTime();
 
   const newItems: AppNotification[] = [];
   const todayItems: AppNotification[] = [];
+  const yesterdayItems: AppNotification[] = [];
   const earlierItems: AppNotification[] = [];
 
   for (const n of items) {
@@ -170,7 +107,7 @@ function groupByTime(
     } else if (ts >= startOfToday) {
       todayItems.push(n);
     } else if (ts >= startOfYesterday) {
-      todayItems.push(n);
+      yesterdayItems.push(n);
     } else {
       earlierItems.push(n);
     }
@@ -181,13 +118,15 @@ function groupByTime(
     sections.push({ label: t("notif.sectionNew"), items: newItems });
   if (todayItems.length)
     sections.push({ label: t("notif.sectionToday"), items: todayItems });
+  if (yesterdayItems.length)
+    sections.push({ label: t("notif.sectionYesterday"), items: yesterdayItems });
   if (earlierItems.length)
     sections.push({ label: t("notif.sectionEarlier"), items: earlierItems });
   return sections;
 }
 
 export function NotificationsPage() {
-  const { t } = useI18n();
+  const { lang, t } = useI18n();
   const navigate = useNavigate();
   const { spaces, activeSpace, setActiveSpace } = useSpaceCtx();
   const [tab, setTab] = useState<"all" | "unread">("all");
@@ -298,13 +237,12 @@ export function NotificationsPage() {
           <div key={section.label} className="notif-section">
             <div className="notif-section-label">{section.label}</div>
             {section.items.map((n) => {
-              const title = notifTitle(n, t);
-              const body = notifBody(n, t);
+              const { title, body } = localizedNotificationCopy(n, t);
               const spaceName =
                 n.space_name ??
                 spaces.find((space) => space.id === n.space_id)?.name ??
                 null;
-              const relativeTime = timeAgo(n.created_at, t);
+              const relativeTime = formatRelativeTime(n.created_at, lang);
               const ariaLabel = [
                 !n.read ? t("notif.unread") : undefined,
                 title,

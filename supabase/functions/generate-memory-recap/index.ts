@@ -8,6 +8,10 @@ import {
   handleCorsPreflightIfNeeded,
 } from "../_shared/cors.ts";
 import { adminClient, requireAuthUser } from "../_shared/auth-user.ts";
+import {
+  localDayBounds,
+  localReminderParts,
+} from "../_shared/reminder-local-time.ts";
 
 type RecapPreset = "calendar_year" | "custom";
 
@@ -16,6 +20,7 @@ interface RecapRequest {
   range_start?: unknown;
   range_end?: unknown;
   preset?: unknown;
+  time_zone?: unknown;
   timezone_offset_minutes?: unknown;
   refresh?: unknown;
 }
@@ -96,8 +101,13 @@ function dateBoundaryIso(
   value: string,
   timezoneOffsetMinutes: number,
   addDays = 0,
+  timeZone: string | null = null,
 ) {
   const { year, month, day } = dateParts(value);
+  const boundaryDate = new Date(Date.UTC(year, month - 1, day + addDays))
+    .toISOString()
+    .slice(0, 10);
+  if (timeZone) return localDayBounds(boundaryDate, timeZone).start;
   const utc =
     Date.UTC(year, month - 1, day + addDays) -
     timezoneOffsetMinutes * 60 * 1000;
@@ -112,15 +122,35 @@ function inclusiveRangeDays(start: string, end: string) {
   return Math.floor((endMs - startMs) / 86_400_000) + 1;
 }
 
-function localDateKey(iso: string, timezoneOffsetMinutes: number) {
+function localDateKey(
+  iso: string,
+  timezoneOffsetMinutes: number,
+  timeZone: string | null,
+) {
+  if (timeZone) return localReminderParts(new Date(iso), timeZone).date;
   const shifted = new Date(
     new Date(iso).getTime() + timezoneOffsetMinutes * 60 * 1000,
   );
   return shifted.toISOString().slice(0, 10);
 }
 
-function localMonthKey(iso: string, timezoneOffsetMinutes: number) {
-  return localDateKey(iso, timezoneOffsetMinutes).slice(0, 7);
+function localMonthKey(
+  iso: string,
+  timezoneOffsetMinutes: number,
+  timeZone: string | null,
+) {
+  return localDateKey(iso, timezoneOffsetMinutes, timeZone).slice(0, 7);
+}
+
+function parseTimeZone(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const timeZone = value.trim();
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone }).format();
+    return timeZone;
+  } catch {
+    return null;
+  }
 }
 
 function monthKeysBetween(start: string, end: string) {
@@ -173,12 +203,16 @@ function pinScore(pin: PinRow) {
   );
 }
 
-function rankedPins(pins: PinRow[], timezoneOffsetMinutes: number) {
+function rankedPins(
+  pins: PinRow[],
+  timezoneOffsetMinutes: number,
+  timeZone: string | null,
+) {
   return pins
     .map<RankedPin>((pin) => ({
       ...pin,
       score: pinScore(pin),
-      monthKey: localMonthKey(pin.created_at, timezoneOffsetMinutes),
+      monthKey: localMonthKey(pin.created_at, timezoneOffsetMinutes, timeZone),
     }))
     .sort(
       (a, b) =>
@@ -261,6 +295,7 @@ function buildSnapshot({
   rangeEnd,
   preset,
   timezoneOffsetMinutes,
+  timeZone,
 }: {
   pins: PinRow[];
   profiles: MemberProfile[];
@@ -270,8 +305,9 @@ function buildSnapshot({
   rangeEnd: string;
   preset: RecapPreset;
   timezoneOffsetMinutes: number;
+  timeZone: string | null;
 }) {
-  const ranked = rankedPins(pins, timezoneOffsetMinutes);
+  const ranked = rankedPins(pins, timezoneOffsetMinutes, timeZone);
   const highlights = chooseHighlights(ranked);
   const monthKeys = monthKeysBetween(rangeStart, rangeEnd);
   const monthCounts = new Map(monthKeys.map((key) => [key, 0]));
@@ -283,13 +319,19 @@ function buildSnapshot({
   let distanceKm = 0;
 
   pins.forEach((pin, index) => {
-    const monthKey = localMonthKey(pin.created_at, timezoneOffsetMinutes);
+    const monthKey = localMonthKey(
+      pin.created_at,
+      timezoneOffsetMinutes,
+      timeZone,
+    );
     monthCounts.set(monthKey, (monthCounts.get(monthKey) ?? 0) + 1);
     contributorCounts.set(
       pin.created_by,
       (contributorCounts.get(pin.created_by) ?? 0) + 1,
     );
-    activeDays.add(localDateKey(pin.created_at, timezoneOffsetMinutes));
+    activeDays.add(
+      localDateKey(pin.created_at, timezoneOffsetMinutes, timeZone),
+    );
     const city = cleanText(pin.city);
     const country = cleanText(pin.country);
     if (city) cities.add(city);
@@ -338,6 +380,7 @@ function buildSnapshot({
       start: rangeStart,
       end: rangeEnd,
       preset,
+      time_zone: timeZone,
       timezone_offset_minutes: timezoneOffsetMinutes,
     },
     variant: pins.length >= 5 ? "full" : "short",
@@ -409,6 +452,7 @@ serve(async (req) => {
       ? Math.trunc(body.timezone_offset_minutes)
       : DEFAULT_TIMEZONE_OFFSET_MINUTES;
   const timezoneOffsetMinutes = Math.max(-720, Math.min(840, requestedOffset));
+  const timeZone = parseTimeZone(body.time_zone);
   const refresh = body.refresh === true;
 
   if (!spaceId || !rangeStart || !rangeEnd) {
@@ -475,18 +519,41 @@ serve(async (req) => {
     ? new Date(existing.generated_at).getTime()
     : 0;
   const freshDraft = Date.now() - generatedAt < CACHE_TTL_MS;
+  const existingRange = existing?.snapshot_json &&
+      typeof existing.snapshot_json === "object"
+    ? (existing.snapshot_json as {
+        range?: {
+          preset?: unknown;
+          time_zone?: unknown;
+          timezone_offset_minutes?: unknown;
+        };
+      }).range
+    : null;
+  const existingMatchesRequest =
+    existingRange?.preset === preset &&
+    (timeZone
+      ? existingRange?.time_zone === timeZone
+      : !existingRange?.time_zone &&
+        existingRange?.timezone_offset_minutes === timezoneOffsetMinutes);
   if (
     existing &&
+    existingMatchesRequest &&
     (existing.status === "finalized" || (!refresh && freshDraft))
   ) {
     return jsonResponse(req, { recap: existing, cached: true });
   }
 
-  const startIso = dateBoundaryIso(rangeStart, timezoneOffsetMinutes);
+  const startIso = dateBoundaryIso(
+    rangeStart,
+    timezoneOffsetMinutes,
+    0,
+    timeZone,
+  );
   const endExclusiveIso = dateBoundaryIso(
     rangeEnd,
     timezoneOffsetMinutes,
     1,
+    timeZone,
   );
 
   const [spaceResult, membersResult, pinsResult] = await Promise.all([
@@ -537,6 +604,7 @@ serve(async (req) => {
     rangeEnd,
     preset,
     timezoneOffsetMinutes,
+    timeZone,
   });
   const finalized = new Date(endExclusiveIso).getTime() <= Date.now();
   const nowIso = new Date().toISOString();
@@ -570,4 +638,3 @@ serve(async (req) => {
 
   return jsonResponse(req, { recap, cached: false });
 });
-

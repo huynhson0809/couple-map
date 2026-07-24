@@ -99,7 +99,7 @@ assert.match(
 );
 assert.match(
   subscription,
-  /currentSpaceWritable && currentCount < limits\.pins/,
+  /activeSpaceWritable && currentCount < limits\.pins/,
   "read-only maps must block memory creation in the UI",
 );
 assert.match(

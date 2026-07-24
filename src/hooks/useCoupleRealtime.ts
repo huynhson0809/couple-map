@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import type { Pin } from "../types";
 
@@ -18,6 +18,13 @@ export function useCoupleRealtime({
   const onInsertRef = useRef(onInsert);
   const onUpdateRef = useRef(onUpdate);
   const onDeleteRef = useRef(onDelete);
+  const activeSpaceIdRef = useRef(spaceId);
+
+  // Update before paint so an old channel cannot publish during the passive
+  // effect cleanup window after a space change.
+  useLayoutEffect(() => {
+    activeSpaceIdRef.current = spaceId;
+  }, [spaceId]);
 
   useEffect(() => {
     onInsertRef.current = onInsert;
@@ -37,7 +44,10 @@ export function useCoupleRealtime({
           table: "pins",
           filter: `space_id=eq.${spaceId}`,
         },
-        (payload) => onInsertRef.current?.(payload.new as Pin),
+        (payload) => {
+          if (activeSpaceIdRef.current !== spaceId) return;
+          onInsertRef.current?.(payload.new as Pin);
+        },
       )
       .on(
         "postgres_changes",
@@ -47,7 +57,10 @@ export function useCoupleRealtime({
           table: "pins",
           filter: `space_id=eq.${spaceId}`,
         },
-        (payload) => onUpdateRef.current?.(payload.new as Pin),
+        (payload) => {
+          if (activeSpaceIdRef.current !== spaceId) return;
+          onUpdateRef.current?.(payload.new as Pin);
+        },
       )
       .on(
         "postgres_changes",
@@ -57,7 +70,10 @@ export function useCoupleRealtime({
           table: "pins",
           filter: `space_id=eq.${spaceId}`,
         },
-        (payload) => onDeleteRef.current?.((payload.old as { id: string }).id),
+        (payload) => {
+          if (activeSpaceIdRef.current !== spaceId) return;
+          onDeleteRef.current?.((payload.old as { id: string }).id);
+        },
       )
       .subscribe();
     return () => {

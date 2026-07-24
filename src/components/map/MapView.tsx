@@ -4,7 +4,13 @@ import type { Pin } from "../../types";
 import { getImageUrl } from "../../lib/cloudinary";
 import { supabase } from "../../lib/supabase";
 import { useCategoriesCtx } from "../../hooks/CategoriesContext";
+import { useI18n } from "../../hooks/I18nContext";
 import { getPrimaryCategory } from "../../lib/pinCategories";
+import {
+  DEFAULT_MAP_CENTER,
+  DEFAULT_MAP_ZOOM,
+  shouldAutoLocateMap,
+} from "../../lib/mapDefaults";
 
 interface Props {
   pins: Pin[];
@@ -132,7 +138,8 @@ export function MapView({
   mapStyleUrl = "https://tiles.openfreemap.org/styles/bright",
   map3DEnabled = false,
 }: Props) {
-  const { customCategories } = useCategoriesCtx();
+  const { allCategories } = useCategoriesCtx();
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const memoryFeaturesRef = useRef<MemoryFeatureCollection>({
@@ -228,7 +235,7 @@ export function MapView({
   }
 
   function pinToMemoryFeature(pin: Pin): MemoryFeature {
-    const cat = getPrimaryCategory(pin, customCategories);
+    const cat = getPrimaryCategory(pin, allCategories);
     const emoji = pin.marker_emoji ?? cat?.emoji ?? "📍";
     const color = pinColor(pin);
     const markerImageUrl = pin.marker_image_url
@@ -263,7 +270,7 @@ export function MapView({
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
     const representative = sortedPins[0];
-    const cat = getPrimaryCategory(representative, customCategories);
+    const cat = getPrimaryCategory(representative, allCategories);
     const emoji = representative.marker_emoji ?? cat?.emoji ?? "📍";
     const color = pinColor(representative);
     const markerImageUrl = representative.marker_image_url
@@ -1028,6 +1035,28 @@ export function MapView({
     return false;
   }
 
+  async function autoLocateIfAlreadyGranted(
+    geolocateControl: maplibregl.GeolocateControl,
+  ) {
+    if (!("permissions" in navigator)) return;
+    try {
+      const permission = await navigator.permissions.query({
+        name: "geolocation",
+      });
+      if (
+        shouldAutoLocateMap({
+          permissionState: permission.state,
+          pinCount: pinsRef.current.length,
+          hasExplicitCameraIntent: hasExplicitCameraIntent(),
+        })
+      ) {
+        geolocateControl.trigger();
+      }
+    } catch {
+      // Safari versions without geolocation permission queries keep the world view.
+    }
+  }
+
   function renderBucketMarkers() {
     const map = mapRef.current;
     if (!map) return;
@@ -1153,8 +1182,8 @@ export function MapView({
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: mapStyleUrl,
-      center: [106.6297, 10.8231],
-      zoom: 12,
+      center: [DEFAULT_MAP_CENTER.lng, DEFAULT_MAP_CENTER.lat],
+      zoom: DEFAULT_MAP_ZOOM,
       pitch: map3DEnabled ? MAP_DEFAULT_PITCH : 0,
       bearing: map3DEnabled ? MAP_DEFAULT_BEARING : 0,
       maxPitch: 85,
@@ -1236,6 +1265,7 @@ export function MapView({
       fitToPinsOnce(map);
       emitMapCenter(map);
       syncMemoryLayers();
+      void autoLocateIfAlreadyGranted(geolocateControl);
       requestAnimationFrame(() => {
         map.resize();
         if (pendingFlyToRef.current) applyFlyTo(pendingFlyToRef.current);
@@ -1308,7 +1338,7 @@ export function MapView({
     fitToPinsOnce(map);
     syncMemoryLayers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pins, currentUserId, partnerUserId, newestPinId, customCategories]);
+  }, [pins, currentUserId, partnerUserId, newestPinId, allCategories]);
 
   // Bucket markers
   useEffect(() => {
@@ -1424,7 +1454,12 @@ export function MapView({
       {clusterPins && clusterPins.length > 0 && (
         <ClusterListOverlay
           pins={clusterPins}
-          customCategories={customCategories}
+          categories={allCategories}
+          memoriesHereLabel={t("map.memoriesHere", {
+            count: clusterPins.length,
+          })}
+          memoryLabel={t("pin.memory")}
+          closeLabel={t("common.close")}
           onPinClick={(pin) => {
             highlightedPinIdRef.current = pin.id;
             syncMemoryLayers();
@@ -1439,12 +1474,18 @@ export function MapView({
 
 function ClusterListOverlay({
   pins,
-  customCategories,
+  categories,
+  memoriesHereLabel,
+  memoryLabel,
+  closeLabel,
   onPinClick,
   onClose,
 }: {
   pins: Pin[];
-  customCategories: Parameters<typeof getPrimaryCategory>[1];
+  categories: Parameters<typeof getPrimaryCategory>[1];
+  memoriesHereLabel: string;
+  memoryLabel: string;
+  closeLabel: string;
   onPinClick: (pin: Pin) => void;
   onClose: () => void;
 }) {
@@ -1494,8 +1535,13 @@ function ClusterListOverlay({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="map-cluster-list-title">
-          {pins.length} memories here
-          <button className="cluster-overlay-close" onClick={onClose}>
+          {memoriesHereLabel}
+          <button
+            type="button"
+            className="cluster-overlay-close"
+            onClick={onClose}
+            aria-label={closeLabel}
+          >
             ×
           </button>
         </div>
@@ -1509,8 +1555,8 @@ function ClusterListOverlay({
             </div>
           )}
           {loadedPins.map((pin) => {
-            const cat = getPrimaryCategory(pin, customCategories);
-            const categoryLabel = cat?.label ?? "Memory";
+            const cat = getPrimaryCategory(pin, categories);
+            const categoryLabel = cat?.label ?? memoryLabel;
             return (
               <button
                 key={pin.id}

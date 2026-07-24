@@ -181,7 +181,7 @@ set search_path = public
 as $$
   select case coalesce(p_plan, 'free')
     when 'pro' then jsonb_build_object(
-      'pins', 999999999,
+      'pins', 500,
       'photosPerPin', 5,
       'video', true,
       'mapStyles', 15,
@@ -203,7 +203,7 @@ as $$
       'ownedSpaces', 2
     )
     else jsonb_build_object(
-      'pins', 100,
+      'pins', 50,
       'photosPerPin', 3,
       'video', false,
       'mapStyles', 3,
@@ -514,11 +514,10 @@ begin
 
   v_space_plan := coalesce(public.get_space_effective_plan(v_space_id), 'free');
 
-  v_limit := case v_space_plan
-    when 'pro' then 999999999
-    when 'plus' then 300
-    else 100
-  end;
+  v_limit := coalesce(
+    (public.get_plan_limits(v_space_plan) ->> 'pins')::integer,
+    50
+  );
 
   select count(*)
     into v_pin_count

@@ -28,20 +28,24 @@ export function AuthShell({
         <LangSwitch />
       </div>
 
-      <section className="auth-brand" aria-label="Pinly">
-        <Logo size={76} />
-        <div className="auth-brand-copy">
-          <p className="auth-kicker">Pinly</p>
-          <h1>{title}</h1>
+      <div className="auth-layout">
+        <section className="auth-brand" aria-label="Pinly">
+          <Logo size={76} />
+          <div className="auth-brand-copy">
+            <p className="auth-kicker">Pinly</p>
+            <h1>{title}</h1>
+          </div>
+        </section>
+
+        <div className="auth-panel">
+          <GlassSurface level="section" className="auth-card">
+            {subtitle && <p className="auth-subtitle">{subtitle}</p>}
+            {children}
+          </GlassSurface>
+
+          {footer && <div className="auth-footer">{footer}</div>}
         </div>
-      </section>
-
-      <GlassSurface level="section" className="auth-card">
-        {subtitle && <p className="auth-subtitle">{subtitle}</p>}
-        {children}
-      </GlassSurface>
-
-      {footer && <div className="auth-footer">{footer}</div>}
+      </div>
     </main>
   );
 }

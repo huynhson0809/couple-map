@@ -1,6 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { cx } from './uiClasses'
+import { useI18n } from '../../hooks/I18nContext'
 
 type Tone = 'coral' | 'neutral' | 'success' | 'warning' | 'custom'
 
@@ -24,6 +25,7 @@ export function Chip({
   type = 'button',
   ...rest
 }: Props) {
+  const { t } = useI18n()
   const chipClass = cx('lg-chip', `lg-chip-${tone}`, selected && 'lg-chip-selected', removable && 'lg-chip-removable', disabled && 'lg-chip-disabled', className)
   const content = (
     <>
@@ -47,7 +49,7 @@ export function Chip({
         <button
           type="button"
           className="lg-chip-remove"
-          aria-label="Remove"
+          aria-label={t('common.remove')}
           onClick={onRemove}
           disabled={disabled || !onRemove}
         >

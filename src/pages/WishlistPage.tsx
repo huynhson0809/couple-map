@@ -28,6 +28,7 @@ import { Button } from "../components/ui/Button";
 import { BottomSheet } from "../components/ui/BottomSheet";
 import { StreakCard } from "../components/streak/StreakCard";
 import { searchPlaces, type PlaceSearchResult } from "../lib/placeSearch";
+import { localizeCountryName } from "../lib/locationNames";
 
 export function WishlistPage() {
   const { user } = useAuth();
@@ -41,9 +42,13 @@ export function WishlistPage() {
     undefined,
     currentSpaceWritable,
   );
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const streak = useStreak(couple, profile?.id ?? user?.id, duoEnabled);
-  const nudge = useNudge(couple?.id ?? null, duoEnabled);
+  const nudge = useNudge(
+    activeSpace?.id ?? couple?.id ?? null,
+    user?.id,
+    duoEnabled,
+  );
   const { stats } = useStatsApi(activeSpace?.id, couple);
   const navigate = useNavigate();
 
@@ -68,8 +73,7 @@ export function WishlistPage() {
     debounceRef.current = window.setTimeout(async () => {
       setSearching(true);
       try {
-        const language = "vi";
-        const results = await searchPlaces(query, { language });
+        const results = await searchPlaces(query, { language: lang });
         setResults(results.slice(0, 6));
       } catch {
         setResults([]);
@@ -77,7 +81,7 @@ export function WishlistPage() {
         setSearching(false);
       }
     }, 400);
-  }, [query]);
+  }, [lang, query]);
 
   function resetForm() {
     setTitle("");
@@ -118,8 +122,8 @@ export function WishlistPage() {
         lng,
       });
       closeAdd();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+    } catch {
+      setError(t("wish.saveFailed"));
     } finally {
       setBusy(false);
     }
@@ -164,6 +168,7 @@ export function WishlistPage() {
           canNudge={nudge.canNudge}
           nudgeSending={nudge.sending}
           nudgeSent={nudge.sent}
+          nudgeError={nudge.error}
           onNudge={nudge.sendNudge}
         />
       )}
@@ -251,7 +256,9 @@ export function WishlistPage() {
               <div className="stat-detail-list">
                 {(statDetail === "cities" ? stats.cityList : stats.countryList)
                   .length === 0 && (
-                  <p className="muted stat-detail-empty">Chưa có dữ liệu</p>
+                  <p className="muted stat-detail-empty">
+                    {t("common.noData")}
+                  </p>
                 )}
                 {(statDetail === "cities"
                   ? stats.cityList
@@ -259,7 +266,11 @@ export function WishlistPage() {
                 ).map((item, i) => (
                   <div key={`${item}-${i}`} className="stat-detail-item">
                     <span className="stat-detail-rank">{i + 1}</span>
-                    <span className="stat-detail-item-main">{item}</span>
+                    <span className="stat-detail-item-main">
+                      {statDetail === "countries"
+                        ? localizeCountryName(item, lang) ?? item
+                        : item}
+                    </span>
                   </div>
                 ))}
               </div>

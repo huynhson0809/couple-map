@@ -1,6 +1,11 @@
 import { MAX_VIDEO_BYTES, uploadToCloudinary, type CloudinaryUploadResult } from "./cloudinary";
 import { formatErrorMessage } from "./errorMessage";
 
+type PinMediaUploadMessages = {
+  videoTooLarge?: (maxSizeMb: number) => string;
+  uploadFailed?: (fileName: string) => string;
+};
+
 function waitForNextFrame() {
   if (typeof window === "undefined" || !window.requestAnimationFrame) {
     return Promise.resolve();
@@ -23,6 +28,7 @@ export async function uploadPinMediaFiles(
   files: File[],
   folder: string,
   onProgress?: (percent: number) => void,
+  messages: PinMediaUploadMessages = {},
 ): Promise<CloudinaryUploadResult[]> {
   const validFiles = files.filter(
     (file) =>
@@ -60,7 +66,11 @@ export async function uploadPinMediaFiles(
 
     if (originalFile.type.startsWith("video/")) {
       if (originalFile.size > MAX_VIDEO_BYTES) {
-        throw new Error(`Video quá lớn (max ${MAX_VIDEO_BYTES / 1024 / 1024}MB)`);
+        const maxSizeMb = MAX_VIDEO_BYTES / 1024 / 1024;
+        throw new Error(
+          messages.videoTooLarge?.(maxSizeMb) ??
+            `Video must be ${maxSizeMb}MB or smaller.`,
+        );
       }
     }
 
@@ -83,7 +93,9 @@ export async function uploadPinMediaFiles(
     } catch (error) {
       throw new Error(
         formatErrorMessage(error, {
-          fallback: `Could not upload ${originalFile.name || "media file"}`,
+          fallback:
+            messages.uploadFailed?.(originalFile.name || "media file") ??
+            `Could not upload ${originalFile.name || "media file"}`,
         }),
         { cause: error },
       );

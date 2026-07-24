@@ -1,4 +1,5 @@
-import { normalizeAddress, normalizeCityName, pickVietnamProvinceFromAddress, pickVietnamProvinceFromParts } from './locationNames'
+import { resolveGeocodingLanguage } from './geocodingLocale'
+import { normalizeAddress, normalizeCityName, normalizeCountryName, pickLocalityName } from './locationNames'
 
 export interface PlaceSearchResult {
   display_name: string
@@ -13,6 +14,7 @@ export interface PlaceSearchResult {
     town?: string
     village?: string
     country?: string
+    country_code?: string
   }
 }
 
@@ -24,6 +26,8 @@ interface SearchOptions {
   }
 }
 
+type LocalizedSearchOptions = SearchOptions & { language: string }
+
 interface MapboxFeature {
   geometry?: {
     coordinates?: [number, number]
@@ -32,7 +36,7 @@ interface MapboxFeature {
     name?: string
     full_address?: string
     place_formatted?: string
-    context?: Record<string, { name?: string }>
+    context?: Record<string, { name?: string; country_code?: string }>
   }
 }
 
@@ -48,23 +52,24 @@ const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string | undefi
 export async function searchPlaces(query: string, options: SearchOptions = {}): Promise<PlaceSearchResult[]> {
   const trimmed = query.trim()
   if (trimmed.length < 3) return []
+  const language = resolveGeocodingLanguage(options.language)
+  const localizedOptions = { ...options, language }
 
   if (MAPBOX_TOKEN) {
-    const mapboxResults = await searchMapbox(trimmed, options)
+    const mapboxResults = await searchMapbox(trimmed, localizedOptions)
     if (mapboxResults.length > 0) return mapboxResults
   }
 
-  return searchNominatim(trimmed, options.language)
+  return searchNominatim(trimmed, language)
 }
 
-async function searchMapbox(query: string, options: SearchOptions): Promise<PlaceSearchResult[]> {
+async function searchMapbox(query: string, options: LocalizedSearchOptions): Promise<PlaceSearchResult[]> {
   try {
     const params = new URLSearchParams({
       q: query,
       access_token: MAPBOX_TOKEN ?? '',
       autocomplete: 'true',
-      country: 'vn',
-      language: options.language ?? 'vi',
+      language: options.language,
       limit: '8',
       types: 'address,street,place,locality,neighborhood',
     })
@@ -87,14 +92,18 @@ async function searchMapbox(query: string, options: SearchOptions): Promise<Plac
       const context = props.context ?? {}
       const displayName = props.full_address ?? [props.name, props.place_formatted].filter(Boolean).join(', ')
       if (!displayName) return []
-      const normalizedDisplayName = normalizeAddress(displayName)
-      const provinceCity = pickVietnamProvinceFromParts([
-        context.region?.name,
-        normalizedDisplayName,
-        context.place?.name,
-        context.locality?.name,
-        context.district?.name,
-      ])
+      const normalizedDisplayName = normalizeAddress(displayName, options.language)
+      const countryCode = context.country?.country_code
+      const country = normalizeCountryName(context.country?.name, countryCode)
+      const city = pickLocalityName({
+        address: normalizedDisplayName,
+        country,
+        countryCode,
+        region: context.region?.name,
+        place: context.place?.name,
+        locality: context.locality?.name,
+        district: context.district?.name,
+      })
 
       return [{
         display_name: normalizedDisplayName,
@@ -102,12 +111,13 @@ async function searchMapbox(query: string, options: SearchOptions): Promise<Plac
         lon: String(lng),
         source: 'mapbox' as const,
         address: {
-          city: provinceCity ?? undefined,
+          city: city ?? undefined,
           state: context.region?.name,
           county: context.district?.name,
           town: context.locality?.name,
           village: context.neighborhood?.name,
-          country: context.country?.name,
+          country: country ?? undefined,
+          country_code: countryCode,
         },
       }]
     })
@@ -116,7 +126,7 @@ async function searchMapbox(query: string, options: SearchOptions): Promise<Plac
   }
 }
 
-async function searchNominatim(query: string, language = 'vi'): Promise<PlaceSearchResult[]> {
+async function searchNominatim(query: string, language: string): Promise<PlaceSearchResult[]> {
   const search = async (q: string) => {
     const params = new URLSearchParams({
       format: 'json',
@@ -133,24 +143,44 @@ async function searchNominatim(query: string, language = 'vi'): Promise<PlaceSea
     return Array.isArray(data) ? data : []
   }
 
-  let data = await search(query)
-  if (data.length === 0 && !/vi[eệ]t nam|vietnam/i.test(query)) {
-    data = await search(`${query}, Vietnam`)
-  }
+  const data = await search(query)
 
   return data.flatMap((result: NominatimResult) => {
     if (!result.display_name || !result.lat || !result.lon) return []
+    const countryCode = result.address?.country_code
+    const country = normalizeCountryName(result.address?.country, countryCode)
+    const city = pickLocalityName({
+      address: result.display_name,
+      country,
+      countryCode,
+      city: result.address?.city,
+      town: result.address?.town,
+      village: result.address?.village,
+      county: result.address?.county,
+      state: result.address?.state,
+      province: result.address?.province,
+    })
     return [{
-      display_name: normalizeAddress(result.display_name),
+      display_name: normalizeAddress(result.display_name, language),
       lat: result.lat,
       lon: result.lon,
       source: 'nominatim' as const,
       address: result.address
         ? {
             ...result.address,
-            city: pickVietnamProvinceFromAddress(result.display_name) ?? normalizeCityName(result.address.state ?? result.address.province ?? result.address.city) ?? undefined,
-            state: normalizeCityName(result.address.state) ?? undefined,
-            province: normalizeCityName(result.address.province) ?? undefined,
+            city: city ?? undefined,
+            state: normalizeCityName(
+              result.address.state,
+              country,
+              countryCode,
+            ) ?? undefined,
+            province: normalizeCityName(
+              result.address.province,
+              country,
+              countryCode,
+            ) ?? undefined,
+            country: country ?? undefined,
+            country_code: countryCode,
           }
         : undefined,
     }]

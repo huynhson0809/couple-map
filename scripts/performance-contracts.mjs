@@ -99,6 +99,7 @@ const viteConfig = read("vite.config.ts");
 const mainEntry = read("src/main.tsx");
 const mapPage = read("src/pages/MapPage.tsx");
 const pricingPage = read("src/pages/PricingPage.tsx");
+const pricingCatalog = read("src/lib/pricingCatalog.ts");
 const mapView = read("src/components/map/MapView.tsx");
 const wishlistPage = read("src/pages/WishlistPage.tsx");
 const settingsPage = read("src/pages/SettingsPage.tsx");
@@ -443,21 +444,17 @@ assert(
 );
 
 assert(
-  /plus:\s*\{[\s\S]*pins:\s*300/.test(useSubscription) &&
-    !/plus:\s*\{[\s\S]*pins:\s*500/.test(useSubscription),
+  /plus:\s*\{[^}]*pins:\s*300/.test(useSubscription) &&
+    !/plus:\s*\{[^}]*pins:\s*500/.test(useSubscription),
   "Plus plan must allow exactly 300 memories in frontend limits.",
 );
 
 assert(
-  /\{\s*key:\s*"pins",\s*value:\s*"300"\s*\}/.test(pricingPage) &&
-    /plus:\s*cycle\s*===\s*"annual"\s*\?\s*278400\s*:\s*29000/.test(
-      pricingPage,
-    ) &&
-    /pro:\s*cycle\s*===\s*"annual"\s*\?\s*374400\s*:\s*39000/.test(
-      pricingPage,
-    ) &&
-    !/470000|49000|950000|99000/.test(pricingPage),
-  "Pricing page must show Plus 29k/month, Plus 278.4k/year, Pro 39k/month, and Pro 374.4k/year.",
+  /formatPlanPrice\(lang, cycle/.test(pricingPage) &&
+    /vi:\s*\{[\s\S]{0,160}monthly:\s*\{\s*plus:\s*59_000,\s*pro:\s*99_000\s*\}[\s\S]{0,80}annual:\s*\{\s*plus:\s*566_000,\s*pro:\s*950_000\s*\}/.test(
+      pricingCatalog,
+    ),
+  "Pricing must come from the shared catalog with the current Vietnamese Plus and Pro prices.",
 );
 
 const checkPinLimitSql = sqlFunctionBlock(
@@ -475,10 +472,10 @@ assert(
     /canUseMapStyle\?:\s*\(styleId:\s*string\)\s*=>\s*boolean/.test(
       useMapStyleHook,
     ) &&
-    /sanitizeMapStyleId\(\s*localStorage\.getItem\(KEY\),\s*canUseMapStyle\s*\)/.test(
+    /const\s+stored\s*=\s*localStorage\.getItem\(KEY\)[\s\S]{0,180}MAP_STYLES\.some/.test(
       useMapStyleHook,
     ) &&
-    /sanitizeMapStyleId\(\s*styleId,\s*canUseMapStyle\s*\)/.test(
+    /const\s+styleId\s*=\s*sanitizeMapStyleId\(\s*requestedStyleId,\s*canUseMapStyle\s*\)/.test(
       useMapStyleHook,
     ) &&
     /const\s+next\s*=\s*sanitizeMapStyleId\(\s*id,\s*canUseMapStyle\s*\)[\s\S]{0,300}localStorage\.setItem\(KEY,\s*next\)/.test(
@@ -496,7 +493,7 @@ assert(
 );
 
 assert(
-  /const\s+\{(?=[^}]*\bplan\b)(?=[^}]*\bsubscription\b)(?=[^}]*\bcanUseMapStyle\b)[^}]*\}\s*=\s*useSubscription\(\)/.test(
+  /const\s+\{(?=[^}]*\baccountPlan\b)(?=[^}]*\bsubscription\b)(?=[^}]*\bcanUseMapStyle\b)[^}]*\}\s*=\s*useSubscription\(\)/.test(
     settingsPage,
   ) &&
     /useMapStyle\(canUseMapStyle\)/.test(settingsPage) &&
@@ -585,7 +582,7 @@ assert(
 );
 
 assert(
-  /rpc\s*\(\s*["']get_subscription_context_for_couple["']/.test(
+  /rpc\s*\(\s*["']get_subscription_context_for_space["']/.test(
     useSubscription,
   ),
   "useSubscription should fetch plan and active subscription through one RPC.",
@@ -608,8 +605,8 @@ assert(
 
 assert(
   /statusFilter/.test(useBucket) &&
-    /useBucket\(couple\?\.id,\s*user\?\.id\)/.test(mapPage) &&
-    !/useBucket\(couple\?\.id,\s*user\?\.id,\s*["']dream["']\)/.test(mapPage),
+    /useBucket\(currentSpaceId,\s*user\?\.id\)/.test(mapPage) &&
+    !/useBucket\(currentSpaceId,\s*user\?\.id,\s*["']dream["']\)/.test(mapPage),
   "MapPage should request all bucket markers so wishlist show-on-map works for done and dream places.",
 );
 
@@ -872,7 +869,19 @@ assert(
     /user_consents/.test(privacyConsentHook) &&
     /existing_user_gate/.test(privacyConsentHook) &&
     /checked/.test(privacyConsentHook),
-  "usePrivacyConsent must fetch and insert current consent rows for existing users without blocking initial render.",
+  "usePrivacyConsent must fetch and insert current consent rows for existing users with explicit check state.",
+);
+
+assert(
+  /payloadUserId/.test(privacyConsentHook) &&
+    /payloadMatchesUser/.test(privacyConsentHook) &&
+    /requestIdRef\.current \+= 1/.test(privacyConsentHook),
+  "Consent state and pending requests must be scoped to the authenticated account.",
+);
+
+assert(
+  /<ConsentGate key=\{user\.id\} userId=\{user\.id\}>/.test(app),
+  "ConsentGate must remount when the authenticated account changes.",
 );
 
 assert(
@@ -881,8 +890,11 @@ assert(
     /\/terms/.test(consentGate) &&
     /\/privacy/.test(consentGate) &&
     /consent\.checked/.test(consentGate) &&
-    !/legal\.loadingConsent/.test(consentGate),
-  "ConsentGate must only show when a completed background check finds missing consent.",
+    /legal\.loadingConsent/.test(consentGate) &&
+    /consent\.reloadConsent/.test(consentGate) &&
+    /consent\.checked\s*&&\s*consent\.hasCurrentConsent/.test(consentGate) &&
+    !/error\s*\|\|\s*consent\.error/.test(consentGate),
+  "ConsentGate must fail closed while consent is checked and expose a safe retry state.",
 );
 
 assert(

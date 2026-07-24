@@ -7,6 +7,10 @@ const subscriptionHook = readFileSync(
   "utf8",
 );
 const pricingPage = readFileSync(resolve("src/pages/PricingPage.tsx"), "utf8");
+const pricingCatalog = readFileSync(
+  resolve("src/lib/pricingCatalog.ts"),
+  "utf8",
+);
 const billingMigration = readFileSync(
   resolve("supabase/migration_polar_billing.sql"),
   "utf8",
@@ -29,13 +33,22 @@ for (const [plan, expected] of [
 }
 
 for (const pattern of [
-  /monthly:\s*\{\s*plus:\s*59000,\s*pro:\s*99000\s*\}/,
-  /annual:\s*\{\s*plus:\s*566000,\s*pro:\s*950000\s*\}/,
   /String\(PLAN_LIMITS\.free\.pins\)/,
   /String\(PLAN_LIMITS\.plus\.pins\)/,
   /String\(PLAN_LIMITS\.pro\.pins\)/,
 ]) {
   assert.match(pricingPage, pattern, `Missing pricing contract: ${pattern}`);
+}
+
+for (const pattern of [
+  /monthly:\s*\{\s*plus:\s*59_000,\s*pro:\s*99_000\s*\}/,
+  /annual:\s*\{\s*plus:\s*566_000,\s*pro:\s*950_000\s*\}/,
+]) {
+  assert.match(
+    pricingCatalog,
+    pattern,
+    `Missing localized pricing contract: ${pattern}`,
+  );
 }
 
 for (const sql of [billingMigration, rolloutMigration]) {

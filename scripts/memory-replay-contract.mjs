@@ -12,7 +12,7 @@ import { createReplayArchive } from "../src/lib/replayArchive.ts";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const read = (path) => readFile(`${root}${path}`, "utf8");
 
-const [migration, edge, app, flags, subscription, page, canvas, archiveSource] =
+const [migration, edge, app, flags, subscription, page, canvas, archiveSource, replayHook] =
   await Promise.all([
     read("supabase/migration_memory_recaps.sql"),
     read("supabase/functions/generate-memory-recap/index.ts"),
@@ -22,6 +22,7 @@ const [migration, edge, app, flags, subscription, page, canvas, archiveSource] =
     read("src/pages/YearReplayPage.tsx"),
     read("src/lib/yearReplayCanvas.ts"),
     read("src/lib/replayArchive.ts"),
+    read("src/hooks/useMemoryReplay.ts"),
   ]);
 
 assert.match(migration, /range_start date not null/);
@@ -37,6 +38,9 @@ assert.match(edge, /range_start\?: unknown/);
 assert.match(edge, /range_end\?: unknown/);
 assert.match(edge, /REPLAY_MAX_RANGE_DAYS/);
 assert.match(edge, /timezone_offset_minutes/);
+assert.match(edge, /time_zone\?: unknown/);
+assert.match(edge, /localDayBounds/);
+assert.match(edge, /existingMatchesRequest/);
 assert.doesNotMatch(edge, /const YEAR_START|const YEAR_END/);
 assert.match(edge, /memory-recap:\$\{auth\.user\.id\}/);
 assert.match(edge, /\.eq\("status", "active"\)/);
@@ -58,6 +62,9 @@ assert.match(subscription, /replayAdvancedStyling/);
 assert.match(subscription, /replayHasWatermark/);
 assert.match(canvas, /REPLAY_CANVAS_WIDTH = 1080/);
 assert.match(canvas, /REPLAY_CANVAS_HEIGHT = 1920/);
+assert.match(replayHook, /time_zone: detectUserTimeZone\(\)/);
+assert.match(replayHook, /dataKey === requestKey/);
+assert.match(replayHook, /saveRequestIdRef/);
 
 assert.deepEqual(
   REPLAY_TEMPLATES.map((template) => template.minimumPlan),

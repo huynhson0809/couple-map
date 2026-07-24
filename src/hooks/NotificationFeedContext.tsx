@@ -5,6 +5,7 @@ import { useSpaceCtx } from "./SpaceContext";
 import { useToast } from "./ToastContext";
 import { useI18n } from "./I18nContext";
 import type { AppNotification } from "../types";
+import { localizedNotificationCopy } from "../lib/notificationCopy";
 
 type NotifFeed = ReturnType<typeof useNotificationFeed>;
 
@@ -33,29 +34,11 @@ export function NotificationFeedProvider({
   const onNewNotification = useCallback(
     (notif: AppNotification) => {
       if (TOAST_TYPES.has(notif.type)) {
-        const quotaTitle =
-          notif.type === "space_quota_warning"
-            ? t("notif.spaceQuotaWarning")
-            : notif.type === "space_quota_restricted"
-              ? t("notif.spaceQuotaRestricted")
-              : notif.type === "space_quota_restored"
-                ? t("notif.spaceQuotaRestored")
-                : null;
-        const quotaBody =
-          notif.type === "space_quota_warning"
-            ? t("notif.spaceQuotaWarningBody")
-            : notif.type === "space_quota_restricted"
-              ? t("notif.spaceQuotaRestrictedBody")
-              : notif.type === "space_quota_restored"
-                ? t("notif.spaceQuotaRestoredBody")
-                : null;
+        const copy = localizedNotificationCopy(notif, t);
         showToast({
           type: "info",
-          title:
-            quotaTitle ?? (notif.type === "support_reply"
-              ? t("notif.supportReply")
-              : (notif.title ?? "")),
-          message: quotaBody ?? notif.body ?? undefined,
+          title: copy.title,
+          message: copy.body ?? undefined,
           durationMs: 4000,
         });
       }

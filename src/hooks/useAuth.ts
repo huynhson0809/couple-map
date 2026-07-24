@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import type { Session, User as SupaUser } from "@supabase/supabase-js";
 import type { ConsentPayload } from "../lib/privacyConsent";
 import { supabase } from "../lib/supabase";
+import { removeCurrentBrowserPushSubscription } from "../lib/browserPushSubscription";
+import type { Lang } from "./I18nContext";
 
 const RECOVERY_KEY = "pinly_password_recovery";
 
@@ -19,10 +21,14 @@ export function useAuth() {
 
   useEffect(() => {
     let cancelled = false;
+    let authVersion = 0;
 
     async function loadValidatedSession() {
+      const loadVersion = authVersion;
       const { data } = await supabase.auth.getSession();
       const cachedSession = data.session;
+
+      if (cancelled || loadVersion !== authVersion) return;
 
       if (!cachedSession) {
         if (!cancelled) {
@@ -36,9 +42,13 @@ export function useAuth() {
       const { data: userData, error } = await supabase.auth.getUser();
       const validatedUser = userData.user ?? null;
 
-      if (cancelled) return;
+      if (cancelled || loadVersion !== authVersion) return;
 
-      if (error || !validatedUser) {
+      if (
+        error ||
+        !validatedUser ||
+        cachedSession.user.id !== validatedUser.id
+      ) {
         await supabase.auth.signOut({ scope: "local" });
         if (!cancelled) {
           sessionStorage.removeItem(RECOVERY_KEY);
@@ -58,8 +68,10 @@ export function useAuth() {
     void loadValidatedSession();
 
     const { data: sub } = supabase.auth.onAuthStateChange((evt, s) => {
+      authVersion += 1;
       setSession(s);
       setUser(s?.user ?? null);
+      setLoading(false);
       if (evt === "PASSWORD_RECOVERY") {
         sessionStorage.setItem(RECOVERY_KEY, "1");
         setIsRecovery(true);
@@ -98,6 +110,7 @@ export function useAuth() {
       password: string,
       displayName?: string,
       consent?: ConsentPayload,
+      preferences?: { locale: Lang; timezone: string },
     ) => {
       const res = await supabase.functions.invoke("secure-signup", {
         body: {
@@ -106,6 +119,8 @@ export function useAuth() {
           display_name: displayName,
           redirect_to: window.location.origin,
           consent,
+          locale: preferences?.locale,
+          timezone: preferences?.timezone,
         },
       });
       if (res.error) {
@@ -126,6 +141,13 @@ export function useAuth() {
           redirectTo: getAuthRedirectTo(),
         },
       }),
-    signOut: () => supabase.auth.signOut(),
+    signOut: async () => {
+      try {
+        await removeCurrentBrowserPushSubscription(user?.id);
+      } catch (error) {
+        console.error("Could not clean up push subscription during sign out:", error);
+      }
+      return supabase.auth.signOut();
+    },
   };
 }

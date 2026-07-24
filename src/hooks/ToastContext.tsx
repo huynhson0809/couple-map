@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
+import { useI18n } from "./I18nContext";
 
 type ToastType = "success" | "error" | "info";
 
@@ -29,6 +30,7 @@ function iconFor(type: ToastType) {
 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const dismiss = useCallback((id: string) => {
@@ -64,7 +66,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               type="button"
               className="app-toast-close"
               onClick={() => dismiss(toast.id)}
-              aria-label="Dismiss"
+              aria-label={t("common.dismiss")}
             >
               <X size={14} />
             </button>

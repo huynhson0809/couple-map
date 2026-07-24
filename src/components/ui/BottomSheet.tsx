@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { PointerEvent, ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { IconButton } from './IconButton'
+import { useI18n } from '../../hooks/I18nContext'
 
 interface Props {
   open: boolean
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function BottomSheet({ open, onClose, title, children }: Props) {
+  const { t } = useI18n()
   const backdropPointerIdRef = useRef<number | null>(null)
   const clickGuardCleanupRef = useRef<(() => void) | null>(null)
 
@@ -99,7 +101,7 @@ export function BottomSheet({ open, onClose, title, children }: Props) {
         <div className="sheet-handle lg-sheet-handle" />
         <div className="sheet-header lg-sheet-header">
           <h3>{title}</h3>
-          <IconButton label="Close" size="sm" variant="ghost" onClick={onClose}>
+          <IconButton label={t('common.close')} size="sm" variant="ghost" onClick={onClose}>
             <X size={20} />
           </IconButton>
         </div>

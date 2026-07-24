@@ -6,6 +6,7 @@ import { useSpaceCtx } from "../hooks/SpaceContext";
 import { usePinsCtx } from "../hooks/PinsContext";
 import { useStats } from "../hooks/useStats";
 import { useI18n } from "../hooks/I18nContext";
+import { localizeCountryName } from "../lib/locationNames";
 
 type DetailType = "cities" | "countries" | "memories" | "farthest" | null;
 
@@ -14,7 +15,7 @@ export function StatsPage() {
   const { capabilities } = useSpaceCtx();
   const duoEnabled = capabilities.canUseDuoFeatures;
   const { pins } = usePinsCtx();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const s = useStats(pins, couple);
   const [detail, setDetail] = useState<DetailType>(null);
 
@@ -28,7 +29,9 @@ export function StatsPage() {
       case "countries":
         return {
           title: t("stats.countries"),
-          items: s.countryList,
+          items: s.countryList.map(
+            (country) => localizeCountryName(country, lang) ?? country,
+          ),
         };
       case "memories":
         return {
@@ -42,8 +45,12 @@ export function StatsPage() {
           title: t("stats.farthest"),
           items: s.farthestPair
             ? [
-                s.farthestPair[0].title || s.farthestPair[0].city || "Pin 1",
-                s.farthestPair[1].title || s.farthestPair[1].city || "Pin 2",
+                s.farthestPair[0].title ||
+                  s.farthestPair[0].city ||
+                  t("stats.memoryFallback", { index: 1 }),
+                s.farthestPair[1].title ||
+                  s.farthestPair[1].city ||
+                  t("stats.memoryFallback", { index: 2 }),
                 `${s.farthestKm} km`,
               ]
             : [],
@@ -60,8 +67,8 @@ export function StatsPage() {
       <header className="page-header">
         <h1>{t("stats.title")}</h1>
         <p className="muted">
-          {profile?.display_name ?? t("common.you")} &{" "}
-          {partner?.display_name ?? t("common.them")}
+          {profile?.display_name ?? t("common.you")}
+          {duoEnabled && ` & ${partner?.display_name ?? t("common.them")}`}
         </p>
       </header>
 
@@ -135,7 +142,7 @@ export function StatsPage() {
             </div>
             <div className="stat-detail-list">
               {detailContent.items.length === 0 && (
-                <p className="muted">Chưa có dữ liệu</p>
+                <p className="muted">{t("common.noData")}</p>
               )}
               {detailContent.items.map((item, i) => (
                 <div key={i} className="stat-detail-item">

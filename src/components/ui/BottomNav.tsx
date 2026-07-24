@@ -7,7 +7,7 @@ export function BottomNav() {
   const { t } = useI18n();
   const { unreadCount } = useNotifFeed();
   return (
-    <nav className="bottom-nav lg-bottom-nav" aria-label="Primary">
+    <nav className="bottom-nav lg-bottom-nav" aria-label={t("nav.primary")}>
       <NavLink
         to="/"
         end

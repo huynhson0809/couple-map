@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   buildExistingUserConsent,
   isCurrentConsent,
@@ -37,10 +37,14 @@ export function usePrivacyConsent(userId: string | null | undefined) {
   const [loading, setLoading] = useState(Boolean(userId));
   const [checked, setChecked] = useState(!userId);
   const [error, setError] = useState<string | null>(null);
+  const [payloadUserId, setPayloadUserId] = useState(userId ?? undefined);
+  const requestIdRef = useRef(0);
 
   const reloadConsent = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     if (!userId) {
       setLatestConsent(null);
+      setPayloadUserId(undefined);
       setLoading(false);
       setChecked(true);
       setError(null);
@@ -48,9 +52,11 @@ export function usePrivacyConsent(userId: string | null | undefined) {
     }
 
     const cachedConsent = getCachedCurrentConsent(userId);
+    setPayloadUserId(userId);
     setLatestConsent(cachedConsent);
 
     setLoading(true);
+    setChecked(false);
     setError(null);
 
     const { data, error: queryError } = await supabase
@@ -63,8 +69,11 @@ export function usePrivacyConsent(userId: string | null | undefined) {
       .limit(1)
       .maybeSingle();
 
+    if (requestId !== requestIdRef.current) return;
+
     if (queryError) {
-      setError(queryError.message);
+      console.error("Could not load privacy consent:", queryError);
+      setError("consent_load_failed");
       setChecked(false);
     } else {
       const nextConsent = (data as UserConsentRow | null) ?? null;
@@ -80,7 +89,10 @@ export function usePrivacyConsent(userId: string | null | undefined) {
     const timer = window.setTimeout(() => {
       void reloadConsent();
     }, 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      requestIdRef.current += 1;
+    };
   }, [reloadConsent]);
 
   const acceptLatestConsent = useCallback(async () => {
@@ -100,12 +112,15 @@ export function usePrivacyConsent(userId: string | null | undefined) {
     await reloadConsent();
   }, [reloadConsent, userId]);
 
+  const payloadMatchesUser = payloadUserId === (userId ?? undefined);
+  const scopedConsent = payloadMatchesUser ? latestConsent : null;
+
   return {
-    latestConsent,
-    loading,
-    checked,
-    error,
-    hasCurrentConsent: isCurrentConsent(latestConsent),
+    latestConsent: scopedConsent,
+    loading: userId ? loading || !payloadMatchesUser : false,
+    checked: payloadMatchesUser ? checked : false,
+    error: payloadMatchesUser ? error : null,
+    hasCurrentConsent: payloadMatchesUser && isCurrentConsent(scopedConsent),
     acceptLatestConsent,
     reloadConsent,
   };

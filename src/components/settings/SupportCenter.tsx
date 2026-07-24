@@ -11,6 +11,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type FormEvent,
 } from "react";
@@ -162,11 +163,14 @@ export function SupportCenter({
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [replyingTicketId, setReplyingTicketId] = useState<string | null>(null);
   const [replyErrors, setReplyErrors] = useState<Record<string, string>>({});
+  const ticketsRequestIdRef = useRef(0);
 
   const refreshTickets = useCallback(
     async (showLoading = false) => {
+      const requestId = ++ticketsRequestIdRef.current;
       if (showLoading) setTicketsLoading(true);
       const { data, error } = await fetchRecentTickets(userId);
+      if (requestId !== ticketsRequestIdRef.current) return;
       if (error) {
         setTicketsError(true);
       } else {
@@ -182,7 +186,10 @@ export function SupportCenter({
     const timer = window.setTimeout(() => {
       void refreshTickets(true);
     }, 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      ticketsRequestIdRef.current += 1;
+    };
   }, [refreshTickets]);
 
   useEffect(() => {

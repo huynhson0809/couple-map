@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState } from "react";
+import { translate, type Lang } from "./I18nContext";
 
 export interface CurrentPosition {
   lat: number
@@ -13,7 +14,7 @@ const FALLBACK_ACCURACY_METERS = 180
 
 let cachedPosition: (CurrentPosition & { receivedAt: number }) | null = null
 
-export function useLocation() {
+export function useLocation(lang: Lang = "en") {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,7 +27,7 @@ export function useLocation() {
     setError(null)
     return new Promise((resolve, reject) => {
       if (!('geolocation' in navigator)) {
-        const msg = 'Geolocation not supported'
+        const msg = translate(lang, "location.notSupported");
         setError(msg)
         setLoading(false)
         reject(new Error(msg))
@@ -80,10 +81,7 @@ export function useLocation() {
         if (finishWithCache()) return
         settled = true
         cleanup()
-        const msg =
-          err?.code === 2
-            ? 'Không thể lấy vị trí hiện tại, thử lại sau vài giây.'
-            : err?.message || 'Không thể lấy vị trí hiện tại.'
+        const msg = getLocationErrorMessage(lang, err);
         setError(msg)
         setLoading(false)
         reject(new Error(msg))
@@ -148,6 +146,22 @@ export function useLocation() {
   }
 
   return { getCurrentPosition, loading, error }
+}
+
+export function getLocationErrorMessage(
+  lang: Lang,
+  error?: Pick<GeolocationPositionError, "code">,
+) {
+  if (error?.code === 1) {
+    return translate(lang, "location.permissionDenied");
+  }
+  if (error?.code === 2) {
+    return translate(lang, "location.temporarilyUnavailable");
+  }
+  if (error?.code === 3) {
+    return translate(lang, "location.timeout");
+  }
+  return translate(lang, "location.unavailable");
 }
 
 function toCurrentPosition(

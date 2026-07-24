@@ -1,47 +1,22 @@
 import { supabase } from "./supabase";
+import type { Category } from "./categoryCatalog";
 
-export interface Category {
-  id: string;
-  label: string;
-  emoji: string;
-  color: string;
-}
+export {
+  CATEGORIES,
+  getAllCategories,
+  getBuiltInCategories,
+  getCategory,
+  isBuiltInCategory,
+  normalizeCategoryLocale,
+  type Category,
+  type CategoryLocale,
+} from "./categoryCatalog";
 
 interface CustomCategoryRow {
   id: string;
   label: string;
   emoji: string;
   color: string;
-}
-
-export const CATEGORIES: Category[] = [
-  { id: "breakfast", label: "Ăn sáng", emoji: "🥐", color: "#f59e0b" },
-  { id: "lunch", label: "Ăn trưa", emoji: "🍱", color: "#f97316" },
-  { id: "dinner", label: "Ăn tối", emoji: "🍽️", color: "#ef4444" },
-  { id: "bubble_tea", label: "Trà sữa", emoji: "🧋", color: "#a855f7" },
-  { id: "cafe", label: "Cafe", emoji: "☕", color: "#92400e" },
-  { id: "movie", label: "Xem phim", emoji: "🎬", color: "#6366f1" },
-  { id: "date", label: "Hẹn hò", emoji: "💝", color: "#e11d48" },
-  { id: "shopping", label: "Mua sắm", emoji: "🛍️", color: "#db2777" },
-  { id: "travel", label: "Du lịch", emoji: "✈️", color: "#0ea5e9" },
-];
-
-export function isBuiltInCategory(id: string | null | undefined): boolean {
-  return !!id && CATEGORIES.some((c) => c.id === id);
-}
-
-export function getAllCategories(
-  customCategories: Category[] = [],
-): Category[] {
-  return [...CATEGORIES, ...customCategories];
-}
-
-export function getCategory(
-  id: string | null | undefined,
-  customCategories: Category[] = [],
-): Category | undefined {
-  if (!id) return undefined;
-  return getAllCategories(customCategories).find((c) => c.id === id);
 }
 
 export async function fetchCustomCategories(

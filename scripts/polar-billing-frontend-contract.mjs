@@ -51,6 +51,16 @@ assert.match(
 );
 assert.match(
   subscriptionHook,
+  /loadOwnAccountSubscription[\s\S]*from\("account_subscriptions"\)[\s\S]*\.in\("status", \["active", "trialing"\]\)/,
+  "The signed-in account plan must load independently from account_subscriptions.",
+);
+assert.doesNotMatch(
+  subscriptionHook,
+  /loadOwnAccountSubscription[\s\S]{0,900}\.eq\("source"/,
+  "Account plan loading must accept Polar, activation-code, and manual subscriptions.",
+);
+assert.match(
+  subscriptionHook,
   /billing=success|URLSearchParams\(window\.location\.search\)|billingReturn/i,
   "useSubscription must refresh after returning from Polar checkout.",
 );
@@ -133,7 +143,7 @@ assert.match(
 );
 assert.match(
   settingsPage,
-  /loading=\{planActionBusy\}/,
+  /loading=\{accountPlanLoading \|\| planActionBusy\}/,
   "Settings plan action button must show loading feedback while opening billing flows.",
 );
 assert.match(

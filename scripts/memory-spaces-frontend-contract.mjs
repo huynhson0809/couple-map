@@ -75,8 +75,24 @@ assert.match(setup, /Bản đồ của tôi|spaceSetup\.personal/);
 assert.match(setup, /Dùng cùng người khác|spaceSetup\.shared/);
 assert.match(setup, /createPersonalSpace/);
 assert.match(setup, /joinSpaceByInvite/);
+assert.match(
+  setup,
+  /pendingSharedSetupKey\(userId[\s\S]*PENDING_SHARED_SETUP_KEY[^\n]*userId/,
+  "Pending shared-space setup state must be scoped to the authenticated account.",
+);
 
 const useSpaces = readFileSync(resolve("src/hooks/useSpaces.ts"), "utf8");
+const useCouple = readFileSync(resolve("src/hooks/useCouple.ts"), "utf8");
+assert.match(
+  useCouple,
+  /payloadUserId === userId/,
+  "Legacy couple compatibility state must be scoped to the authenticated account.",
+);
+assert.match(
+  useCouple,
+  /requestIdRef\.current \+= 1/,
+  "A couple request must be invalidated when its account effect is cleaned up.",
+);
 assert.doesNotMatch(
   useSpaces,
   /activeSpaceId:\s*spaceId/,
@@ -264,18 +280,75 @@ assert.match(
 const statsApi = readFileSync(resolve("src/hooks/useStatsApi.ts"), "utf8");
 assert.match(
   statsApi,
-  /useEffect\(\(\) => \{[\s\S]*requestIdRef\.current \+= 1[\s\S]*setStats\(EMPTY_STATS\)[\s\S]*\}, \[spaceId\]\)/,
-  "useStatsApi must clear visible stats immediately when the active space changes.",
+  /payloadMatchesSpace = snapshot\.spaceId === \(spaceId \?\? null\)[\s\S]*payloadMatchesSpace \? snapshot\.stats : EMPTY_STATS/,
+  "useStatsApi must hide a previous space's stats during the first render of a space switch.",
 );
 assert.match(
   statsApi,
-  /"X-Pinly-Space-Id": spaceId/,
+  /await supabase\.auth\.getSession\(\);[\s\S]*requestId !== requestIdRef\.current[\s\S]*activeSpaceIdRef\.current !== targetSpaceId/,
+  "useStatsApi must reject a previous space request immediately after session lookup.",
+);
+assert.match(
+  statsApi,
+  /"X-Pinly-Space-Id": targetSpaceId/,
   "useStatsApi must send the active space id to the stats Edge Function.",
 );
 assert.match(
   statsApi,
-  /space-stats:v2:\$\{session\.user\.id\}:\$\{spaceId\}/,
+  /space-stats:v4:\$\{session\.user\.id\}:\$\{targetSpaceId\}/,
   "useStatsApi must use a space-scoped cache key that ignores older contaminated stats caches.",
+);
+assert.match(
+  statsApi,
+  /normalizeCityName\(city, cityCountryContext\)/,
+  "Stats must retain country context when normalizing international city names.",
+);
+
+const bucketHook = readFileSync(resolve("src/hooks/useBucket.ts"), "utf8");
+assert.match(
+  bucketHook,
+  /snapshot\.spaceId === spaceId \? snapshot\.items : \[\]/,
+  "Wishlist data must remain keyed by the active space while a switch is loading.",
+);
+assert.match(
+  bucketHook,
+  /requestId !== requestIdRef\.current[\s\S]*activeSpaceIdRef\.current !== targetSpaceId/,
+  "Wishlist requests from a previous space must not update the current space.",
+);
+
+const categoriesContext = readFileSync(
+  resolve("src/hooks/CategoriesContext.tsx"),
+  "utf8",
+);
+assert.match(
+  categoriesContext,
+  /snapshot\.spaceId === spaceId \? snapshot\.categories : \[\]/,
+  "Custom categories must remain keyed by the active space while a switch is loading.",
+);
+assert.match(
+  categoriesContext,
+  /requestId !== requestIdRef\.current[\s\S]*activeSpaceIdRef\.current !== targetSpaceId/,
+  "Custom category requests from a previous space must not update the current space.",
+);
+
+const viewportPinsHook = readFileSync(
+  resolve("src/hooks/useViewportPins.ts"),
+  "utf8",
+);
+assert.match(
+  viewportPinsHook,
+  /dataSpaceId === spaceId \? pins : \[\]/,
+  "Map pins must remain keyed by the active space while a switch is loading.",
+);
+assert.match(
+  viewportPinsHook,
+  /activeSpaceIdRef\.current !== targetSpaceId/,
+  "Late map requests from a previous space must not update the current map.",
+);
+assert.match(
+  viewportPinsHook,
+  /if \(!failed\) \{[\s\S]*loadedBoundsRef\.current/,
+  "Failed viewport requests must remain retryable instead of caching incomplete bounds.",
 );
 
 const coupleStatsFunction = readFileSync(
@@ -289,7 +362,7 @@ assert.match(
 );
 assert.match(
   coupleStatsFunction,
-  /"Access-Control-Allow-Headers":\s*[\s\S]{0,120}x-pinly-space-id/i,
+  /buildCorsHeaders\(req,\s*"x-pinly-space-id"\)/i,
   "couple-stats CORS preflight must allow the active-space request header.",
 );
 assert.match(
@@ -301,6 +374,21 @@ assert.doesNotMatch(
   coupleStatsFunction,
   /max-age=\d+/,
   "couple-stats must rely on the client space-scoped cache instead of HTTP max-age.",
+);
+assert.match(
+  coupleStatsFunction,
+  /select\("timezone"\)/,
+  "couple-stats must compute calendar-day stats in the viewer's timezone.",
+);
+assert.match(
+  coupleStatsFunction,
+  /calendarDayDifference/,
+  "couple-stats must use calendar dates instead of elapsed milliseconds for day counts.",
+);
+assert.doesNotMatch(
+  coupleStatsFunction,
+  /Date\.now\(\)\s*-\s*new Date\(space\.started_on\)/,
+  "couple-stats must remain stable across daylight-saving transitions.",
 );
 assert.match(
   coupleStatsFunction,
@@ -382,7 +470,7 @@ assert.match(
 assert.match(
   notificationFeedContext,
   /useNotificationFeed\(\s*profile\?\.id,\s*activeSpace\?\.id/s,
-  "NotificationFeedProvider must scope notifications to the active space.",
+  "NotificationFeedProvider must provide the current space for notification navigation context.",
 );
 
 const notificationFeed = readFileSync(
@@ -397,12 +485,12 @@ assert.match(
 assert.match(
   notificationFeed,
   /p_space_id: activeSpaceId/,
-  "useNotificationFeed must pass active space id to get_notification_feed.",
+  "useNotificationFeed must pass the current space id to the backward-compatible notification RPC.",
 );
-assert.match(
+assert.doesNotMatch(
   notificationFeed,
-  /function notificationBelongsToActiveSpace[\s\S]*notification\.space_id === activeSpaceId[\s\S]*notification\.space_id === null[\s\S]*notification\.couple_id === activeSpaceId/,
-  "Notification realtime inserts must include legacy notifications for the active space only.",
+  /notificationBelongsToActiveSpace/,
+  "Notification realtime inserts must remain visible in the account-wide inbox across space switches.",
 );
 
 const disallowedCopyTerms = [
@@ -675,8 +763,8 @@ for (const requiredPricingCopy of [
   "Built for memory maps",
   "không gian kỷ niệm",
   "memory space",
-  "toàn bộ bản đồ",
-  "whole map",
+  "các bản đồ bạn sở hữu",
+  "maps you own",
 ]) {
   assert.ok(
     pricingVisibleValues.some(({ value }) => value.includes(requiredPricingCopy)),

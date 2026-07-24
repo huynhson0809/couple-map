@@ -11,19 +11,41 @@ const reminderFunction = readProjectFile(
   "supabase/functions/send-streak-reminders/index.ts",
 );
 const settingsPage = readProjectFile("src/pages/SettingsPage.tsx");
+const pricingPage = readProjectFile("src/pages/PricingPage.tsx");
+const publicPages = readProjectFile("src/content/publicPages.ts");
 const migration = readProjectFile(
   "supabase/migration_pro_streak_email_reminders.sql",
 );
 
 assert.match(
   settingsPage,
-  /canUseEmailStreakReminders\s*=\s*!subscriptionLoading\s*&&\s*accountPlan\s*===\s*"pro"/,
+  /canUseEmailStreakReminders\s*=\s*!accountPlanLoading\s*&&\s*accountPlan\s*===\s*"pro"/,
   "Settings must only expose streak email reminders after an active Pro plan loads.",
 );
 assert.match(
   settingsPage,
   /\{canUseEmailStreakReminders\s*&&\s*\([\s\S]*notif\.streakEmailReminders/,
   "The streak email preference row must be hidden from Free and Plus accounts.",
+);
+assert.match(
+  settingsPage,
+  /accountPlan === "pro"[\s\S]*Includes email streak reminders/,
+  "The current Pro plan summary must advertise email streak reminders.",
+);
+assert.match(
+  pricingPage,
+  /plus:[\s\S]*emailReminders", value: false[\s\S]*pro:[\s\S]*emailReminders", value: true/,
+  "The upgrade comparison must show email reminders as a Pro-only benefit.",
+);
+assert.match(
+  pricingPage,
+  /Nhắc chuỗi qua email[\s\S]*Email streak reminders/,
+  "The Pro benefit must have English and Vietnamese labels.",
+);
+assert.match(
+  publicPages,
+  /Nhắc chuỗi qua email[\s\S]*Email streak reminders/,
+  "The public pricing page must advertise the localized Pro benefit.",
 );
 
 assert.match(

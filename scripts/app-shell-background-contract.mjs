@@ -48,7 +48,7 @@ assert.match(
 );
 assert.match(
   app,
-  /backgroundImage:\s*`linear-gradient\([\s\S]*?url\(\$\{backgroundImageUrl\}\)`/,
+  /backgroundImage:\s*`var\(--app-shell-photo-overlay\),\s*url\(\$\{backgroundImageUrl\}\)`/,
   "app shell pages should reuse the preloaded transformed background URL",
 );
 

@@ -11,7 +11,7 @@ export async function deletePinMedia(assets: CloudinaryDeleteAsset[]) {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
   if (!token) {
-    throw new Error('You must be signed in to delete media')
+    throw new Error('media_delete_auth_required')
   }
 
   const { error } = await supabase.functions.invoke('delete-pin-media', {
@@ -23,9 +23,11 @@ export async function deletePinMedia(assets: CloudinaryDeleteAsset[]) {
     if (context instanceof Response) {
       const details = await context.json().catch(() => null)
       if (details?.error) {
-        throw new Error(details.details ? `${details.error}: ${JSON.stringify(details.details)}` : details.error)
+        console.error('delete-pin-media rejected the request:', details)
+        throw new Error('media_delete_failed')
       }
     }
-    throw new Error(error.message)
+    console.error('delete-pin-media invocation failed:', error)
+    throw new Error('media_delete_failed')
   }
 }

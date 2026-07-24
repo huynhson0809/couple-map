@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Download, X } from "lucide-react";
+import { useI18n } from "../../hooks/I18nContext";
 
 interface Props {
   images: { id: string; url: string }[];
@@ -16,6 +17,7 @@ function buildDownloadUrl(url: string): string {
 }
 
 export function ImageLightbox({ images, startIndex, onClose }: Props) {
+  const { t } = useI18n();
   const [index, setIndex] = useState(startIndex);
   const [downloading, setDownloading] = useState(false);
   const trackRef = useRef<HTMLDivElement | null>(null);
@@ -247,7 +249,7 @@ export function ImageLightbox({ images, startIndex, onClose }: Props) {
   if (images.length === 0) return null;
 
   return createPortal(
-    <div className="lightbox" role="dialog" aria-label="Image viewer">
+    <div className="lightbox" role="dialog" aria-label={t("lightbox.viewer")}>
       <div className="lightbox-topbar">
         <div className="lightbox-count">
           {index + 1} / {images.length}
@@ -258,7 +260,7 @@ export function ImageLightbox({ images, startIndex, onClose }: Props) {
             className="lightbox-btn"
             onClick={handleDownload}
             disabled={downloading}
-            aria-label="Download"
+            aria-label={t("common.download")}
           >
             <Download size={20} />
           </button>
@@ -266,7 +268,7 @@ export function ImageLightbox({ images, startIndex, onClose }: Props) {
             type="button"
             className="lightbox-btn"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("common.close")}
           >
             <X size={22} />
           </button>

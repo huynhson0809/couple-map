@@ -1,6 +1,6 @@
 // Supabase Edge Function: send-nudge
 // Sends a push notification nudge from one partner to the other.
-// Anti-spam: 1 nudge per sender per calendar day (VN time).
+// Anti-spam: 1 nudge per sender per calendar day in the sender's timezone.
 //
 // Deploy: supabase functions deploy send-nudge --no-verify-jwt
 // Env vars needed: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
@@ -8,10 +8,12 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import webpush from "npm:web-push@3.6.7";
+import { buildCorsHeaders } from "../_shared/cors.ts";
 import {
-  buildCorsHeaders,
-  handleCorsPreflightIfNeeded,
-} from "../_shared/cors.ts";
+  localReminderParts,
+  normalizeReminderTimeZone,
+} from "../_shared/reminder-local-time.ts";
+import { nudgeNotificationCopy } from "../_shared/notification-copy.ts";
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -45,6 +47,7 @@ type CoupleStreakRow = {
   today_user_a_posted: boolean;
   today_user_b_posted: boolean;
   today_completed: boolean;
+  timezone: string;
 };
 
 type PushSubscriptionRow = {
@@ -166,6 +169,7 @@ async function insertNudgeNotification(
     coupleId: string;
     spaceId: string;
     senderId: string;
+    actorName: string;
     title: string;
     body: string;
   },
@@ -179,6 +183,8 @@ async function insertNudgeNotification(
     body: params.body,
     data: {
       source: "nudge",
+      action: "nudge",
+      actor_name: params.actorName,
       sender_id: params.senderId,
       url: "/wishlist",
     },
@@ -277,20 +283,31 @@ serve(async (req: Request) => {
     });
   }
 
-  // Anti-spam: check if already nudged today (VN time)
-  const vnToday = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+  const [{ data: senderProfile }, { data: partnerProfile }] =
+    await Promise.all([
+      supabase
+        .from("users")
+        .select("display_name,timezone")
+        .eq("id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("users")
+        .select("locale")
+        .eq("id", partnerId)
+        .maybeSingle(),
+    ]);
+  const senderTimeZone = normalizeReminderTimeZone(
+    senderProfile?.timezone,
+    streakRow.timezone,
+  );
+  const nudgeDate = localReminderParts(new Date(), senderTimeZone).date;
 
   const { data: existing, error: nudgeCheckError } = await supabase
     .from("streak_nudge_logs")
     .select("id")
     .eq("couple_id", coupleRow.id)
     .eq("sender_id", user.id)
-    .eq("nudge_date", vnToday)
+    .eq("nudge_date", nudgeDate)
     .maybeSingle();
 
   // If the table doesn't exist yet, skip the duplicate check
@@ -315,29 +332,25 @@ serve(async (req: Request) => {
 
   if (pref && pref.streak_reminders === false) {
     // Still log the nudge to prevent re-attempts, but don't send
-    await logNudge(supabase, coupleRow.id, user.id, vnToday);
+    await logNudge(supabase, coupleRow.id, user.id, nudgeDate);
     return jsonResponse(req, {
       sent: false,
       reason: "partner_disabled_reminders",
     });
   }
 
-  // Get sender's display name
-  const { data: senderProfile } = await supabase
-    .from("users")
-    .select("display_name")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const senderName = senderProfile?.display_name ?? "Một thành viên";
-  const title = `${senderName} nhắc nhẹ`;
-  const body = "Hôm nay chưa nối chuỗi nè, lưu một khoảnh khắc nhé!";
+  const copy = nudgeNotificationCopy(
+    partnerProfile?.locale,
+    senderProfile?.display_name,
+  );
+  const { title, body } = copy;
 
   await insertNudgeNotification(supabase, {
     partnerId,
     coupleId: coupleRow.id,
     spaceId: target.spaceId,
     senderId: user.id,
+    actorName: copy.senderName,
     title,
     body,
   });
@@ -351,7 +364,7 @@ serve(async (req: Request) => {
   const rows = (subscriptions ?? []) as PushSubscriptionRow[];
 
   if (rows.length === 0) {
-    await logNudge(supabase, coupleRow.id, user.id, vnToday);
+    await logNudge(supabase, coupleRow.id, user.id, nudgeDate);
     return jsonResponse(req, {
       sent: true,
       inAppSent: true,
@@ -378,7 +391,7 @@ serve(async (req: Request) => {
     Deno.env.get("VAPID_SUBJECT") ?? "mailto:hello@pinly.app";
   if (!vapidPublicKey || !vapidPrivateKey) {
     console.error("Nudge push skipped: missing VAPID keys");
-    await logNudge(supabase, coupleRow.id, user.id, vnToday);
+    await logNudge(supabase, coupleRow.id, user.id, nudgeDate);
     return jsonResponse(req, {
       sent: true,
       inAppSent: true,
@@ -426,7 +439,7 @@ serve(async (req: Request) => {
     console.error("Nudge push failures:", JSON.stringify(failed));
   }
 
-  await logNudge(supabase, coupleRow.id, user.id, vnToday);
+  await logNudge(supabase, coupleRow.id, user.id, nudgeDate);
 
   return jsonResponse(req, {
     sent: true,

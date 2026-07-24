@@ -5,6 +5,7 @@ import { useI18n } from "../../hooks/I18nContext";
 import { Button } from "../ui/Button";
 import { TextField } from "../ui/TextField";
 import { AuthShell } from "./AuthShell";
+import { localizedAuthError } from "../../lib/authErrorMessage";
 
 const MAX_ATTEMPTS = 3;
 const LOCKOUT_MS = 60_000;
@@ -43,7 +44,7 @@ export function ForgotPasswordPage() {
 
     setLoading(false);
     if (error) {
-      setError(error.message);
+      setError(localizedAuthError(error, t, "auth.emailError"));
     } else {
       // Always show success to prevent email enumeration
       setSent(true);

@@ -38,6 +38,7 @@ interface StreakCardProps {
   canNudge?: boolean;
   nudgeSending?: boolean;
   nudgeSent?: boolean;
+  nudgeError?: string | null;
   onNudge?: () => void;
 }
 
@@ -56,6 +57,7 @@ export function StreakCard({
   canNudge,
   nudgeSending,
   nudgeSent,
+  nudgeError,
   onNudge,
 }: StreakCardProps) {
   const { t, lang } = useI18n();
@@ -220,6 +222,11 @@ export function StreakCard({
           </button>
         )}
       </div>
+      {nudgeError && (
+        <p className="streak-nudge-error" role="alert">
+          {nudgeError}
+        </p>
+      )}
     </section>
   );
 }

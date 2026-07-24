@@ -11,24 +11,10 @@ import {
 import { useNotificationFeed } from "../../hooks/useNotificationFeed";
 import { useCoupleCtx } from "../../hooks/CoupleContext";
 import { useSpaceCtx } from "../../hooks/SpaceContext";
+import { useI18n } from "../../hooks/I18nContext";
+import { localizedNotificationCopy } from "../../lib/notificationCopy";
+import { formatRelativeTime } from "../../lib/relativeTime";
 import type { AppNotification } from "../../types";
-
-function timeAgo(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = now - then;
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return "Vừa xong";
-  if (minutes < 60) return `${minutes} phút trước`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} giờ trước`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} ngày trước`;
-  return new Date(dateStr).toLocaleDateString("vi-VN", {
-    day: "numeric",
-    month: "short",
-  });
-}
 
 function notifIcon(type: AppNotification["type"]) {
   switch (type) {
@@ -69,6 +55,7 @@ function notifColor(type: AppNotification["type"]) {
 }
 
 export function TopBar() {
+  const { t, lang } = useI18n();
   const { profile } = useCoupleCtx();
   const { activeSpace } = useSpaceCtx();
   const {
@@ -116,7 +103,8 @@ export function TopBar() {
           type="button"
           className="notif-bell-btn"
           onClick={() => setOpen(!open)}
-          aria-label="Thông báo"
+          aria-label={t("notifications.title")}
+          aria-expanded={open}
         >
           <Bell size={20} />
           {unreadCount > 0 && (
@@ -129,13 +117,14 @@ export function TopBar() {
         {open && (
           <div className="notif-panel">
             <div className="notif-panel-header">
-              <h3>Thông báo</h3>
+              <h3>{t("notifications.title")}</h3>
               {unreadCount > 0 && (
                 <button
                   type="button"
                   className="notif-mark-all"
                   onClick={markAllAsRead}
-                  title="Đánh dấu tất cả đã đọc"
+                  title={t("notifications.markAllRead")}
+                  aria-label={t("notifications.markAllRead")}
                 >
                   <CheckCheck size={16} />
                 </button>
@@ -144,6 +133,7 @@ export function TopBar() {
                 type="button"
                 className="notif-panel-close"
                 onClick={() => setOpen(false)}
+                aria-label={t("common.close")}
               >
                 <X size={18} />
               </button>
@@ -157,37 +147,40 @@ export function TopBar() {
               {notifications.length === 0 && !loading && (
                 <div className="notif-empty">
                   <Bell size={32} strokeWidth={1.5} />
-                  <p>Chưa có thông báo nào</p>
+                  <p>{t("notifications.empty")}</p>
                 </div>
               )}
-              {notifications.map((n) => (
-                <button
-                  key={n.id}
-                  type="button"
-                  className={`notif-item ${n.read ? "" : "unread"}`}
-                  onClick={() => {
-                    if (!n.read) markAsRead(n.id);
-                  }}
-                >
-                  <span
-                    className="notif-item-icon"
-                    style={{ color: notifColor(n.type) }}
+              {notifications.map((n) => {
+                const { title, body } = localizedNotificationCopy(n, t);
+                return (
+                  <button
+                    key={n.id}
+                    type="button"
+                    className={`notif-item ${n.read ? "" : "unread"}`}
+                    onClick={() => {
+                      if (!n.read) void markAsRead(n.id);
+                    }}
                   >
-                    {notifIcon(n.type)}
-                  </span>
-                  <span className="notif-item-content">
-                    <span className="notif-item-title">{n.title}</span>
-                    {n.body && (
-                      <span className="notif-item-body">{n.body}</span>
-                    )}
-                    <span className="notif-item-time">
-                      {timeAgo(n.created_at)}
+                    <span
+                      className="notif-item-icon"
+                      style={{ color: notifColor(n.type) }}
+                    >
+                      {notifIcon(n.type)}
                     </span>
-                  </span>
-                  {!n.read && <span className="notif-item-dot" />}
-                </button>
-              ))}
-              {loading && <div className="notif-loading">Đang tải...</div>}
+                    <span className="notif-item-content">
+                      <span className="notif-item-title">{title}</span>
+                      {body && <span className="notif-item-body">{body}</span>}
+                      <span className="notif-item-time">
+                        {formatRelativeTime(n.created_at, lang)}
+                      </span>
+                    </span>
+                    {!n.read && <span className="notif-item-dot" />}
+                  </button>
+                );
+              })}
+              {loading && (
+                <div className="notif-loading">{t("notifications.loading")}</div>
+              )}
             </div>
           </div>
         )}

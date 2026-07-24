@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -15,6 +16,7 @@ import { supabase } from "../lib/supabase";
 import { invalidateApiCacheByPrefix } from "../lib/apiCache";
 import { processPendingUploads } from "../lib/pendingUploads";
 import { useSubscription } from "./useSubscription";
+import { useI18n } from "./I18nContext";
 import type { Pin, PinImage } from "../types";
 
 type PinsHook = ReturnType<typeof usePins>;
@@ -30,8 +32,8 @@ interface Ctx extends PinsHook {
   latestPartnerPin: Pin | null;
   clearLatestPartnerPin: () => void;
   uploadingPins: Map<string, UploadingPinInfo>;
-  setUploadProgress: (pinId: string, progress: number) => void;
-  clearUploadProgress: (pinId: string) => void;
+  setUploadProgress: (pinId: string, progress: number, spaceId: string) => void;
+  clearUploadProgress: (pinId: string, spaceId: string) => void;
   pinsVersion: number;
   bumpPinsVersion: () => void;
   onViewportChange: (viewport: Viewport) => void;
@@ -53,8 +55,9 @@ export function PinsProvider({
 }) {
   const { currentSpaceWritable, loading: subscriptionLoading } =
     useSubscription();
-  const writable = subscriptionLoading || currentSpaceWritable;
-  const pinsHook = usePins(spaceId, userId, writable);
+  const { lang } = useI18n();
+  const writable = !subscriptionLoading && currentSpaceWritable;
+  const pinsHook = usePins(spaceId, userId, writable, lang);
   const viewport = useViewportPins(spaceId);
   const {
     fetchPinImages: fetchPinImagesBase,
@@ -73,6 +76,13 @@ export function PinsProvider({
     allLoaded,
   } = viewport;
   const userIdRef = useRef(userId);
+  const activeSpaceIdRef = useRef(spaceId);
+
+  // Keep async guards current before passive effects and browser callbacks run.
+  useLayoutEffect(() => {
+    userIdRef.current = userId;
+    activeSpaceIdRef.current = spaceId;
+  }, [spaceId, userId]);
 
   // Images cache: stores fetched images keyed by pin ID
   const [imagesCache, setImagesCache] = useState<Record<string, PinImage[]>>(
@@ -82,7 +92,13 @@ export function PinsProvider({
   // Override fetchPinImages to also update our cache
   const fetchPinImages = useCallback(
     async (pinId: string): Promise<PinImage[]> => {
+      const targetSpaceId = activeSpaceIdRef.current;
+      const targetUserId = userIdRef.current;
       const images = await fetchPinImagesBase(pinId);
+      if (
+        activeSpaceIdRef.current !== targetSpaceId ||
+        userIdRef.current !== targetUserId
+      ) return [];
       setImagesCache((prev) => ({ ...prev, [pinId]: images }));
       return images;
     },
@@ -98,31 +114,48 @@ export function PinsProvider({
     [imagesCache, viewportPins],
   );
 
-  useEffect(() => {
-    userIdRef.current = userId;
-  }, [userId]);
-
-  const [latestPartnerPin, setLatestPartnerPin] = useState<Pin | null>(null);
+  const [latestPartnerPinSnapshot, setLatestPartnerPinSnapshot] = useState<{
+    spaceId: string | null;
+    pin: Pin | null;
+  }>({ spaceId: null, pin: null });
+  const latestPartnerPin =
+    latestPartnerPinSnapshot.spaceId === spaceId
+      ? latestPartnerPinSnapshot.pin
+      : null;
   const clearLatestPartnerPin = useCallback(
-    () => setLatestPartnerPin(null),
+    () => setLatestPartnerPinSnapshot({
+      spaceId: activeSpaceIdRef.current ?? null,
+      pin: null,
+    }),
     [],
   );
 
-  const [uploadingPins, setUploadingPins] = useState<
-    Map<string, UploadingPinInfo>
-  >(() => new Map());
-  const setUploadProgress = useCallback((pinId: string, progress: number) => {
-    setUploadingPins((prev) => {
-      const next = new Map(prev);
+  const [uploadSnapshot, setUploadSnapshot] = useState<{
+    spaceId: string | null;
+    pins: Map<string, UploadingPinInfo>;
+  }>({ spaceId: null, pins: new Map() });
+  const uploadingPins = useMemo(
+    () => uploadSnapshot.spaceId === spaceId ? uploadSnapshot.pins : new Map(),
+    [spaceId, uploadSnapshot],
+  );
+  const setUploadProgress = useCallback((pinId: string, progress: number, targetSpaceId: string) => {
+    if (activeSpaceIdRef.current !== targetSpaceId) return;
+    setUploadSnapshot((current) => {
+      const next = new Map(
+        current.spaceId === targetSpaceId ? current.pins : [],
+      );
       next.set(pinId, { progress });
-      return next;
+      return { spaceId: targetSpaceId, pins: next };
     });
   }, []);
-  const clearUploadProgress = useCallback((pinId: string) => {
-    setUploadingPins((prev) => {
-      const next = new Map(prev);
+  const clearUploadProgress = useCallback((pinId: string, targetSpaceId: string) => {
+    if (activeSpaceIdRef.current !== targetSpaceId) return;
+    setUploadSnapshot((current) => {
+      const next = new Map(
+        current.spaceId === targetSpaceId ? current.pins : [],
+      );
       next.delete(pinId);
-      return next;
+      return { spaceId: targetSpaceId, pins: next };
     });
   }, []);
 
@@ -139,18 +172,25 @@ export function PinsProvider({
   useEffect(() => {
     if (!spaceId || !writable) return;
     processPendingUploads(
+      spaceId,
       (pinId, pct) => {
-        setUploadingPins((prev) => {
-          const next = new Map(prev);
+        if (activeSpaceIdRef.current !== spaceId) return;
+        setUploadSnapshot((current) => {
+          const next = new Map(
+            current.spaceId === spaceId ? current.pins : [],
+          );
           next.set(pinId, { progress: pct });
-          return next;
+          return { spaceId, pins: next };
         });
       },
       (pinId) => {
-        setUploadingPins((prev) => {
-          const next = new Map(prev);
+        if (activeSpaceIdRef.current !== spaceId) return;
+        setUploadSnapshot((current) => {
+          const next = new Map(
+            current.spaceId === spaceId ? current.pins : [],
+          );
           next.delete(pinId);
-          return next;
+          return { spaceId, pins: next };
         });
         invalidateStatsCache();
         setPinsVersion((v) => v + 1);
@@ -177,8 +217,13 @@ export function PinsProvider({
         pinWithRelations = pin;
       }
       addPin(pinWithRelations);
-      if (pin.created_by && pin.created_by !== userIdRef.current) {
-        setLatestPartnerPin(pinWithRelations);
+      const pinSpaceId = pin.space_id ?? pin.couple_id;
+      if (
+        pinSpaceId === activeSpaceIdRef.current &&
+        pin.created_by &&
+        pin.created_by !== userIdRef.current
+      ) {
+        setLatestPartnerPinSnapshot({ spaceId: pinSpaceId, pin: pinWithRelations });
       }
     },
     onUpdate: async (pin) => {

@@ -3,6 +3,7 @@ import {
   useContext,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -15,6 +16,8 @@ import type {
   Subscription,
 } from "../types";
 import type { ReplayTemplateId } from "../features/yearReplay/types";
+import { translate, type I18nKey, type Lang } from "./I18nContext";
+import { formatLocalizedDate } from "../lib/localeFormat";
 
 // All style IDs in display order (matches MAP_STYLES in useMapStyle.ts)
 const MAP_STYLE_IDS = [
@@ -93,6 +96,20 @@ const FREE_STYLE_IDS = ["bright", "midnight", "candy"];
 const BILLING_RETURN_POLL_DELAYS_MS = [
   0, 1000, 2000, 3000, 5000, 8000, 13000,
 ];
+const ACCOUNT_SUBSCRIPTION_TIMEOUT_MS = 12_000;
+const ACCOUNT_SUBSCRIPTION_SELECT = [
+  "id",
+  "user_id",
+  "plan",
+  "source",
+  "status",
+  "billing_cycle",
+  "current_period_start",
+  "current_period_end",
+  "cancel_at_period_end",
+  "created_at",
+  "updated_at",
+].join(",");
 
 type ActiveSubscription =
   | Subscription
@@ -115,6 +132,7 @@ interface SubscriptionContextValue {
   currentSpaceWritable: boolean;
   subscription: ActiveSubscription | null;
   loading: boolean;
+  accountLoading: boolean;
   limits: (typeof PLAN_LIMITS)[PlanType];
   isPremium: boolean;
   canUploadVideo: boolean;
@@ -134,9 +152,10 @@ interface SubscriptionContextValue {
   checkout: (
     plan: Exclude<PlanType, "free">,
     cycle: BillingCycle,
+    locale: "en" | "vi",
   ) => Promise<void>;
   openCustomerPortal: () => Promise<void>;
-  activateCode: (code: string) => Promise<{
+  activateCode: (code: string, locale: Lang) => Promise<{
     success: boolean;
     message: string;
     plan?: string;
@@ -221,6 +240,79 @@ function normalizeActiveSubscription(
   return subscription as ActiveSubscription;
 }
 
+function isCurrentAccountSubscription(subscription: AccountSubscription) {
+  if (
+    subscription.status !== "active" &&
+    subscription.status !== "trialing"
+  ) {
+    return false;
+  }
+  if (!subscription.current_period_end) return true;
+  const periodEnd = new Date(subscription.current_period_end).getTime();
+  return Number.isFinite(periodEnd) && periodEnd > Date.now();
+}
+
+function selectBestAccountSubscription(
+  subscriptions: AccountSubscription[],
+): AccountSubscription | null {
+  return (
+    subscriptions
+      .filter(isCurrentAccountSubscription)
+      .sort((a, b) => {
+        const planDifference =
+          (b.plan === "pro" ? 2 : 1) - (a.plan === "pro" ? 2 : 1);
+        if (planDifference !== 0) return planDifference;
+        return (
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+      })[0] ?? null
+  );
+}
+
+async function withTimeout<T>(
+  promise: PromiseLike<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      Promise.resolve(promise),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== null) clearTimeout(timer);
+  }
+}
+
+async function loadOwnAccountSubscription(userId: string) {
+  const result = await withTimeout(
+    supabase
+      .from("account_subscriptions")
+      .select(ACCOUNT_SUBSCRIPTION_SELECT)
+      .eq("user_id", userId)
+      .in("status", ["active", "trialing"]),
+    ACCOUNT_SUBSCRIPTION_TIMEOUT_MS,
+    "Account subscription request timed out",
+  );
+
+  if (result.error) throw result.error;
+  const activeSubscription = selectBestAccountSubscription(
+    (result.data ?? []) as unknown as AccountSubscription[],
+  );
+  const accountPlan = normalizePlan(activeSubscription?.plan);
+
+  return {
+    accountPlan,
+    subscription: normalizeActiveSubscription(
+      activeSubscription,
+      accountPlan,
+    ),
+  };
+}
+
 function normalizeSubscriptionContext(data: unknown): {
   plan: PlanType;
   accountPlan: PlanType;
@@ -289,6 +381,41 @@ function messageFromError(error: unknown, fallback: string) {
   return fallback;
 }
 
+async function edgeResponseError(error: unknown): Promise<string | null> {
+  if (!error || typeof error !== "object" || !("context" in error)) return null;
+  const response = (error as { context?: unknown }).context;
+  if (!(response instanceof Response)) return null;
+  try {
+    const payload = (await response.clone().json()) as { error?: unknown };
+    return typeof payload.error === "string" ? payload.error : null;
+  } catch {
+    return null;
+  }
+}
+
+function activationErrorKey(value: unknown): I18nKey {
+  const message = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (message.includes("required")) return "activation.codeRequired";
+  if (message.includes("too long")) return "activation.codeTooLong";
+  if (message.includes("đã được sử dụng") || message.includes("already been used")) {
+    return "activation.used";
+  }
+  if (message.includes("hết hạn") || message.includes("expired")) {
+    return "activation.expired";
+  }
+  if (
+    message.includes("không hợp lệ") ||
+    message.includes("not valid") ||
+    message.includes("not found")
+  ) {
+    return "activation.invalid";
+  }
+  if (message.includes("too many") || message.includes("rate limit")) {
+    return "activation.rateLimited";
+  }
+  return "activation.failed";
+}
+
 function returnedUrl(data: unknown): string | null {
   if (!data || typeof data !== "object" || Array.isArray(data)) return null;
   const url = (data as { url?: unknown }).url;
@@ -314,9 +441,11 @@ function billingReturnAppUrl() {
 
 export function SubscriptionProvider({
   spaceId,
+  userId,
   children,
 }: {
   spaceId: string | null;
+  userId: string | undefined;
   children: ReactNode;
 }) {
   const [plan, setPlan] = useState<PlanType>("free");
@@ -348,13 +477,32 @@ export function SubscriptionProvider({
     null,
   );
   const [map3dEntitled, setMap3dEntitled] = useState(false);
+  const [resolvedSpaceId, setResolvedSpaceId] = useState<string | null>(null);
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
+  const [resolvedAccountUserId, setResolvedAccountUserId] = useState<
+    string | null
+  >(null);
   const [loading, setLoading] = useState(true);
+  const [accountLoading, setAccountLoading] = useState(true);
   const requestIdRef = useRef(0);
+  const accountRequestIdRef = useRef(0);
+  const activeUserIdRef = useRef(userId);
   const hasLoadedPlanOnceRef = useRef(false);
+  const activeSpaceContextResolved = Boolean(
+    userId &&
+      spaceId &&
+      resolvedUserId === userId &&
+      resolvedSpaceId === spaceId,
+  );
+
+  useLayoutEffect(() => {
+    activeUserIdRef.current = userId;
+    requestIdRef.current += 1;
+    accountRequestIdRef.current += 1;
+  }, [userId]);
 
   const resetSubscriptionContext = useCallback(() => {
     setPlan(DEFAULT_SUBSCRIPTION_CONTEXT.plan);
-    setAccountPlan(DEFAULT_SUBSCRIPTION_CONTEXT.accountPlan);
     setSpacePlan(DEFAULT_SUBSCRIPTION_CONTEXT.spacePlan);
     setSpaceOwnerId(DEFAULT_SUBSCRIPTION_CONTEXT.spaceOwnerId);
     setOwnedSpaceCount(DEFAULT_SUBSCRIPTION_CONTEXT.ownedSpaceCount);
@@ -380,7 +528,6 @@ export function SubscriptionProvider({
       DEFAULT_SUBSCRIPTION_CONTEXT.currentSpaceWritable,
     );
     setSpacePlanPeriodEnd(DEFAULT_SUBSCRIPTION_CONTEXT.spacePlanPeriodEnd);
-    setSubscription(DEFAULT_SUBSCRIPTION_CONTEXT.subscription);
     setMap3dEntitled(DEFAULT_SUBSCRIPTION_CONTEXT.canUseMap3D);
   }, []);
 
@@ -389,35 +536,91 @@ export function SubscriptionProvider({
     setLoading(false);
   }, []);
 
+  const fetchAccountPlan = useCallback(async (scheduledRequestId?: number) => {
+    const requestId =
+      scheduledRequestId ?? ++accountRequestIdRef.current;
+    if (requestId !== accountRequestIdRef.current) return;
+
+    const targetUserId = userId;
+    if (!targetUserId) {
+      setAccountPlan(DEFAULT_SUBSCRIPTION_CONTEXT.accountPlan);
+      setSubscription(DEFAULT_SUBSCRIPTION_CONTEXT.subscription);
+      setResolvedAccountUserId(null);
+      setAccountLoading(false);
+      return;
+    }
+
+    setAccountLoading(true);
+    try {
+      const accountContext = await loadOwnAccountSubscription(targetUserId);
+      if (
+        requestId !== accountRequestIdRef.current ||
+        activeUserIdRef.current !== targetUserId
+      ) {
+        return;
+      }
+
+      setAccountPlan(accountContext.accountPlan);
+      setSubscription(accountContext.subscription);
+      setResolvedAccountUserId(targetUserId);
+    } catch (error) {
+      if (
+        requestId !== accountRequestIdRef.current ||
+        activeUserIdRef.current !== targetUserId
+      ) {
+        return;
+      }
+      console.error("Could not load account subscription:", error);
+      setResolvedAccountUserId(targetUserId);
+    } finally {
+      if (
+        requestId === accountRequestIdRef.current &&
+        activeUserIdRef.current === targetUserId
+      ) {
+        setAccountLoading(false);
+      }
+    }
+  }, [userId]);
+
   const fetchPlan = useCallback(async (scheduledRequestId?: number) => {
     const requestId = scheduledRequestId ?? ++requestIdRef.current;
 
     if (requestId !== requestIdRef.current) return;
 
-    if (!spaceId) {
+    if (!userId || !spaceId) {
       resetSubscriptionContext();
+      setResolvedSpaceId(null);
+      setResolvedUserId(null);
       finishPlanLoad();
       return;
     }
+
+    const targetSpaceId = spaceId;
+    const targetUserId = userId;
 
     if (!hasLoadedPlanOnceRef.current) setLoading(true);
 
     const { data, error } = await supabase.rpc(
       "get_subscription_context_for_space",
-      { p_space_id: spaceId },
+      { p_space_id: targetSpaceId },
     );
 
-    if (requestId !== requestIdRef.current) return;
+    if (
+      requestId !== requestIdRef.current ||
+      activeUserIdRef.current !== targetUserId
+    ) return;
 
     if (error) {
+      console.error("Could not load subscription context:", error);
       resetSubscriptionContext();
+      setResolvedSpaceId(targetSpaceId);
+      setResolvedUserId(targetUserId);
       finishPlanLoad();
       return;
     }
 
     const context = normalizeSubscriptionContext(data);
     setPlan(context.plan);
-    setAccountPlan(context.accountPlan);
     setSpacePlan(context.spacePlan);
     setSpaceOwnerId(context.spaceOwnerId);
     setOwnedSpaceCount(context.ownedSpaceCount);
@@ -431,10 +634,26 @@ export function SubscriptionProvider({
     setSpaceQuotaResolved(context.spaceQuotaResolved);
     setCurrentSpaceWritable(context.currentSpaceWritable);
     setSpacePlanPeriodEnd(context.spacePlanPeriodEnd);
-    setSubscription(context.subscription);
     setMap3dEntitled(context.canUseMap3D);
+    setResolvedSpaceId(targetSpaceId);
+    setResolvedUserId(targetUserId);
     finishPlanLoad();
-  }, [finishPlanLoad, resetSubscriptionContext, spaceId]);
+  }, [finishPlanLoad, resetSubscriptionContext, spaceId, userId]);
+
+  const refetch = useCallback(async () => {
+    await Promise.all([fetchAccountPlan(), fetchPlan()]);
+  }, [fetchAccountPlan, fetchPlan]);
+
+  useEffect(() => {
+    const requestId = ++accountRequestIdRef.current;
+    const timer = window.setTimeout(() => {
+      void fetchAccountPlan(requestId);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      accountRequestIdRef.current += 1;
+    };
+  }, [fetchAccountPlan]);
 
   useEffect(() => {
     if (!spaceQuotaGraceEndsAt || !spaceQuotaGraceActive) return;
@@ -471,7 +690,7 @@ export function SubscriptionProvider({
     const schedule = () => {
       const remaining = nextPeriodEnd - Date.now() + 1000;
       if (remaining <= 0) {
-        void fetchPlan();
+        void refetch();
         return;
       }
       timer = window.setTimeout(
@@ -484,14 +703,17 @@ export function SubscriptionProvider({
     return () => {
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [fetchPlan, spacePlanPeriodEnd, subscription?.current_period_end]);
+  }, [refetch, spacePlanPeriodEnd, subscription?.current_period_end]);
 
   useEffect(() => {
     const requestId = ++requestIdRef.current;
     const timer = window.setTimeout(() => {
       void fetchPlan(requestId);
     }, 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      requestIdRef.current += 1;
+    };
   }, [fetchPlan]);
 
   useEffect(() => {
@@ -506,7 +728,7 @@ export function SubscriptionProvider({
 
     BILLING_RETURN_POLL_DELAYS_MS.forEach((delay) => {
       const timer = window.setTimeout(() => {
-        if (!cancelled) void fetchPlan();
+        if (!cancelled) void refetch();
       }, delay);
       timers.push(timer);
     });
@@ -524,7 +746,7 @@ export function SubscriptionProvider({
       cancelled = true;
       timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [fetchPlan, spaceId]);
+  }, [refetch, spaceId]);
 
   // Keep legacy couple/subscription invalidation while billing moves to spaces.
   useEffect(() => {
@@ -592,7 +814,7 @@ export function SubscriptionProvider({
             filter: `user_id=eq.${userId}`,
           },
           () => {
-            void fetchPlan();
+            void refetch();
           },
         );
       });
@@ -606,19 +828,63 @@ export function SubscriptionProvider({
         supabase.removeChannel(channel);
       }
     };
-  }, [fetchPlan, spaceOwnerId]);
+  }, [refetch, spaceOwnerId]);
 
-  const limits = PLAN_LIMITS[plan];
-  const accountReplayLimits = PLAN_LIMITS[accountPlan];
+  const accountContextResolved = Boolean(
+    userId && resolvedAccountUserId === userId,
+  );
+  const effectiveAccountPlan = accountContextResolved
+    ? accountPlan
+    : DEFAULT_SUBSCRIPTION_CONTEXT.accountPlan;
+  const effectiveSubscription = accountContextResolved
+    ? subscription
+    : DEFAULT_SUBSCRIPTION_CONTEXT.subscription;
+  const effectiveContext = activeSpaceContextResolved
+    ? {
+        plan,
+        accountPlan: effectiveAccountPlan,
+        spacePlan,
+        spaceOwnerId,
+        ownedSpaceCount,
+        ownedSpaceLimit,
+        canCreateSpace,
+        spaceQuotaOverLimit,
+        spaceQuotaGraceActive,
+        spaceQuotaGraceEndsAt,
+        spaceQuotaSelectedIds,
+        spaceQuotaRestrictedIds,
+        spaceQuotaResolved,
+        currentSpaceWritable,
+        subscription: effectiveSubscription,
+        canUseMap3D: map3dEntitled,
+      }
+    : {
+        ...DEFAULT_SUBSCRIPTION_CONTEXT,
+        accountPlan: effectiveAccountPlan,
+        subscription: effectiveSubscription,
+      };
+  const contextLoading = Boolean(userId && spaceId) &&
+    (loading || !activeSpaceContextResolved);
+  const accountContextLoading = Boolean(userId) &&
+    (accountLoading || !accountContextResolved);
+  const limits = PLAN_LIMITS[effectiveContext.plan];
+  const accountReplayLimits = PLAN_LIMITS[effectiveContext.accountPlan];
+  const activeSpaceWritable =
+    activeSpaceContextResolved && effectiveContext.currentSpaceWritable;
 
   const checkout = useCallback(
-    async (checkoutPlan: Exclude<PlanType, "free">, cycle: BillingCycle) => {
+    async (
+      checkoutPlan: Exclude<PlanType, "free">,
+      cycle: BillingCycle,
+      locale: "en" | "vi",
+    ) => {
       const { data, error } = await supabase.functions.invoke(
         "create-polar-checkout",
         {
           body: {
             plan: checkoutPlan,
             cycle,
+            locale,
             app_url: billingReturnAppUrl(),
           },
         },
@@ -659,7 +925,7 @@ export function SubscriptionProvider({
   }, []);
 
   const activateCode = useCallback(
-    async (code: string) => {
+    async (code: string, locale: Lang) => {
       const { data, error } = await supabase.functions.invoke(
         "activate-code",
         {
@@ -668,23 +934,37 @@ export function SubscriptionProvider({
       );
 
       if (error) {
-        return { success: false, message: error.message || "Lỗi kích hoạt" };
+        const responseError = await edgeResponseError(error);
+        return {
+          success: false,
+          message: translate(locale, activationErrorKey(responseError ?? error.message)),
+        };
       }
 
       if (data?.error) {
-        return { success: false, message: data.error };
+        return {
+          success: false,
+          message: translate(locale, activationErrorKey(data.error)),
+        };
       }
 
       // Refetch plan after successful activation
-      await fetchPlan();
+      await refetch();
       return {
         success: true,
-        message: data.message,
+        message: translate(locale, "activation.success", {
+          plan: data.plan === "pro" ? "Pro" : "Plus",
+          date: formatLocalizedDate(data.expires_at, locale, {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }),
+        }),
         plan: data.plan,
         expires_at: data.expires_at,
       };
     },
-    [fetchPlan],
+    [refetch],
   );
 
   const saveSpaceQuotaSelection = useCallback(
@@ -701,54 +981,55 @@ export function SubscriptionProvider({
 
   const canUseMapStyle = useCallback(
     (styleId: string) => {
-      if (loading) return true; // Don't gate while plan is loading
-      if (plan === "pro") return true;
-      if (plan === "plus") {
+      if (contextLoading) return true; // Keep the current visual style while entitlements refresh.
+      if (effectiveContext.plan === "pro") return true;
+      if (effectiveContext.plan === "plus") {
         const idx = MAP_STYLE_IDS.indexOf(styleId);
         return idx >= 0 && idx < 10;
       }
       return FREE_STYLE_IDS.includes(styleId);
     },
-    [loading, plan],
+    [contextLoading, effectiveContext.plan],
   );
 
   const value: SubscriptionContextValue = {
-    plan,
-    accountPlan,
-    spacePlan,
-    spaceOwnerId,
-    ownedSpaceCount,
-    ownedSpaceLimit,
-    canCreateSpace,
-    spaceQuotaOverLimit,
-    spaceQuotaGraceActive,
-    spaceQuotaGraceEndsAt,
-    spaceQuotaSelectedIds,
-    spaceQuotaRestrictedIds,
-    spaceQuotaResolved,
-    currentSpaceWritable,
-    subscription,
-    loading,
+    plan: effectiveContext.plan,
+    accountPlan: effectiveContext.accountPlan,
+    spacePlan: effectiveContext.spacePlan,
+    spaceOwnerId: effectiveContext.spaceOwnerId,
+    ownedSpaceCount: effectiveContext.ownedSpaceCount,
+    ownedSpaceLimit: effectiveContext.ownedSpaceLimit,
+    canCreateSpace: effectiveContext.canCreateSpace,
+    spaceQuotaOverLimit: effectiveContext.spaceQuotaOverLimit,
+    spaceQuotaGraceActive: effectiveContext.spaceQuotaGraceActive,
+    spaceQuotaGraceEndsAt: effectiveContext.spaceQuotaGraceEndsAt,
+    spaceQuotaSelectedIds: effectiveContext.spaceQuotaSelectedIds,
+    spaceQuotaRestrictedIds: effectiveContext.spaceQuotaRestrictedIds,
+    spaceQuotaResolved: effectiveContext.spaceQuotaResolved,
+    currentSpaceWritable: activeSpaceWritable,
+    subscription: effectiveContext.subscription,
+    loading: contextLoading,
+    accountLoading: accountContextLoading,
     limits,
-    isPremium: plan !== "free",
-    canUploadVideo: currentSpaceWritable && limits.video,
+    isPremium: effectiveContext.plan !== "free",
+    canUploadVideo: activeSpaceWritable && limits.video,
     canUseMapStyle,
-    canUseMap3D: loading ? true : map3dEntitled,
+    canUseMap3D: contextLoading ? true : effectiveContext.canUseMap3D,
     canCreatePin: (currentCount: number) =>
-      currentSpaceWritable && currentCount < limits.pins,
+      activeSpaceWritable && currentCount < limits.pins,
     canAddPhoto: (currentCount: number) =>
-      currentSpaceWritable && currentCount < limits.photosPerPin,
+      activeSpaceWritable && currentCount < limits.photosPerPin,
     canCreateCategory: (currentCount: number) =>
-      currentSpaceWritable && currentCount < limits.customCategories,
+      activeSpaceWritable && currentCount < limits.customCategories,
     canCreateCollection: (currentCount: number) =>
-      currentSpaceWritable && currentCount < limits.collections,
+      activeSpaceWritable && currentCount < limits.collections,
     hasWatermark: limits.shareCardWatermark,
     canUseReplayTemplate: (templateId: ReplayTemplateId) =>
       accountReplayLimits.replayTemplates.includes(templateId),
     canCustomizeReplay: accountReplayLimits.replayCustomization,
     canUseAdvancedReplayStyling: accountReplayLimits.replayAdvancedStyling,
     replayHasWatermark: accountReplayLimits.replayWatermark,
-    refetch: fetchPlan,
+    refetch,
     saveSpaceQuotaSelection,
     checkout,
     openCustomerPortal,

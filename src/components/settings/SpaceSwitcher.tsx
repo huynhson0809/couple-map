@@ -9,32 +9,9 @@ import type { Space } from "../../types";
 import { Button } from "../ui/Button";
 import { GlassSurface } from "../ui/GlassSurface";
 import { cx } from "../ui/uiClasses";
+import { localizedSpaceError } from "../../lib/spaceErrorMessage";
 
 const DELETE_SPACE_CONFIRM_TEXT = "XOA";
-
-function quotaMessage(lang: string) {
-  return lang === "vi"
-    ? "Bạn đã đạt giới hạn tạo bản đồ. Bạn vẫn có thể tham gia bản đồ được mời."
-    : "You have reached your map creation limit. You can still join maps you are invited to.";
-}
-
-function formatSpaceError(err: unknown, lang: string) {
-  if (err instanceof Error) {
-    if (err.message === "space_quota_reached") return quotaMessage(lang);
-    if (err.message === "space_read_only") {
-      return lang === "vi"
-        ? "Bản đồ này đang ở chế độ chỉ xem. Hãy nâng cấp gói để tiếp tục chỉnh sửa."
-        : "This map is read-only. Upgrade your plan to keep editing.";
-    }
-    return err.message;
-  }
-  if (err && typeof err === "object" && "message" in err) {
-    const message = String((err as { message: unknown }).message);
-    return message === "space_quota_reached" ? quotaMessage(lang) : message;
-  }
-  const message = String(err);
-  return message === "space_quota_reached" ? quotaMessage(lang) : message;
-}
 
 export function SpaceSwitcher() {
   return MULTI_SPACE_ENABLED ? (
@@ -45,7 +22,7 @@ export function SpaceSwitcher() {
 }
 
 function SingleSpaceJoinPanel() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { activeSpace, capabilities, joinSpaceByInvite } = useSpaceCtx();
   const { refetch: refetchSubscription } = useSubscription();
   const [inviteCode, setInviteCode] = useState("");
@@ -67,7 +44,7 @@ function SingleSpaceJoinPanel() {
       setJoined(true);
       await refetchSubscription();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(localizedSpaceError(err, lang));
     } finally {
       setBusy(false);
     }
@@ -225,7 +202,7 @@ function MultiSpaceSwitcher() {
     try {
       await setActiveSpace(spaceId);
     } catch (err) {
-      setError(formatSpaceError(err, lang));
+      setError(localizedSpaceError(err, lang));
     } finally {
       setBusy(null);
     }
@@ -238,7 +215,7 @@ function MultiSpaceSwitcher() {
     try {
       await createPersonalSpace();
     } catch (err) {
-      setError(formatSpaceError(err, lang));
+      setError(localizedSpaceError(err, lang));
     } finally {
       setBusy(null);
     }
@@ -256,7 +233,7 @@ function MultiSpaceSwitcher() {
       setJoinSuccess(true);
       await refetchSubscription();
     } catch (err) {
-      setError(formatSpaceError(err, lang));
+      setError(localizedSpaceError(err, lang));
     } finally {
       setBusy(null);
     }
@@ -297,7 +274,7 @@ function MultiSpaceSwitcher() {
     try {
       await saveSpaceQuotaSelection(quotaSelection);
     } catch (err) {
-      setError(formatSpaceError(err, lang));
+      setError(localizedSpaceError(err, lang));
     } finally {
       setBusy(null);
     }
@@ -653,7 +630,9 @@ function MultiSpaceSwitcher() {
           </form>
         </div>
         {quotaReached && !spaceQuotaOverLimit && (
-          <p className="space-quota-note">{quotaMessage(lang)}</p>
+          <p className="space-quota-note">
+            {t("settings.spaceQuotaCreateOnly")}
+          </p>
         )}
         {joinSuccess && (
           <p className="space-join-success">{t("settings.joinSpaceSuccess")}</p>

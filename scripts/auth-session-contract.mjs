@@ -24,3 +24,21 @@ assert.match(
   /setUser\(validatedUser/,
   "useAuth should set state from the validated Supabase user, not only the cached session user.",
 );
+
+assert.match(
+  source,
+  /loadVersion !== authVersion/,
+  "A stale auth bootstrap response must not overwrite a newer auth event.",
+);
+
+assert.match(
+  source,
+  /cachedSession\.user\.id !== validatedUser\.id/,
+  "The validated user must belong to the cached session being accepted.",
+);
+
+assert.match(
+  source,
+  /onAuthStateChange\([\s\S]*authVersion \+= 1;[\s\S]*setLoading\(false\)/,
+  "Auth events must invalidate bootstrap work and resolve the loading state themselves.",
+);

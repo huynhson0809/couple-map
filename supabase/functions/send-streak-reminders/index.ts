@@ -1,7 +1,7 @@
 // Supabase Edge Function: send-streak-reminders
-// Intended schedule: run hourly. The function sends only at 12:00, 20:00, 22:00, and 23:00
-// in Asia/Ho_Chi_Minh when today's duo streak is incomplete or the active
-// one-member space has no memory yet.
+// Intended schedule: run every hour. Each recipient is evaluated at 12:00,
+// 20:00, 22:00, and 23:00 in their own timezone when today's duo streak is
+// incomplete or their active one-member space has no memory yet.
 //
 // Deploy: supabase functions deploy send-streak-reminders --no-verify-jwt
 // Env vars needed: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
@@ -15,6 +15,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import webpush from "npm:web-push@3.6.7";
 import { buildCorsHeaders } from "../_shared/cors.ts";
 import { eligibleDuoRecipients } from "../_shared/streak-reminder-recipients.ts";
+import {
+  localDayBounds,
+  normalizeReminderLocale,
+  normalizeReminderTimeZone,
+  recipientReminderWindow,
+  type ReminderLocale,
+} from "../_shared/reminder-local-time.ts";
 
 const REMINDER_HOURS = [12, 20, 22, 23];
 const EMAIL_REMINDER_HOUR = 20;
@@ -35,6 +42,16 @@ type PushSubscriptionRow = {
 type UserEmailRow = {
   email: string | null;
   display_name: string | null;
+  locale: string | null;
+  timezone: string | null;
+};
+
+type AppLocale = ReminderLocale;
+
+type UserDeliveryProfile = UserEmailRow & {
+  id: string;
+  locale: AppLocale;
+  timezone: string;
 };
 
 type EmailSendResult = {
@@ -58,6 +75,7 @@ type CoupleStreakRow = {
   today_user_a_posted: boolean;
   today_user_b_posted: boolean;
   today_completed: boolean;
+  timezone: string;
 };
 
 type DuoSpaceMemberRow = {
@@ -71,6 +89,8 @@ type SoloReminderTarget = {
   couple_id: string;
   user_id: string;
   space_name: string;
+  locale: string | null;
+  timezone: string | null;
 };
 
 type ReminderRecipientSlot = "user_a" | "user_b" | "solo";
@@ -107,6 +127,10 @@ type DebugRecipient = {
   source: GeneratedReminder["source"];
   state: ReminderState;
   body: string;
+  locale: AppLocale;
+  timezone: string;
+  reminderDate: string;
+  reminderHour: number;
   gemini: GeminiReminderResult;
   sent: number;
   skipped: boolean;
@@ -129,6 +153,7 @@ type DebugCouple = {
   logStatus:
     | "created"
     | "dry_run"
+    | "outside_window"
     | "skipped_duplicate"
     | "missing_couple"
     | "already_completed";
@@ -143,6 +168,7 @@ type DebugSoloSpace = {
   logStatus:
     | "created"
     | "dry_run"
+    | "outside_window"
     | "skipped_duplicate"
     | "already_posted";
   recipient?: DebugRecipient;
@@ -182,11 +208,13 @@ async function claimReminderWindow(
   coupleId: string,
   reminderDate: string,
   reminderHour: number,
+  recipientUserId: string,
 ) {
   const { error } = await supabase.from("streak_reminder_logs").insert({
     couple_id: coupleId,
     reminder_date: reminderDate,
     reminder_hour: reminderHour,
+    recipient_user_id: recipientUserId,
   });
 
   if (!error) return true;
@@ -194,33 +222,25 @@ async function claimReminderWindow(
   throw error;
 }
 
-function localParts(date = new Date(), timeZone = "Asia/Ho_Chi_Minh") {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    hour12: false,
-  }).formatToParts(date);
-  const value = (type: string) =>
-    parts.find((part) => part.type === type)?.value ?? "";
-  return {
-    date: `${value("year")}-${value("month")}-${value("day")}`,
-    hour: Number(value("hour")),
-  };
-}
+async function loadUserDeliveryProfile(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  fallbackTimeZone = "UTC",
+): Promise<UserDeliveryProfile> {
+  const { data, error } = await supabase
+    .from("users")
+    .select("id,email,display_name,locale,timezone")
+    .eq("id", userId)
+    .maybeSingle();
 
-function addIsoDays(isoDate: string, days: number) {
-  const date = new Date(`${isoDate}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-function vnDayBounds(isoDate: string) {
+  if (error) throw error;
+  const row = data as (UserEmailRow & { id?: string }) | null;
   return {
-    start: `${isoDate}T00:00:00+07:00`,
-    end: `${addIsoDays(isoDate, 1)}T00:00:00+07:00`,
+    id: userId,
+    email: row?.email ?? null,
+    display_name: row?.display_name ?? null,
+    locale: normalizeReminderLocale(row?.locale),
+    timezone: normalizeReminderTimeZone(row?.timezone, fallbackTimeZone),
   };
 }
 
@@ -457,10 +477,11 @@ async function sendToUser(
 
 async function sendEmailToUser(
   supabase: ReturnType<typeof createClient>,
-  userId: string,
+  profile: UserDeliveryProfile,
   subject: string,
   body: string,
 ): Promise<EmailSendResult> {
+  const userId = profile.id;
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
   const from = Deno.env.get("STREAK_REMINDER_EMAIL_FROM");
   if (!resendApiKey || !from) {
@@ -498,14 +519,7 @@ async function sendEmailToUser(
     return { sent: 0, skipped: true, reason: "email_requires_pro" };
   }
 
-  const { data: user } = await supabase
-    .from("users")
-    .select("email, display_name")
-    .eq("id", userId)
-    .maybeSingle();
-
-  const row = user as UserEmailRow | null;
-  let toEmail = row?.email ?? null;
+  let toEmail = profile.email;
   let emailSource: EmailSendResult["emailSource"] | undefined = toEmail
     ? "public_users"
     : undefined;
@@ -530,19 +544,37 @@ async function sendEmailToUser(
   const baseUrl = Deno.env.get("APP_URL") || "https://pinly.tech";
   const appUrl = baseUrl.replace(/\/$/, "");
   const settingsUrl = `${appUrl}/settings`;
+  const emailCopy =
+    profile.locale === "vi"
+      ? {
+          open: "Mở Pinly để lưu lại một khoảnh khắc hôm nay:",
+          openLink: "Mở Pinly",
+          openSuffix: " để lưu lại một khoảnh khắc hôm nay.",
+          settingsPrefix: "Bạn có thể ",
+          settingsLink: "tắt email nhắc chuỗi",
+          settingsSuffix: " bất cứ lúc nào.",
+        }
+      : {
+          open: "Open Pinly to save a moment from today:",
+          openLink: "Open Pinly",
+          openSuffix: " to save a moment from today.",
+          settingsPrefix: "You can ",
+          settingsLink: "turn off streak reminder emails",
+          settingsSuffix: " at any time.",
+        };
   const text = [
     body,
     "",
-    "Mở Pinly để lưu một mẩu ký ức hôm nay:",
+    emailCopy.open,
     appUrl,
     "",
-    "Bạn có thể tắt email nhắc chuỗi bất cứ lúc nào:",
+    `${emailCopy.settingsPrefix}${emailCopy.settingsLink}${emailCopy.settingsSuffix}`,
     settingsUrl,
   ].join("\n");
   const html = [
     `<p>${escapeHtml(body)}</p>`,
-    `<p><a href="${appUrl}">Mở Pinly</a> để lưu một mẩu ký ức hôm nay.</p>`,
-    `<p style="color:#667085;font-size:13px">Bạn có thể <a href="${settingsUrl}">tắt email nhắc chuỗi</a> bất cứ lúc nào.</p>`,
+    `<p><a href="${appUrl}">${emailCopy.openLink}</a>${emailCopy.openSuffix}</p>`,
+    `<p style="color:#667085;font-size:13px">${emailCopy.settingsPrefix}<a href="${settingsUrl}">${emailCopy.settingsLink}</a>${emailCopy.settingsSuffix}</p>`,
   ].join("");
 
   let response: Response;
@@ -607,7 +639,7 @@ async function sendEmailToUser(
 
 async function sendScheduledEmailToUser(
   supabase: ReturnType<typeof createClient>,
-  userId: string,
+  profile: UserDeliveryProfile,
   reminderHour: number,
   subject: string,
   body: string,
@@ -620,15 +652,22 @@ async function sendScheduledEmailToUser(
     };
   }
 
-  return sendEmailToUser(supabase, userId, subject, body);
+  return sendEmailToUser(supabase, profile, subject, body);
+}
+
+function reminderTitle(locale: AppLocale) {
+  return locale === "vi" ? "Pinly nhắc nhẹ" : "A gentle Pinly reminder";
 }
 
 function bodyForRecipient(
   streak: CoupleStreakRow,
   recipientSlot: ReminderRecipientSlot,
+  locale: AppLocale,
 ) {
   if (recipientSlot === "solo") {
-    return "Hôm nay còn một chỗ trống, ghé Pinly cất lại khoảnh khắc của bạn nhé.";
+    return locale === "vi"
+      ? "Hôm nay còn một chỗ trống, ghé Pinly cất lại khoảnh khắc của bạn nhé."
+      : "There is still room for one moment from your day on Pinly.";
   }
 
   const youPosted =
@@ -641,18 +680,26 @@ function bodyForRecipient(
       : streak.today_user_a_posted;
 
   if (!youPosted && !partnerPosted) {
-    return "Pinly còn chỗ trống, hai bạn ghé ký gửi một miếng hôm nay nhé.";
+    return locale === "vi"
+      ? "Pinly còn chỗ trống, hai bạn ghé ký gửi một miếng hôm nay nhé."
+      : "Today's map is still quiet. Save a small moment when you can.";
   }
 
   if (!youPosted) {
-    return "Người ấy gửi rồi, góc của bạn còn trống như ly trà chưa topping.";
+    return locale === "vi"
+      ? "Người ấy gửi rồi, góc của bạn còn trống như ly trà chưa topping."
+      : "Your map partner posted already; your side is still waiting for a moment.";
   }
 
   if (!partnerPosted) {
-    return "Bạn gửi rồi, Pinly để dành một ghế nhỏ cho người ấy ghé.";
+    return locale === "vi"
+      ? "Bạn gửi rồi, Pinly để dành một ghế nhỏ cho người ấy ghé."
+      : "Your moment is saved; Pinly is keeping a spot for your map partner.";
   }
 
-  return "Hai mẩu hôm nay đã đủ, Pinly đóng album lại thật nhẹ nhàng.";
+  return locale === "vi"
+    ? "Hai mẩu hôm nay đã đủ, Pinly đóng album lại thật nhẹ nhàng."
+    : "Both moments are here, so today's page is complete.";
 }
 
 type ReminderState =
@@ -692,7 +739,7 @@ function reminderState(
   return "waiting";
 }
 
-const REMINDER_TEMPLATES: Record<ReminderState, string[]> = {
+const VI_REMINDER_TEMPLATES: Record<ReminderState, string[]> = {
   solo_missing: [
     "Hôm nay có khoảnh khắc nào bạn muốn cất lại cho mai sau không?",
     "Pinly vẫn để dành một chỗ nhỏ cho câu chuyện của riêng bạn hôm nay.",
@@ -748,6 +795,45 @@ const REMINDER_TEMPLATES: Record<ReminderState, string[]> = {
   ],
 };
 
+const EN_REMINDER_TEMPLATES: Record<ReminderState, string[]> = {
+  solo_missing: [
+    "Was there a small moment today that your future self would enjoy remembering?",
+    "A photo or one short line is enough to keep a piece of today.",
+    "Your map has room for one ordinary moment worth remembering today.",
+    "Drop by Pinly and leave a small pin for the day you just lived.",
+  ],
+  both_missing: [
+    "Today's map is still quiet; save a small moment whenever it feels right.",
+    "One little memory from today can make this page feel much more alive.",
+    "Pinly has opened today's page and left room for both of your stories.",
+    "Even an ordinary moment can become something lovely to revisit together.",
+  ],
+  you_missing: [
+    "Your map partner posted already; your side is still waiting for a moment.",
+    "One half of today's story is here, and your moment can complete it.",
+    "A moment has arrived from your shared map; yours still has a place.",
+    "Your map partner left a pin today, and Pinly saved a spot for yours.",
+  ],
+  partner_missing: [
+    "Your moment is saved; Pinly is keeping a spot for your map partner.",
+    "You added today's first chapter, and the shared page is waiting nearby.",
+    "Your pin is safely here while the other half of today takes its time.",
+    "Today's map already has your story and room for one more perspective.",
+  ],
+  waiting: [
+    "Today's page is nearly complete, with just one small moment still missing.",
+    "One more memory would gently complete today's shared story on Pinly.",
+  ],
+};
+
+const REMINDER_TEMPLATES: Record<
+  AppLocale,
+  Record<ReminderState, string[]>
+> = {
+  en: EN_REMINDER_TEMPLATES,
+  vi: VI_REMINDER_TEMPLATES,
+};
+
 function wordCount(text: string) {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
@@ -756,7 +842,23 @@ function normalizeReminderText(text: string) {
   return text.replace(/["“”]/g, "").replace(/\s+/g, " ").trim();
 }
 
-function statePromptLabel(state: ReminderState) {
+function statePromptLabel(state: ReminderState, locale: AppLocale) {
+  if (locale === "en") {
+    if (state === "solo_missing") {
+      return "the recipient uses Pinly alone and has not saved a moment today";
+    }
+    if (state === "both_missing") {
+      return "neither member has saved a moment today";
+    }
+    if (state === "you_missing") {
+      return "the other member posted, but the recipient has not";
+    }
+    if (state === "partner_missing") {
+      return "the recipient posted, but the other member has not";
+    }
+    return "today's shared memory is nearly complete";
+  }
+
   if (state === "solo_missing") {
     return "người nhận dùng Pinly một mình và chưa lưu khoảnh khắc hôm nay";
   }
@@ -772,7 +874,32 @@ function statePromptLabel(state: ReminderState) {
   return "hôm nay gần đủ hai mẩu kỷ niệm";
 }
 
-function buildGeminiPrompt(state: ReminderState, streak: CoupleStreakRow) {
+function buildGeminiPrompt(
+  state: ReminderState,
+  streak: CoupleStreakRow,
+  locale: AppLocale,
+) {
+  if (locale === "en") {
+    const audienceInstruction =
+      state === "solo_missing"
+        ? "The recipient uses the app alone. Do not mention a partner, couple, or two people."
+        : "The space has two people who save moments together.";
+
+    return [
+      "You write microcopy for the Pinly app.",
+      "Return exactly one English push notification sentence.",
+      "Use 12-18 words with a warm, playful, natural voice.",
+      "Pinly saves personal moments or memories shared with trusted people; it is not a task manager.",
+      audienceInstruction,
+      "Do not create pressure, obligation, a deadline, or a productivity tone.",
+      "Do not explain your answer or use quotation marks, hashtags, markdown, emojis, or line breaks.",
+      "Avoid the words must, required, task, deadline, and KPI.",
+      `Context: ${statePromptLabel(state, locale)}.`,
+      `Current streak: ${streak.current_count || 0} days.`,
+      "Style example: Pinly saved a small empty spot in case today gave you a story.",
+    ].join(" ");
+  }
+
   const audienceInstruction =
     state === "solo_missing"
       ? "Người nhận dùng app một mình; không nhắc người yêu, partner, hai bạn hay người ấy."
@@ -788,7 +915,7 @@ function buildGeminiPrompt(state: ReminderState, streak: CoupleStreakRow) {
     "Không giải thích, không mở đầu bằng lời xác nhận.",
     "Không dùng ngoặc kép, hashtag, markdown, emoji, xuống dòng.",
     "Không dùng các từ: phải, bắt buộc, nhiệm vụ, deadline.",
-    `Bối cảnh: ${statePromptLabel(state)}.`,
+    `Bối cảnh: ${statePromptLabel(state, locale)}.`,
     `Chuỗi hiện tại: ${streak.current_count || 0} ngày.`,
     "Ví dụ style: Pinly còn chiếc ghế trống, ai đem chuyện vui tới ngồi không?",
   ].join(" ");
@@ -804,6 +931,7 @@ function extractGeminiText(data: unknown) {
 async function geminiReminderBody(
   streak: CoupleStreakRow,
   recipientSlot: ReminderRecipientSlot,
+  locale: AppLocale,
 ): Promise<GeminiReminderResult> {
   const apiKey =
     Deno.env.get("GEMINI_API_KEY") ||
@@ -826,11 +954,15 @@ async function geminiReminderBody(
   for (const attempt of [1, 2]) {
     const prompt =
       attempt === 1
-        ? buildGeminiPrompt(state, streak)
+        ? buildGeminiPrompt(state, streak, locale)
         : [
-            buildGeminiPrompt(state, streak),
-            "Lần trước câu quá ngắn. Lần này bắt buộc trả câu hoàn chỉnh 12-15 từ.",
-            "Chỉ trả về câu cuối cùng, không thêm chữ Tuyệt, OK, hay giải thích.",
+            buildGeminiPrompt(state, streak, locale),
+            locale === "vi"
+              ? "Lần trước câu quá ngắn. Lần này bắt buộc trả câu hoàn chỉnh 12-15 từ."
+              : "The previous sentence was too short. Return one complete sentence of 12-18 words.",
+            locale === "vi"
+              ? "Chỉ trả về câu cuối cùng, không thêm chữ Tuyệt, OK, hay giải thích."
+              : "Return only the final sentence, without confirmation or explanation.",
           ].join(" ");
     let response: Response;
     try {
@@ -889,7 +1021,9 @@ async function geminiReminderBody(
       text &&
       words >= 10 &&
       words <= 18 &&
-      !/phải|bắt buộc|nhiệm vụ|deadline/i.test(text)
+      !(locale === "vi"
+        ? /phải|bắt buộc|nhiệm vụ|deadline/i.test(text)
+        : /\b(must|required|task|deadline|kpi)\b/i.test(text))
     ) {
       return { ok: true, model, text, words, attempt };
     }
@@ -927,10 +1061,13 @@ function templateReminderBody(
   recipientId: string,
   reminderDate: string,
   reminderHour: number,
+  locale: AppLocale,
 ) {
   const state = reminderState(streak, recipientSlot);
-  const templates = REMINDER_TEMPLATES[state];
-  if (!templates?.length) return bodyForRecipient(streak, recipientSlot);
+  const templates = REMINDER_TEMPLATES[locale][state];
+  if (!templates?.length) {
+    return bodyForRecipient(streak, recipientSlot, locale);
+  }
 
   const seed = `${streak.couple_id}:${recipientId}:${recipientSlot}:${reminderDate}:${reminderHour}:${streak.current_count}:${state}`;
   const text = templates[hashString(seed) % templates.length];
@@ -943,9 +1080,14 @@ async function generateReminderBody(
   recipientId: string,
   reminderDate: string,
   reminderHour: number,
+  locale: AppLocale,
 ): Promise<GeneratedReminder> {
   const state = reminderState(streak, recipientSlot);
-  const gemini = await geminiReminderBody(streak, recipientSlot).catch(
+  const gemini = await geminiReminderBody(
+    streak,
+    recipientSlot,
+    locale,
+  ).catch(
     (err) => {
       console.error("Gemini reminder failed:", err);
       return {
@@ -971,6 +1113,7 @@ async function generateReminderBody(
     recipientId,
     reminderDate,
     reminderHour,
+    locale,
   );
 
   return {
@@ -1017,14 +1160,14 @@ serve(async (req) => {
     const rawBody = req.method === "POST" ? await req.text() : "";
     const parsedBody = parseJsonBody(rawBody);
     const body = parsedBody.body;
-    const now = localParts();
-    const reminderDate = stringValue(
+    const invocationNow = new Date();
+    const forcedDate = stringValue(
       requestValue(body, requestUrl.searchParams, req.headers, "date"),
-      now.date,
+      "",
     );
-    const reminderHour = numberValue(
+    const forcedHour = numberValue(
       requestValue(body, requestUrl.searchParams, req.headers, "hour"),
-      now.hour,
+      -1,
     );
     const force = booleanValue(
       requestValue(body, requestUrl.searchParams, req.headers, "force"),
@@ -1098,11 +1241,24 @@ serve(async (req) => {
         });
       }
 
-      const result = await sendEmailToUser(
+      const targetProfile = await loadUserDeliveryProfile(
         supabase,
         targetUser.id,
-        "Pinly - kiểm tra email nhắc chuỗi",
-        "Email nhắc chuỗi của Pinly đang hoạt động bình thường.",
+      );
+      const testTitle =
+        targetProfile.locale === "vi"
+          ? "Pinly - kiểm tra email nhắc chuỗi"
+          : "Pinly - streak reminder email test";
+      const testBody =
+        targetProfile.locale === "vi"
+          ? "Email nhắc chuỗi của Pinly đã sẵn sàng."
+          : "Your Pinly streak reminder email is ready.";
+
+      const result = await sendEmailToUser(
+        supabase,
+        targetProfile,
+        testTitle,
+        testBody,
       );
 
       return new Response(
@@ -1115,38 +1271,6 @@ serve(async (req) => {
         }),
         {
           status: result.sent === 1 ? 200 : 502,
-          headers: {
-            ...buildCorsHeaders(req, "x-streak-secret"),
-            "Content-Type": "application/json",
-          },
-        },
-      );
-    }
-
-    if (!force && !REMINDER_HOURS.includes(reminderHour)) {
-      return new Response(
-        JSON.stringify({
-          message: "Outside reminder window",
-          date: reminderDate,
-          hour: reminderHour,
-          force,
-          received: {
-            method: req.method,
-            contentType: req.headers.get("content-type"),
-            contentLength: req.headers.get("content-length"),
-            bodyParseError: parsedBody.error,
-            bodyRecovered: parsedBody.recovered,
-            bodyKeys: Object.keys(body),
-            bodyForce: body.force ?? null,
-            queryForce: requestUrl.searchParams.get("force"),
-            headerForce: req.headers.get("x-force"),
-            bodyHour: body.hour ?? null,
-            queryHour: requestUrl.searchParams.get("hour"),
-            headerHour: req.headers.get("x-hour"),
-          },
-        }),
-        {
-          status: 200,
           headers: {
             ...buildCorsHeaders(req, "x-streak-secret"),
             "Content-Type": "application/json",
@@ -1196,9 +1320,8 @@ serve(async (req) => {
     let streakQuery = supabase
       .from("couple_streaks")
       .select(
-        "couple_id,current_count,today_date,today_user_a_posted,today_user_b_posted,today_completed",
-      )
-      .eq("today_date", reminderDate);
+        "couple_id,current_count,today_date,today_user_a_posted,today_user_b_posted,today_completed,timezone",
+      );
     if (!force) {
       streakQuery = streakQuery.eq("today_completed", false);
     }
@@ -1207,8 +1330,7 @@ serve(async (req) => {
     if (streakError) throw streakError;
 
     const { data: soloTargetRows, error: soloTargetsError } = await supabase.rpc(
-      "get_solo_streak_reminder_targets",
-      { p_reminder_date: reminderDate },
+      "get_solo_streak_reminder_targets_v2",
     );
 
     if (soloTargetsError) throw soloTargetsError;
@@ -1273,10 +1395,9 @@ serve(async (req) => {
       const { data: latestStreakRow, error: latestStreakError } = await supabase
         .from("couple_streaks")
         .select(
-          "couple_id,current_count,today_date,today_user_a_posted,today_user_b_posted,today_completed",
+          "couple_id,current_count,today_date,today_user_a_posted,today_user_b_posted,today_completed,timezone",
         )
         .eq("couple_id", streak.couple_id)
-        .eq("today_date", reminderDate)
         .maybeSingle();
       if (latestStreakError) throw latestStreakError;
 
@@ -1306,31 +1427,53 @@ serve(async (req) => {
         continue;
       }
 
-      if (!dryRun) {
-        const claimed = await claimReminderWindow(
+      let processedRecipient = false;
+      let duplicateRecipient = false;
+      for (const recipient of recipients) {
+        const profile = await loadUserDeliveryProfile(
           supabase,
-          streak.couple_id,
-          reminderDate,
-          reminderHour,
+          recipient.userId,
+          currentStreak.timezone,
         );
-        if (!claimed) {
+        const window = recipientReminderWindow({
+          now: invocationNow,
+          timeZone: profile.timezone,
+          force,
+          forcedDate,
+          forcedHour,
+          reminderHours: REMINDER_HOURS,
+        });
+        if (!window.shouldSend) {
           skipped += 1;
-          debugCouple.logStatus = "skipped_duplicate";
-          debugCouples.push(debugCouple);
           continue;
         }
-      }
 
-      for (const recipient of recipients) {
+        if (!dryRun) {
+          const claimed = await claimReminderWindow(
+            supabase,
+            streak.couple_id,
+            window.date,
+            window.hour,
+            recipient.userId,
+          );
+          if (!claimed) {
+            skipped += 1;
+            duplicateRecipient = true;
+            continue;
+          }
+        }
+
+        processedRecipient = true;
         const notificationBody = await generateReminderBody(
           currentStreak,
           recipient.slot,
           recipient.userId,
-          reminderDate,
-          reminderHour,
+          window.date,
+          window.hour,
+          profile.locale,
         );
         const payload = JSON.stringify({
-          title: "🔥 Pinly nhắc nhẹ",
+          title: reminderTitle(profile.locale),
           body: notificationBody.body,
           icon: "/icons/icon-192.png",
           badge: "/icons/icon-192.png",
@@ -1342,6 +1485,10 @@ serve(async (req) => {
           coupleId: streak.couple_id,
           recipientSlot: recipient.slot,
           recipientId: recipient.userId,
+          locale: profile.locale,
+          timezone: profile.timezone,
+          reminderDate: window.date,
+          reminderHour: window.hour,
           source: notificationBody.source,
           state: notificationBody.state,
           body: notificationBody.body,
@@ -1358,9 +1505,9 @@ serve(async (req) => {
           ? { sent: 0, skipped: false, reason: "dry_run" }
           : await sendScheduledEmailToUser(
               supabase,
-              recipient.userId,
-              reminderHour,
-              "Pinly nhắc nhẹ",
+              profile,
+              window.hour,
+              reminderTitle(profile.locale),
               notificationBody.body,
             );
         emailSent += emailResult.sent;
@@ -1376,6 +1523,10 @@ serve(async (req) => {
           source: notificationBody.source,
           state: notificationBody.state,
           body: notificationBody.body,
+          locale: profile.locale,
+          timezone: profile.timezone,
+          reminderDate: window.date,
+          reminderHour: window.hour,
           gemini: notificationBody.gemini,
           sent: result.sent,
           skipped: result.skipped,
@@ -1389,11 +1540,29 @@ serve(async (req) => {
         });
       }
 
+      if (!processedRecipient) {
+        debugCouple.logStatus = duplicateRecipient
+          ? "skipped_duplicate"
+          : "outside_window";
+      }
+
       debugCouples.push(debugCouple);
     }
 
-    const dayBounds = vnDayBounds(reminderDate);
     for (const target of (soloTargetRows ?? []) as SoloReminderTarget[]) {
+      const profile = await loadUserDeliveryProfile(
+        supabase,
+        target.user_id,
+        normalizeReminderTimeZone(target.timezone),
+      );
+      const window = recipientReminderWindow({
+        now: invocationNow,
+        timeZone: profile.timezone,
+        force,
+        forcedDate,
+        forcedHour,
+        reminderHours: REMINDER_HOURS,
+      });
       const debugSolo: DebugSoloSpace = {
         spaceId: target.space_id,
         coupleId: target.couple_id,
@@ -1401,6 +1570,15 @@ serve(async (req) => {
         spaceName: target.space_name,
         logStatus: dryRun ? "dry_run" : "created",
       };
+
+      if (!window.shouldSend) {
+        skipped += 1;
+        debugSolo.logStatus = "outside_window";
+        debugSoloSpaces.push(debugSolo);
+        continue;
+      }
+
+      const dayBounds = localDayBounds(window.date, profile.timezone);
 
       // Close the small race between loading candidates and sending the push.
       const { data: latestPin, error: latestPinError } = await supabase
@@ -1426,8 +1604,9 @@ serve(async (req) => {
         const claimed = await claimReminderWindow(
           supabase,
           target.couple_id,
-          reminderDate,
-          reminderHour,
+          window.date,
+          window.hour,
+          target.user_id,
         );
         if (!claimed) {
           skipped += 1;
@@ -1440,20 +1619,22 @@ serve(async (req) => {
       const soloStreak: CoupleStreakRow = {
         couple_id: target.couple_id,
         current_count: 0,
-        today_date: reminderDate,
+        today_date: window.date,
         today_user_a_posted: false,
         today_user_b_posted: false,
         today_completed: false,
+        timezone: profile.timezone,
       };
       const notificationBody = await generateReminderBody(
         soloStreak,
         "solo",
         target.user_id,
-        reminderDate,
-        reminderHour,
+        window.date,
+        window.hour,
+        profile.locale,
       );
       const payload = JSON.stringify({
-        title: "🔥 Pinly nhắc nhẹ",
+        title: reminderTitle(profile.locale),
         body: notificationBody.body,
         icon: "/icons/icon-192.png",
         badge: "/icons/icon-192.png",
@@ -1470,6 +1651,10 @@ serve(async (req) => {
         spaceId: target.space_id,
         coupleId: target.couple_id,
         recipientId: target.user_id,
+        locale: profile.locale,
+        timezone: profile.timezone,
+        reminderDate: window.date,
+        reminderHour: window.hour,
         source: notificationBody.source,
         state: notificationBody.state,
         body: notificationBody.body,
@@ -1486,9 +1671,9 @@ serve(async (req) => {
         ? { sent: 0, skipped: false, reason: "dry_run" }
         : await sendScheduledEmailToUser(
             supabase,
-            target.user_id,
-            reminderHour,
-            "Pinly nhắc nhẹ",
+            profile,
+            window.hour,
+            reminderTitle(profile.locale),
             notificationBody.body,
           );
       emailSent += emailResult.sent;
@@ -1504,6 +1689,10 @@ serve(async (req) => {
         source: notificationBody.source,
         state: notificationBody.state,
         body: notificationBody.body,
+        locale: profile.locale,
+        timezone: profile.timezone,
+        reminderDate: window.date,
+        reminderHour: window.hour,
         gemini: notificationBody.gemini,
         sent: result.sent,
         skipped: result.skipped,
@@ -1521,8 +1710,9 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         message: "Streak reminders processed",
-        date: reminderDate,
-        hour: reminderHour,
+        processedAt: invocationNow.toISOString(),
+        forcedDate: force ? forcedDate || null : null,
+        forcedHour: force && forcedHour >= 0 ? forcedHour : null,
         dryRun,
         dryRunSource: envDryRun ? "env" : dryRun ? "request" : null,
         couples: streakRows?.length ?? 0,

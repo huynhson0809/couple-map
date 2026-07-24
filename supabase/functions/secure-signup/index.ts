@@ -6,7 +6,6 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import {
   buildCorsHeaders,
-  handleCorsPreflightIfNeeded,
 } from "../_shared/cors.ts";
 
 const TERMS_VERSION = "2026-06-07";
@@ -18,6 +17,20 @@ type SignupConsent = {
   privacy_version?: string;
   source?: string;
 };
+
+function normalizeLocale(value: unknown) {
+  return value === "vi" || value === "en" ? value : null;
+}
+
+function normalizeTimeZone(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format();
+    return value;
+  } catch {
+    return null;
+  }
+}
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -40,7 +53,7 @@ serve(async (req) => {
   }
 
   try {
-    const { email, password, display_name, redirect_to, consent } =
+    const { email, password, display_name, redirect_to, consent, locale, timezone } =
       await req.json();
 
     if (!email || !password) {
@@ -96,6 +109,8 @@ serve(async (req) => {
         // Supabase persists options.data into auth.users.raw_user_meta_data.
         data: {
           display_name: display_name || undefined,
+          locale: normalizeLocale(locale) || undefined,
+          timezone: normalizeTimeZone(timezone) || undefined,
           consent: {
             terms_version: TERMS_VERSION,
             privacy_version: PRIVACY_VERSION,

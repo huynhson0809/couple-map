@@ -5,10 +5,15 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+import { buildCorsHeaders } from "../_shared/cors.ts";
 import {
-  buildCorsHeaders,
-  handleCorsPreflightIfNeeded,
-} from "../_shared/cors.ts";
+  localReminderParts,
+  normalizeReminderTimeZone,
+} from "../_shared/reminder-local-time.ts";
+import {
+  canonicalCountryList,
+  canonicalCountryName,
+} from "../_shared/country-names.ts";
 
 interface CoordinatePoint {
   lat: number;
@@ -69,6 +74,13 @@ function normalizeTextArray(value: unknown): string[] {
     .filter(Boolean);
 }
 
+function calendarDayDifference(start: string, end: string) {
+  const startTime = Date.parse(`${start}T00:00:00Z`);
+  const endTime = Date.parse(`${end}T00:00:00Z`);
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime)) return null;
+  return Math.max(0, Math.trunc((endTime - startTime) / 86_400_000));
+}
+
 async function fetchStatsSummaryFromRpc(
   supabase: ReturnType<typeof createClient>,
   spaceId: string,
@@ -87,7 +99,7 @@ async function fetchStatsSummaryFromRpc(
   return {
     totalPins: Number(summary.total_pins ?? 0),
     cityList: normalizeTextArray(summary.city_list),
-    countryList: normalizeTextArray(summary.country_list),
+    countryList: canonicalCountryList(summary.country_list),
     firstPinAt:
       typeof summary.first_pin_at === "string" ? summary.first_pin_at : null,
   };
@@ -114,7 +126,7 @@ async function fetchStatsDataFallback(
       points.push({ lat: pin.lat, lng: pin.lng });
     }
     const city = typeof pin.city === "string" ? pin.city.trim() : "";
-    const country = typeof pin.country === "string" ? pin.country.trim() : "";
+    const country = canonicalCountryName(pin.country);
     if (city) cityList.add(city);
     if (country) countryList.add(country);
     if (
@@ -227,15 +239,22 @@ serve(async (req) => {
   if (spaceError)
     return jsonResponse(req, { error: "Could not load space" }, 500);
 
+  const { data: userPreferences, error: preferencesError } = await supabase
+    .from("users")
+    .select("timezone")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (preferencesError) {
+    console.warn("Could not load stats timezone:", preferencesError);
+  }
+  const timeZone = normalizeReminderTimeZone(userPreferences?.timezone);
+
   let stats: StatsData;
   try {
     stats = await fetchStatsData(supabase, spaceId);
   } catch (err) {
-    return jsonResponse(
-      req,
-      { error: err instanceof Error ? err.message : "Could not load stats" },
-      500,
-    );
+    console.error("Could not load stats:", err);
+    return jsonResponse(req, { error: "Could not load stats" }, 500);
   }
 
   // Farthest pair (O(n^2) but server-side so it's fine)
@@ -256,13 +275,20 @@ serve(async (req) => {
 
   // Days together
   let daysTogether: number | null = null;
+  const today = localReminderParts(new Date(), timeZone).date;
   if (space?.started_on) {
-    daysTogether = Math.floor(
-      (Date.now() - new Date(space.started_on).getTime()) / 86_400_000,
+    daysTogether = calendarDayDifference(
+      String(space.started_on).slice(0, 10),
+      today,
     );
   } else if (stats.summary.firstPinAt) {
-    daysTogether = Math.floor(
-      (Date.now() - new Date(stats.summary.firstPinAt).getTime()) / 86_400_000,
+    const firstPinDate = localReminderParts(
+      new Date(stats.summary.firstPinAt),
+      timeZone,
+    ).date;
+    daysTogether = calendarDayDifference(
+      firstPinDate,
+      today,
     );
   }
 

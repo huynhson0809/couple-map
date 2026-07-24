@@ -6,6 +6,7 @@ import { useI18n } from "../../hooks/I18nContext";
 import { Button } from "../ui/Button";
 import { TextField } from "../ui/TextField";
 import { AuthShell } from "./AuthShell";
+import { localizedAuthError } from "../../lib/authErrorMessage";
 
 export function ResetPasswordPage() {
   const { t } = useI18n();
@@ -32,7 +33,7 @@ export function ResetPasswordPage() {
     setLoading(false);
 
     if (error) {
-      setError(error.message);
+      setError(localizedAuthError(error, t, "auth.resetLinkExpired"));
     } else {
       clearRecovery();
       navigate("/");

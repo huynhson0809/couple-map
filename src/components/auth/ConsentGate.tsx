@@ -17,18 +17,28 @@ export function ConsentGate({ userId, children }: Props) {
   const consent = usePrivacyConsent(userId);
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const shouldRequestConsent =
-    consent.checked && !consent.error && !consent.hasCurrentConsent;
+  if (consent.checked && consent.hasCurrentConsent) return <>{children}</>;
 
-  if (!shouldRequestConsent) return <>{children}</>;
+  const loadFailed = !consent.checked && Boolean(consent.error);
+  const checking = !consent.checked && consent.loading;
 
   async function handleAccept() {
     setAccepting(true);
     setError(null);
     try {
       await consent.acceptLatestConsent();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+    } catch {
+      setError(t("legal.consentSaveError"));
+    } finally {
+      setAccepting(false);
+    }
+  }
+
+  async function handleRetry() {
+    setAccepting(true);
+    setError(null);
+    try {
+      await consent.reloadConsent();
     } finally {
       setAccepting(false);
     }
@@ -37,39 +47,54 @@ export function ConsentGate({ userId, children }: Props) {
   return (
     <main className="auth-page auth-shell consent-gate">
       <div className="auth-material" aria-hidden="true" />
-      <section className="auth-brand" aria-label="Pinly">
-        <Logo size={76} />
-        <div className="auth-brand-copy">
-          <p className="auth-kicker">Pinly</p>
-          <h1>{t("legal.consentGateTitle")}</h1>
-        </div>
-      </section>
+      <div className="auth-layout">
+        <section className="auth-brand" aria-label="Pinly">
+          <Logo size={76} />
+          <div className="auth-brand-copy">
+            <p className="auth-kicker">Pinly</p>
+            <h1>{t("legal.consentGateTitle")}</h1>
+          </div>
+        </section>
 
-      <GlassSurface level="section" className="auth-card consent-card">
-        <div className="consent-icon" aria-hidden="true">
-          <ShieldCheck size={24} />
+        <div className="auth-panel">
+          <GlassSurface level="section" className="auth-card consent-card">
+            <div className="consent-icon" aria-hidden="true">
+              <ShieldCheck size={24} />
+            </div>
+            <p>
+              {checking
+                ? t("legal.loadingConsent")
+                : loadFailed
+                  ? t("legal.consentLoadError")
+                  : t("legal.consentGateDesc")}
+            </p>
+            {!checking && !loadFailed && (
+              <>
+                <p className="muted small">{t("legal.mediaDisclosureShort")}</p>
+                <p className="consent-links">
+                  <Link to="/terms">{t("legal.terms")}</Link>
+                  <span aria-hidden="true">/</span>
+                  <Link to="/privacy">{t("legal.privacy")}</Link>
+                </p>
+              </>
+            )}
+            {error && (
+              <p className="auth-error" role="alert">
+                {error}
+              </p>
+            )}
+            <Button
+              type="button"
+              size="lg"
+              loading={accepting || checking}
+              disabled={checking}
+              onClick={loadFailed ? handleRetry : handleAccept}
+            >
+              {loadFailed ? t("common.retry") : t("legal.acceptAndContinue")}
+            </Button>
+          </GlassSurface>
         </div>
-        <p>{t("legal.consentGateDesc")}</p>
-        <p className="muted small">{t("legal.mediaDisclosureShort")}</p>
-        <p className="consent-links">
-          <Link to="/terms">{t("legal.terms")}</Link>
-          <span aria-hidden="true">/</span>
-          <Link to="/privacy">{t("legal.privacy")}</Link>
-        </p>
-        {(error || consent.error) && (
-          <p className="auth-error" role="alert">
-            {error || consent.error}
-          </p>
-        )}
-        <Button
-          type="button"
-          size="lg"
-          loading={accepting}
-          onClick={handleAccept}
-        >
-          {t("legal.acceptAndContinue")}
-        </Button>
-      </GlassSurface>
+      </div>
     </main>
   );
 }

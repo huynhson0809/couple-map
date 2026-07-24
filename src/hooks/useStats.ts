@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import type { Couple, Pin } from '../types'
 import { normalizeCityName, normalizeCountryName } from '../lib/locationNames'
+import { differenceInCalendarDays } from '../lib/localeFormat'
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const R = 6371
@@ -20,7 +21,7 @@ export function useStats(pins: Pin[], couple: Couple | null) {
     const cities = new Set<string>()
     const countries = new Set<string>()
     pins.forEach((p) => {
-      const city = normalizeCityName(p.city)
+      const city = normalizeCityName(p.city, p.country)
       if (city) cities.add(city)
       const country = normalizeCountryName(p.country)
       if (country) countries.add(country)
@@ -44,15 +45,13 @@ export function useStats(pins: Pin[], couple: Couple | null) {
       }
     }
 
-    const startDate = couple?.anniversary_date
-      ? new Date(couple.anniversary_date)
-      : firstPin
-        ? new Date(firstPin.created_at)
-        : null
-    const daysTogether = startDate
-      // eslint-disable-next-line react-hooks/purity
-      ? Math.floor((Date.now() - startDate.getTime()) / 86_400_000)
+    const startDate = couple?.anniversary_date ?? firstPin?.created_at ?? null
+    // eslint-disable-next-line react-hooks/purity
+    const now = new Date(Date.now())
+    const calendarDays = startDate
+      ? differenceInCalendarDays(startDate, now)
       : null
+    const daysTogether = calendarDays === null ? null : Math.max(0, calendarDays)
 
     return {
       totalPins,

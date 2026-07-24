@@ -55,6 +55,10 @@ import { useSubscription } from "../hooks/useSubscription";
 import { YEAR_REPLAY_ENABLED } from "../lib/featureFlags";
 import { createReplayArchive } from "../lib/replayArchive";
 import {
+  formatLocalizedDate,
+  formatLocalizedNumber,
+} from "../lib/localeFormat";
+import {
   createReplaySlideFile,
   downloadReplayFile,
   shareReplayFiles,
@@ -102,6 +106,7 @@ function replayCopy(lang: "en" | "vi") {
       exportSuccess: "Toàn bộ Replay đã sẵn sàng.",
       exportError: "Không thể tạo Replay. Vui lòng thử lại.",
       saved: "Đã lưu thay đổi",
+      saving: "Đang lưu…",
       saveError: "Không thể lưu thay đổi.",
       refresh: "Cập nhật dữ liệu",
       memories: "kỷ niệm",
@@ -111,6 +116,9 @@ function replayCopy(lang: "en" | "vi") {
       month: "Tháng",
       together: "người cùng viết",
       watermark: "Bản Free sẽ có logo Pinly khi xuất ảnh.",
+      templateJourney: "Hành trình",
+      templateScrapbook: "Sổ lưu niệm",
+      templateFilm: "Nhật ký phim",
     };
   }
   return {
@@ -150,6 +158,7 @@ function replayCopy(lang: "en" | "vi") {
     exportSuccess: "Your full Replay is ready.",
     exportError: "Could not create the Replay. Please try again.",
     saved: "Changes saved",
+    saving: "Saving…",
     saveError: "Could not save changes.",
     refresh: "Refresh data",
     memories: "memories",
@@ -159,6 +168,9 @@ function replayCopy(lang: "en" | "vi") {
     month: "Month",
     together: "storytellers",
     watermark: "Free exports include a small Pinly mark.",
+    templateJourney: "Journey Map",
+    templateScrapbook: "Scrapbook",
+    templateFilm: "Film Diary",
   };
 }
 
@@ -304,7 +316,9 @@ function ReplaySlidePreview({
               <span>{copy.activeDays}</span>
             </div>
             <div>
-              <strong>{snapshot.totals.distance_km.toLocaleString()} km</strong>
+              <strong>
+                {formatLocalizedNumber(snapshot.totals.distance_km, lang)} km
+              </strong>
               <span>{copy.distance}</span>
             </div>
           </div>
@@ -326,7 +340,9 @@ function ReplaySlidePreview({
             <h2>{slide.title}</h2>
             <p>{slide.subtitle}</p>
             {slide.memory && (
-              <time>{new Date(slide.memory.created_at).toLocaleDateString()}</time>
+              <time>
+                {formatLocalizedDate(slide.memory.created_at, lang)}
+              </time>
             )}
           </div>
         </div>
@@ -758,7 +774,7 @@ export function YearReplayPage() {
           <div className="replay-editor-header">
             <div>
               <span>{copy.edit}</span>
-              <small>{saving ? "Saving…" : slide?.eyebrow}</small>
+              <small>{saving ? copy.saving : slide?.eyebrow}</small>
             </div>
             <button
               type="button"
@@ -786,7 +802,13 @@ export function YearReplayPage() {
                     >
                       <span className={`replay-template-swatch ${template.className}`} />
                       <span>
-                        <strong>{template.name}</strong>
+                        <strong>
+                          {template.id === "journey"
+                            ? copy.templateJourney
+                            : template.id === "scrapbook"
+                              ? copy.templateScrapbook
+                              : copy.templateFilm}
+                        </strong>
                         {!available && (
                           <small>
                             <LockKeyhole size={12} />

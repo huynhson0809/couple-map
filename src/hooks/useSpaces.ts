@@ -28,7 +28,7 @@ function assertSpacePayload(data: unknown, fallbackMessage: string): Space {
 
 function assertInviteCode(data: unknown): string {
   if (typeof data !== "string" || data.trim() === "") {
-    throw new Error("Could not create invite code");
+    throw new Error("space_invite_create_failed");
   }
   return data;
 }
@@ -49,6 +49,18 @@ function normalizeSpaceError(error: unknown) {
 
   if (code === "PSQ01" || message.includes("map is read-only")) {
     return new Error("space_read_only");
+  }
+
+  if (code === "P0001" || message.includes("Invite code not found")) {
+    return new Error("space_invite_not_found");
+  }
+
+  if (code === "P0002" || message.includes("Space is full")) {
+    return new Error("space_full");
+  }
+
+  if (code === "P0003" || message.includes("Only space owners")) {
+    return new Error("space_invite_owner_required");
   }
 
   if (message.includes("space_delete_last_space")) {
@@ -159,7 +171,8 @@ export function useSpaces(userId: string | undefined) {
         applyPayload(nextPayload, expectedUserId);
       } catch (err) {
         if (!isCurrentRequest()) return;
-        setError(err instanceof Error ? err.message : "Could not load spaces");
+        console.error("Could not load spaces:", err);
+        setError("space_load_failed");
         applyPayload(emptyPayload(), expectedUserId);
       } finally {
         if (isCurrentRequest()) setLoading(false);
@@ -217,7 +230,7 @@ export function useSpaces(userId: string | undefined) {
       const { data, error } = await supabase.rpc("join_space_by_invite", {
         code: inviteCode.trim().toUpperCase(),
       });
-      if (error) throw error;
+      if (error) throw normalizeSpaceError(error);
       const space = assertSpacePayload(data, "Could not join space");
       await refresh({ silent: true, activeSpaceId: space.id });
       return space;

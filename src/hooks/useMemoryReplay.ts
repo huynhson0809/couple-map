@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   MemoryRecapRow,
   ReplayPreset,
@@ -7,6 +7,7 @@ import type {
 } from "../features/yearReplay/types";
 import { normalizeReplayConfig } from "../features/yearReplay/model";
 import { supabase } from "../lib/supabase";
+import { detectUserTimeZone } from "../lib/userPreferences";
 
 interface UseMemoryReplayOptions {
   spaceId: string | null | undefined;
@@ -43,16 +44,34 @@ export function useMemoryReplay({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
+  const saveRequestIdRef = useRef(0);
+  const requestKey = useMemo(
+    () => `${spaceId ?? "none"}:${rangeStart}:${rangeEnd}:${preset}`,
+    [preset, rangeEnd, rangeStart, spaceId],
+  );
+  const [dataKey, setDataKey] = useState(requestKey);
+  const activeRecap = dataKey === requestKey ? recap : null;
+  const activeLoading = dataKey === requestKey
+    ? loading
+    : Boolean(enabled && spaceId);
+  const activeError = dataKey === requestKey ? error : null;
 
   const load = useCallback(
     async (refresh = false) => {
       if (!enabled || !spaceId) {
+        requestIdRef.current += 1;
+        saveRequestIdRef.current += 1;
+        setDataKey(requestKey);
         setLoading(false);
         setRecap(null);
+        setError(null);
         return null;
       }
 
       const requestId = ++requestIdRef.current;
+      saveRequestIdRef.current += 1;
+      setDataKey(requestKey);
+      setRecap(null);
       setLoading(true);
       setError(null);
       const timezoneOffsetMinutes = -new Date().getTimezoneOffset();
@@ -64,6 +83,7 @@ export function useMemoryReplay({
             range_start: rangeStart,
             range_end: rangeEnd,
             preset,
+            time_zone: detectUserTimeZone(),
             timezone_offset_minutes: timezoneOffsetMinutes,
             refresh,
           },
@@ -72,7 +92,10 @@ export function useMemoryReplay({
 
       if (requestId !== requestIdRef.current) return null;
       if (invokeError) {
-        setError(await edgeErrorMessage(invokeError));
+        const technicalMessage = await edgeErrorMessage(invokeError);
+        if (requestId !== requestIdRef.current) return null;
+        console.error("Failed to generate memory Replay:", technicalMessage);
+        setError("recap_request_failed");
         setLoading(false);
         return null;
       }
@@ -87,12 +110,16 @@ export function useMemoryReplay({
       setLoading(false);
       return row;
     },
-    [enabled, preset, rangeEnd, rangeStart, spaceId],
+    [enabled, preset, rangeEnd, rangeStart, requestKey, spaceId],
   );
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(false), 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      requestIdRef.current += 1;
+      saveRequestIdRef.current += 1;
+    };
   }, [load]);
 
   const updateRecap = useCallback(
@@ -100,12 +127,14 @@ export function useMemoryReplay({
       template_id?: ReplayTemplateId;
       slide_config_json?: ReplaySlideConfig;
     }) => {
-      if (!recap) return null;
-      const previous = recap;
+      if (!activeRecap) return null;
+      const requestId = ++saveRequestIdRef.current;
+      const previous = activeRecap;
       const optimistic: MemoryRecapRow = {
-        ...recap,
+        ...activeRecap,
         ...updates,
-        slide_config_json: updates.slide_config_json ?? recap.slide_config_json,
+        slide_config_json:
+          updates.slide_config_json ?? activeRecap.slide_config_json,
       };
       setRecap(optimistic);
       setSaving(true);
@@ -113,21 +142,23 @@ export function useMemoryReplay({
       const { data, error: saveError } = await supabase
         .from("memory_recaps")
         .update(updates)
-        .eq("id", recap.id)
-        .eq("user_id", recap.user_id)
+        .eq("id", activeRecap.id)
+        .eq("user_id", activeRecap.user_id)
         .select("*")
         .single();
+      if (requestId !== saveRequestIdRef.current) return null;
       setSaving(false);
       if (saveError) {
         setRecap(previous);
-        setError(saveError.message);
+        console.error("Failed to save memory Replay:", saveError);
+        setError("recap_save_failed");
         throw saveError;
       }
       const saved = data as MemoryRecapRow;
       setRecap(saved);
       return saved;
     },
-    [recap],
+    [activeRecap],
   );
 
   const saveConfig = useCallback(
@@ -143,13 +174,12 @@ export function useMemoryReplay({
   );
 
   return {
-    recap,
-    loading,
+    recap: activeRecap,
+    loading: activeLoading,
     saving,
-    error,
+    error: activeError,
     refresh: () => load(true),
     saveConfig,
     setTemplate,
   };
 }
-

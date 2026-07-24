@@ -6,6 +6,7 @@ import { Button } from "../ui/Button";
 import { TextField } from "../ui/TextField";
 import { AuthShell } from "./AuthShell";
 import { SocialLoginButton } from "./SocialLoginButton";
+import { localizedAuthError } from "../../lib/authErrorMessage";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 60_000; // 1 minute
@@ -42,7 +43,7 @@ export function LoginPage() {
     setError(null);
     const { error } = await signIn(email, password);
     setLoading(false);
-    if (error) setError(error.message);
+    if (error) setError(localizedAuthError(error, t, "auth.loginError"));
     else navigate("/");
   }
 

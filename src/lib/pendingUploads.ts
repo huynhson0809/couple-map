@@ -20,6 +20,9 @@ type PendingUploadResult = CloudinaryUploadResult & {
   sortOrder: number;
 };
 
+const pendingUploadRuns = new Map<string, Promise<void>>();
+const claimedPendingUploadIds = new Set<string>();
+
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -61,7 +64,12 @@ export async function savePendingUploads(
     tx.onerror = () => reject(tx.error);
   });
   db.close();
+  ids.forEach((id) => claimedPendingUploadIds.add(id));
   return ids;
+}
+
+export function releasePendingUploads(ids: string[]) {
+  ids.forEach((id) => claimedPendingUploadIds.delete(id));
 }
 
 export async function getPendingUploads(): Promise<PendingUpload[]> {
@@ -90,6 +98,7 @@ export async function removePendingUpload(id: string): Promise<void> {
     tx.onerror = () => reject(tx.error);
   });
   db.close();
+  releasePendingUploads([id]);
 }
 
 export async function removePendingUploads(ids: string[]): Promise<void> {
@@ -105,6 +114,7 @@ export async function removePendingUploads(ids: string[]): Promise<void> {
     tx.onerror = () => reject(tx.error);
   });
   db.close();
+  releasePendingUploads(ids);
 }
 
 async function insertPendingUploadRows(
@@ -141,17 +151,22 @@ export async function clearPendingUploadsForPin(pinId: string): Promise<void> {
     tx.onerror = () => reject(tx.error);
   });
   db.close();
+  releasePendingUploads(toRemove.map((entry) => entry.id));
 }
 
 /**
  * Process all pending uploads from IndexedDB.
  * Uploads files to Cloudinary, inserts pin_images rows, then removes successful rows from the queue.
  */
-export async function processPendingUploads(
+async function processPendingUploadsForSpace(
+  coupleId: string,
   onProgress?: (pinId: string, pct: number) => void,
   onDone?: (pinId: string) => void,
 ): Promise<void> {
-  const pending = await getPendingUploads();
+  const pending = (await getPendingUploads()).filter(
+    (entry) =>
+      entry.coupleId === coupleId && !claimedPendingUploadIds.has(entry.id),
+  );
   if (pending.length === 0) return;
 
   // Group by pinId
@@ -162,7 +177,55 @@ export async function processPendingUploads(
     byPin.set(entry.pinId, group);
   }
 
-  for (const [pinId, entries] of byPin) {
+  for (const [pinId, queuedEntries] of byPin) {
+    const { data: pin, error: pinError } = await supabase
+      .from("pins")
+      .select("id")
+      .eq("id", pinId)
+      .eq("space_id", coupleId)
+      .maybeSingle();
+    if (pinError) {
+      console.warn("Could not verify pending upload memory:", pinError);
+      continue;
+    }
+    if (!pin) {
+      await removePendingUploads(queuedEntries.map((entry) => entry.id));
+      continue;
+    }
+
+    const queuedOrders = Array.from(
+      new Set(queuedEntries.map((entry) => entry.sortOrder)),
+    );
+    const { data: existingRows, error: existingRowsError } = await supabase
+      .from("pin_images")
+      .select("sort_order")
+      .eq("pin_id", pinId)
+      .in("sort_order", queuedOrders);
+    if (existingRowsError) {
+      console.warn(
+        "Could not verify already attached pending uploads:",
+        existingRowsError,
+      );
+      continue;
+    }
+
+    const existingOrders = new Set(
+      (existingRows ?? []).map((row) => row.sort_order),
+    );
+    const alreadyAttached = queuedEntries.filter((entry) =>
+      existingOrders.has(entry.sortOrder),
+    );
+    if (alreadyAttached.length > 0) {
+      await removePendingUploads(alreadyAttached.map((entry) => entry.id));
+    }
+    const entries = queuedEntries.filter(
+      (entry) => !existingOrders.has(entry.sortOrder),
+    );
+    if (entries.length === 0) {
+      onDone?.(pinId);
+      continue;
+    }
+
     let completed = 0;
     const total = entries.length;
     const results: PendingUploadResult[] = [];
@@ -205,4 +268,22 @@ export async function processPendingUploads(
 
     onDone?.(pinId);
   }
+}
+
+export function processPendingUploads(
+  coupleId: string,
+  onProgress?: (pinId: string, pct: number) => void,
+  onDone?: (pinId: string) => void,
+): Promise<void> {
+  const currentRun = pendingUploadRuns.get(coupleId);
+  if (currentRun) return currentRun;
+
+  const run = processPendingUploadsForSpace(coupleId, onProgress, onDone)
+    .finally(() => {
+      if (pendingUploadRuns.get(coupleId) === run) {
+        pendingUploadRuns.delete(coupleId);
+      }
+    });
+  pendingUploadRuns.set(coupleId, run);
+  return run;
 }

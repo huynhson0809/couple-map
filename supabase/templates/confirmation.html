@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Confirm your Pinly email</title>
+  </head>
+  <body style="margin:0;background:#f7f7f5;color:#15161a;font-family:Arial,sans-serif">
+    <div style="max-width:560px;margin:0 auto;padding:40px 20px">
+      <div style="background:#ffffff;border:1px solid #e8e8e5;border-radius:16px;padding:32px">
+        <p style="margin:0 0 24px;color:#ff5b67;font-size:20px;font-weight:700">Pinly</p>
+        {{ if eq .Data.locale "vi" }}
+          <h1 style="margin:0 0 16px;font-size:28px;line-height:1.2">Xác nhận địa chỉ email</h1>
+          <p style="margin:0 0 24px;color:#50535c;font-size:16px;line-height:1.6">
+            Xác nhận email để hoàn tất đăng ký và bắt đầu lưu kỷ niệm trên Pinly.
+          </p>
+          <p style="margin:0 0 24px">
+            <a href="{{ .ConfirmationURL }}" style="display:inline-block;border-radius:10px;background:#ff5b67;color:#ffffff;padding:13px 20px;text-decoration:none;font-weight:700">
+              Xác nhận email
+            </a>
+          </p>
+          <p style="margin:0;color:#747782;font-size:13px;line-height:1.6">
+            Nếu bạn không tạo tài khoản Pinly, bạn có thể bỏ qua email này.
+          </p>
+        {{ else }}
+          <h1 style="margin:0 0 16px;font-size:28px;line-height:1.2">Confirm your email address</h1>
+          <p style="margin:0 0 24px;color:#50535c;font-size:16px;line-height:1.6">
+            Confirm your email to finish signing up and start saving memories with Pinly.
+          </p>
+          <p style="margin:0 0 24px">
+            <a href="{{ .ConfirmationURL }}" style="display:inline-block;border-radius:10px;background:#ff5b67;color:#ffffff;padding:13px 20px;text-decoration:none;font-weight:700">
+              Confirm email address
+            </a>
+          </p>
+          <p style="margin:0;color:#747782;font-size:13px;line-height:1.6">
+            If you did not create a Pinly account, you can safely ignore this email.
+          </p>
+        {{ end }}
+      </div>
+    </div>
+  </body>
+</html>

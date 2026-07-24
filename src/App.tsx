@@ -24,6 +24,7 @@ import { ThemeProvider } from "./hooks/ThemeContext";
 import { I18nProvider, useI18n } from "./hooks/I18nContext";
 import { ToastProvider } from "./hooks/ToastContext";
 import { usePushSubscription } from "./hooks/usePushSubscription";
+import { useAccountPreferencesSync } from "./hooks/useAccountPreferencesSync";
 import { NotificationFeedProvider } from "./hooks/NotificationFeedContext";
 import { SubscriptionProvider, useSubscription } from "./hooks/useSubscription";
 import { getPublicPageRouteByPath } from "./content/publicPages";
@@ -149,6 +150,11 @@ function AppStatusScreen({
   );
 }
 
+function LocalizedLoadingScreen() {
+  const { t } = useI18n();
+  return <AppStatusScreen title={t("app.loading")} />;
+}
+
 function PairedShell() {
   const { activeSpace, profile } = useSpaceCtx();
   const location = useLocation();
@@ -265,7 +271,7 @@ function PinsScope() {
   const scopedUserId = spaceProfile?.id ?? coupleProfile?.id;
 
   return (
-    <SubscriptionProvider spaceId={scopedId}>
+    <SubscriptionProvider spaceId={scopedId} userId={scopedUserId}>
       <PinsProvider spaceId={scopedId} userId={scopedUserId}>
         <CategoriesProvider spaceId={scopedId} userId={scopedUserId}>
           <RoutedShell />
@@ -277,17 +283,18 @@ function PinsScope() {
 
 function RoutedShell() {
   const { activeSpace, loading, error } = useSpaceCtx();
+  const { t } = useI18n();
   const location = useLocation();
 
-  if (loading) return <AppStatusScreen title="Loading Pinly…" />;
+  if (loading) return <AppStatusScreen title={t("app.loading")} />;
 
   if (error) {
     return (
-      <AppStatusScreen title="Something went wrong" body={error} tone="error">
-        <p className="muted small">
-          Nếu lỗi vẫn tiếp diễn, hãy thử tải lại ứng dụng hoặc liên hệ hỗ trợ.
-        </p>
-      </AppStatusScreen>
+      <AppStatusScreen
+        title={t("app.loadErrorTitle")}
+        body={t("app.loadErrorBody")}
+        tone="error"
+      />
     );
   }
 
@@ -314,6 +321,8 @@ function RoutedShell() {
 
 function AppRoutes() {
   const { user, loading: authLoading, isRecovery } = useAuth();
+  const { t } = useI18n();
+  useAccountPreferencesSync(user?.id);
   const location = useLocation();
   const publicRoute = getPublicPageRouteByPath(location.pathname);
 
@@ -338,7 +347,7 @@ function AppRoutes() {
     );
   }
 
-  if (authLoading) return <AppStatusScreen title="Loading Pinly…" />;
+  if (authLoading) return <AppStatusScreen title={t("app.loading")} />;
 
   // Show reset password page when user clicked recovery link
   if (isRecovery && user) {
@@ -392,8 +401,12 @@ function AppRoutes() {
       <Route
         path="/admin/support"
         element={
-          <ConsentGate userId={user.id}>
-            <AdminSupportPage userId={user.id} userEmail={user.email} />
+          <ConsentGate key={user.id} userId={user.id}>
+            <AdminSupportPage
+              key={user.id}
+              userId={user.id}
+              userEmail={user.email}
+            />
           </ConsentGate>
         }
       />
@@ -401,7 +414,7 @@ function AppRoutes() {
         path="*"
         element={
           <DesktopGate>
-            <ConsentGate userId={user.id}>
+            <ConsentGate key={user.id} userId={user.id}>
               <SpaceProvider userId={user.id}>
                 <CoupleProvider userId={user.id}>
                   <PinsScope />
@@ -421,7 +434,7 @@ export default function App() {
       <I18nProvider>
         <ToastProvider>
           <BrowserRouter>
-            <Suspense fallback={<AppStatusScreen title="Loading Pinly…" />}>
+            <Suspense fallback={<LocalizedLoadingScreen />}>
               <AppRoutes />
             </Suspense>
             <UpdatePrompt />

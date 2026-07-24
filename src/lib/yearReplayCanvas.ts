@@ -6,6 +6,10 @@ import type {
   ReplayTemplateId,
 } from "../features/yearReplay/types";
 import type { Lang } from "../hooks/I18nContext";
+import {
+  formatLocalizedDate,
+  formatLocalizedNumber,
+} from "./localeFormat";
 
 export const REPLAY_CANVAS_WIDTH = 1080;
 export const REPLAY_CANVAS_HEIGHT = 1920;
@@ -334,8 +338,8 @@ function drawRoute(
   });
 }
 
-function statLabel(value: number, suffix = "") {
-  return `${value.toLocaleString()}${suffix}`;
+function statLabel(value: number, lang: Lang, suffix = "") {
+  return `${formatLocalizedNumber(value, lang)}${suffix}`;
 }
 
 function drawStats(
@@ -357,7 +361,10 @@ function drawStats(
     [snapshot.totals.memories, lang === "vi" ? "Kỷ niệm" : "Memories"],
     [snapshot.totals.cities, lang === "vi" ? "Thành phố" : "Cities"],
     [snapshot.totals.active_days, lang === "vi" ? "Ngày có dấu chân" : "Active days"],
-    [statLabel(snapshot.totals.distance_km, " km"), lang === "vi" ? "Đã đi qua" : "Travelled"],
+    [
+      statLabel(snapshot.totals.distance_km, lang, " km"),
+      lang === "vi" ? "Đã đi qua" : "Travelled",
+    ],
   ];
   stats.forEach(([value, label], index) => {
     const col = index % 2;
@@ -409,11 +416,11 @@ async function drawHighlight(
   if (slide.memory) {
     setFont(ctx, 26, 700, config);
     ctx.fillStyle = config.accent;
-    const date = new Intl.DateTimeFormat(lang === "vi" ? "vi-VN" : "en-US", {
+    const date = formatLocalizedDate(slide.memory.created_at, lang, {
       day: "numeric",
       month: "long",
       year: "numeric",
-    }).format(new Date(slide.memory.created_at));
+    });
     ctx.fillText(date, 72, 1690);
   }
 }

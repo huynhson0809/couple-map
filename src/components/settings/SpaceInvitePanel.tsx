@@ -6,14 +6,7 @@ import { useSubscription } from "../../hooks/useSubscription";
 import type { Space } from "../../types";
 import { Button } from "../ui/Button";
 import { GlassSurface } from "../ui/GlassSurface";
-
-function formatSpaceError(err: unknown) {
-  if (err instanceof Error) return err.message;
-  if (err && typeof err === "object" && "message" in err) {
-    return String((err as { message: unknown }).message);
-  }
-  return String(err);
-}
+import { localizedSpaceError } from "../../lib/spaceErrorMessage";
 
 export function SpaceInvitePanel() {
   const { activeSpace, capabilities, createOrGetInvite } = useSpaceCtx();
@@ -41,7 +34,7 @@ function SpaceInvitePanelContent({
   createOrGetInvite: (spaceId: string) => Promise<string>;
   currentSpaceWritable: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [inviteCode, setInviteCode] = useState<string | null>(activeSpace.invite_code ?? null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -85,7 +78,7 @@ function SpaceInvitePanelContent({
       setInviteCode(code);
     } catch (err) {
       if (mountedRef.current && activeSpaceIdRef.current === targetSpaceId) {
-        setError(formatSpaceError(err));
+        setError(localizedSpaceError(err, lang));
       }
     } finally {
       if (mountedRef.current && activeSpaceIdRef.current === targetSpaceId) {

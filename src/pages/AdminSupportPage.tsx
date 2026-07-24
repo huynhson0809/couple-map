@@ -16,6 +16,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -247,6 +248,14 @@ export function AdminSupportPage({
   const [livePulse, setLivePulse] = useState(0);
   const detailRef = useRef<HTMLElement>(null);
   const draftTicketIdRef = useRef<string | null>(null);
+  const activeTicketIdRef = useRef<string | null>(selectedTicketId);
+  const dashboardRequestIdRef = useRef(0);
+  const threadRequestIdRef = useRef(0);
+
+  useLayoutEffect(() => {
+    activeTicketIdRef.current = selectedTicketId;
+    threadRequestIdRef.current += 1;
+  }, [selectedTicketId]);
 
   const statusLabel = useCallback(
     (status: SupportStatus) => {
@@ -259,6 +268,7 @@ export function AdminSupportPage({
   );
 
   const loadDashboard = useCallback(async (showLoading = true) => {
+    const requestId = ++dashboardRequestIdRef.current;
     if (showLoading) setLoading(true);
     setError(null);
     const [ticketResult, countResult] = await Promise.all([
@@ -272,8 +282,14 @@ export function AdminSupportPage({
       supabase.rpc("admin_support_ticket_counts"),
     ]);
 
+    if (requestId !== dashboardRequestIdRef.current) return;
+
     if (ticketResult.error || countResult.error) {
-      setError(ticketResult.error?.message ?? countResult.error?.message ?? copy.loadError);
+      console.error(
+        "Failed to load support dashboard:",
+        ticketResult.error ?? countResult.error,
+      );
+      setError(copy.loadError);
     } else {
       const rows = (ticketResult.data ?? []) as AdminSupportTicket[];
       setTickets(rows);
@@ -289,10 +305,11 @@ export function AdminSupportPage({
           : null;
       });
     }
-    setLoading(false);
+    if (requestId === dashboardRequestIdRef.current) setLoading(false);
   }, [copy.loadError]);
 
   const loadThread = useCallback(async (ticketId: string, showLoading = true) => {
+    const requestId = ++threadRequestIdRef.current;
     if (showLoading) setThreadLoading(true);
     setThreadError(false);
     const { data, error: messageError } = await supabase
@@ -301,13 +318,18 @@ export function AdminSupportPage({
       .eq("ticket_id", ticketId)
       .order("created_at", { ascending: true });
 
+    if (
+      requestId !== threadRequestIdRef.current ||
+      activeTicketIdRef.current !== ticketId
+    ) return;
+
     if (messageError) {
       setThreadMessages([]);
       setThreadError(true);
     } else {
       setThreadMessages((data ?? []) as SupportMessage[]);
     }
-    setThreadLoading(false);
+    if (requestId === threadRequestIdRef.current) setThreadLoading(false);
   }, []);
 
   useEffect(() => {
@@ -403,6 +425,7 @@ export function AdminSupportPage({
 
     return () => {
       window.clearTimeout(timer);
+      threadRequestIdRef.current += 1;
       void supabase.removeChannel(channel);
     };
   }, [access.isAdmin, loadThread, selectedTicketId]);
@@ -440,6 +463,8 @@ export function AdminSupportPage({
 
   function openTicket(ticket: AdminSupportTicket) {
     draftTicketIdRef.current = ticket.ticket_id;
+    activeTicketIdRef.current = ticket.ticket_id;
+    threadRequestIdRef.current += 1;
     setSelectedTicketId(ticket.ticket_id);
     setStatusDraft(ticket.status);
     setReplyDraft("");
@@ -479,27 +504,33 @@ export function AdminSupportPage({
     setSaveError(null);
     setSaveSuccess(false);
     const reply = replyDraft.trim();
+    const targetTicketId = selectedTicket.ticket_id;
     const nextStatus =
       reply && statusDraft === "open" ? "in_progress" : statusDraft;
     const { error: updateError } = await supabase.rpc(
       "admin_update_support_ticket",
       {
-        p_ticket_id: selectedTicket.ticket_id,
+        p_ticket_id: targetTicketId,
         p_status: nextStatus,
         p_admin_reply: reply || null,
       },
     );
 
     if (updateError) {
-      setSaveError(updateError.message || copy.saveError);
+      console.error("Failed to update support ticket:", updateError);
+      if (activeTicketIdRef.current === targetTicketId) {
+        setSaveError(copy.saveError);
+      }
     } else {
-      setSaveSuccess(true);
-      setReplyDraft("");
-      setStatusDraft(nextStatus);
-      await Promise.all([
-        loadDashboard(false),
-        loadThread(selectedTicket.ticket_id, false),
-      ]);
+      if (activeTicketIdRef.current === targetTicketId) {
+        setSaveSuccess(true);
+        setReplyDraft("");
+        setStatusDraft(nextStatus);
+      }
+      await loadDashboard(false);
+      if (activeTicketIdRef.current === targetTicketId) {
+        await loadThread(targetTicketId, false);
+      }
     }
     setSaving(false);
   }

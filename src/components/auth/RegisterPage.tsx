@@ -4,17 +4,19 @@ import { useAuth } from "../../hooks/useAuth";
 import { useI18n } from "../../hooks/I18nContext";
 import { buildSignupConsent } from "../../lib/privacyConsent";
 import { supabase } from "../../lib/supabase";
+import { detectUserTimeZone } from "../../lib/userPreferences";
 import { Button } from "../ui/Button";
 import { TextField } from "../ui/TextField";
 import { AuthShell } from "./AuthShell";
 import { SocialLoginButton } from "./SocialLoginButton";
+import { localizedAuthError } from "../../lib/authErrorMessage";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 60_000; // 1 minute
 
 export function RegisterPage() {
   const { signUp, signInWithGoogle } = useAuth();
-  const { t } = useI18n();
+  const { lang, t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -55,10 +57,11 @@ export function RegisterPage() {
       password,
       displayName || undefined,
       buildSignupConsent(),
+      { locale: lang, timezone: detectUserTimeZone() },
     );
     setLoading(false);
     if (error) {
-      setError(error.message);
+      setError(localizedAuthError(error, t, "auth.signupError"));
     } else {
       // Always show "check your email" regardless of whether email already exists
       // This prevents email enumeration attacks
@@ -180,17 +183,24 @@ function ResendButton({ email }: { email: string }) {
   const [cooldown, setCooldown] = useState(0);
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setInterval>>(undefined);
 
   async function handleResend() {
     if (cooldown > 0 || sending) return;
     setSending(true);
-    await supabase.auth.resend({
+    setError(null);
+    const { error: resendError } = await supabase.auth.resend({
       type: "signup",
       email,
       options: { emailRedirectTo: window.location.origin },
     });
     setSending(false);
+    if (resendError) {
+      setSent(false);
+      setError(localizedAuthError(resendError, t, "auth.resendFailed"));
+      return;
+    }
     setSent(true);
     setCooldown(60);
     timer.current = setInterval(() => {
@@ -205,17 +215,24 @@ function ResendButton({ email }: { email: string }) {
   }
 
   return (
-    <Button
-      type="button"
-      onClick={handleResend}
-      disabled={cooldown > 0}
-      loading={sending}
-      variant="secondary"
-      className="auth-action"
-    >
-      {sent && cooldown > 0
-        ? `${t("auth.resendIn")} ${cooldown}s`
-        : t("auth.resendEmail")}
-    </Button>
+    <>
+      <Button
+        type="button"
+        onClick={handleResend}
+        disabled={cooldown > 0}
+        loading={sending}
+        variant="secondary"
+        className="auth-action"
+      >
+        {sent && cooldown > 0
+          ? `${t("auth.resendIn")} ${cooldown}s`
+          : t("auth.resendEmail")}
+      </Button>
+      {error && (
+        <p className="auth-error" role="alert">
+          {error}
+        </p>
+      )}
+    </>
   );
 }

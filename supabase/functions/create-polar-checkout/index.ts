@@ -2,6 +2,11 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { adminClient, requireAuthUser } from "../_shared/auth-user.ts";
 import { resolveTrustedAppUrl } from "../_shared/app-url.ts";
 import { getCorsHeaders, jsonResponse } from "../_shared/billing-cors.ts";
+import {
+  currencyForCheckoutLocale,
+  resolveCheckoutLocale,
+  resolveCustomerIp,
+} from "../_shared/checkout-context.ts";
 import { polarJson, productIdFor } from "../_shared/polar-client.ts";
 
 type CheckoutResponse = {
@@ -12,6 +17,7 @@ type CheckoutResponse = {
 type CheckoutBody = {
   plan?: unknown;
   cycle?: unknown;
+  locale?: unknown;
   app_url?: unknown;
 };
 
@@ -44,6 +50,10 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}) as CheckoutBody);
     const plan = normalizePlan(body.plan);
     const cycle = normalizeCycle(body.cycle);
+    const locale = resolveCheckoutLocale(
+      body.locale,
+      req.headers.get("accept-language"),
+    );
 
     if (!plan || !cycle) {
       return jsonResponse(req, { error: "Invalid plan or billing cycle" }, 400);
@@ -59,6 +69,7 @@ serve(async (req) => {
       typeof user.email === "string" ? user.email.toLowerCase() : undefined;
     const successUrl = `${appUrl}/?billing=success&plan=${plan}`;
     const returnUrl = `${appUrl}/?billing=return`;
+    const customerIp = resolveCustomerIp(req.headers);
 
     const checkout = await polarJson<CheckoutResponse>("/v1/checkouts/", {
       method: "POST",
@@ -66,6 +77,9 @@ serve(async (req) => {
         products: [productId],
         external_customer_id: user.id,
         customer_email: customerEmail,
+        customer_ip_address: customerIp ?? undefined,
+        locale,
+        currency: currencyForCheckoutLocale(locale),
         success_url: successUrl,
         return_url: returnUrl,
         metadata: {

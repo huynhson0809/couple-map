@@ -12,6 +12,7 @@ import {
   getPrimaryCategory,
   resolvePinCategories,
 } from "../../lib/pinCategories";
+import { formatLocalizedDate } from "../../lib/localeFormat";
 
 interface Props {
   pin: Pin;
@@ -612,10 +613,11 @@ export function ShareCard({ pin, onClose }: Props) {
     [category],
   );
   const markerEmoji = pin.marker_emoji ?? category?.emoji ?? "📍";
-  const dateStr = new Date(pin.created_at).toLocaleDateString(
-    lang === "vi" ? "vi-VN" : undefined,
-    { year: "numeric", month: "long", day: "numeric" },
-  );
+  const dateStr = formatLocalizedDate(pin.created_at, lang, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
   const coupleNames = [profile?.display_name, partner?.display_name]
     .filter(Boolean)
     .join(" & ");

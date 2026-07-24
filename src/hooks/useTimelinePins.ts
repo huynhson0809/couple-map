@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import type { Pin } from "../types";
 
@@ -75,26 +75,44 @@ export function useTimelinePins(
   filters: TimelinePinFilters,
   version = 0,
 ) {
+  const queryKey = useMemo(
+    () => JSON.stringify({ spaceId: spaceId ?? null, filters, version }),
+    [filters, spaceId, version],
+  );
   const [pins, setPins] = useState<Pin[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dataQueryKey, setDataQueryKey] = useState(queryKey);
   const requestIdRef = useRef(0);
+  const visiblePins = dataQueryKey === queryKey ? pins : [];
+  const visibleTotal = dataQueryKey === queryKey ? total : 0;
+  const visibleLoading = dataQueryKey === queryKey ? loading : Boolean(spaceId);
+  const visibleLoadingMore = dataQueryKey === queryKey ? loadingMore : false;
+  const visibleError = dataQueryKey === queryKey ? error : null;
 
   const fetchPage = useCallback(
     async (offset: number, append: boolean) => {
+      const targetQueryKey = queryKey;
       if (!spaceId) {
+        requestIdRef.current += 1;
+        setDataQueryKey(targetQueryKey);
         setPins([]);
         setTotal(0);
+        setLoading(false);
+        setLoadingMore(false);
+        setError(null);
         return;
       }
 
       const requestId = ++requestIdRef.current;
       if (append) setLoadingMore(true);
       else {
+        setDataQueryKey(targetQueryKey);
         setLoading(true);
         setPins([]);
+        setTotal(0);
       }
       setError(null);
 
@@ -108,9 +126,10 @@ export function useTimelinePins(
 
         setPins((prev) => (append ? [...prev, ...pagePins] : pagePins));
         if (!append) setTotal(Number(pageIds[0]?.total_count ?? 0));
-      } catch (err) {
+      } catch (fetchError) {
         if (requestId !== requestIdRef.current) return;
-        setError(err instanceof Error ? err.message : "Failed to load pins");
+        console.error("Failed to load timeline memories:", fetchError);
+        setError("timeline_load_failed");
         if (!append) {
           setPins([]);
           setTotal(0);
@@ -121,28 +140,35 @@ export function useTimelinePins(
       setLoadingMore(false);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [spaceId, filters, version],
+    [spaceId, filters, version, queryKey],
   );
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void fetchPage(0, false);
     }, 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      requestIdRef.current += 1;
+    };
   }, [fetchPage]);
 
   const loadMore = useCallback(() => {
-    if (loading || loadingMore || pins.length >= total) return;
-    void fetchPage(pins.length, true);
-  }, [fetchPage, loading, loadingMore, pins.length, total]);
+    if (
+      visibleLoading ||
+      visibleLoadingMore ||
+      visiblePins.length >= visibleTotal
+    ) return;
+    void fetchPage(visiblePins.length, true);
+  }, [fetchPage, visibleLoading, visibleLoadingMore, visiblePins.length, visibleTotal]);
 
   return {
-    pins,
-    total,
-    loading,
-    loadingMore,
-    error,
-    hasMore: pins.length < total,
+    pins: visiblePins,
+    total: visibleTotal,
+    loading: visibleLoading,
+    loadingMore: visibleLoadingMore,
+    error: visibleError,
+    hasMore: visiblePins.length < visibleTotal,
     loadMore,
     refresh: () => fetchPage(0, false),
   };

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import type { Couple, CoupleStreak, CoupleStreakDay } from "../types";
+import { detectUserTimeZone } from "../lib/userPreferences";
 
-const DEFAULT_TIMEZONE = "Asia/Ho_Chi_Minh";
+const DEFAULT_TIMEZONE = detectUserTimeZone();
 
 function dateInTimeZone(date: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -72,11 +73,12 @@ export function useStreak(
     if (requestId !== fetchRequestRef.current) return;
 
     if (streakError) {
+      console.error("Could not load streak:", streakError);
       setSnapshot({
         coupleId: targetCoupleId,
         streak: null,
         today: null,
-        error: streakError.message,
+        error: "streak_load_failed",
       });
       setLoadingCoupleId(null);
       return;
@@ -97,11 +99,12 @@ export function useStreak(
 
     if (requestId !== fetchRequestRef.current) return;
 
+    if (dayError) console.error("Could not load today's streak:", dayError);
     setSnapshot({
       coupleId: targetCoupleId,
       streak: nextStreak,
       today: (dayData as CoupleStreakDay | null) ?? null,
-      error: dayError?.message ?? null,
+      error: dayError ? "streak_load_failed" : null,
     });
     setLoadingCoupleId(null);
   }, [coupleId, enabled]);
@@ -128,6 +131,7 @@ export function useStreak(
     if (!enabled) return;
     scheduleFetchStreak(0);
     return () => {
+      fetchRequestRef.current += 1;
       if (refreshTimerRef.current) {
         window.clearTimeout(refreshTimerRef.current);
         refreshTimerRef.current = null;

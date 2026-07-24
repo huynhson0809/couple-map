@@ -3,6 +3,10 @@ import { Check, Crown, KeyRound, Sparkles, X, Zap } from "lucide-react";
 import { useSubscription, PLAN_LIMITS } from "../hooks/useSubscription";
 import { useI18n } from "../hooks/I18nContext";
 import type { PlanType } from "../types";
+import {
+  annualSavingsLabel,
+  formatPlanPrice,
+} from "../lib/pricingCatalog";
 
 const PLAN_FEATURES: Record<
   string,
@@ -22,6 +26,7 @@ const PLAN_FEATURES: Record<
     { key: "pins", value: String(PLAN_LIMITS.plus.pins) },
     { key: "photos", value: "5" },
     { key: "video", value: false },
+    { key: "emailReminders", value: false },
     { key: "styles", value: "10" },
     { key: "map3d", value: true },
     { key: "categories", value: "5" },
@@ -32,6 +37,7 @@ const PLAN_FEATURES: Record<
     { key: "pins", value: String(PLAN_LIMITS.pro.pins) },
     { key: "photos", value: "5" },
     { key: "video", value: true },
+    { key: "emailReminders", value: true },
     { key: "styles", value: "15" },
     { key: "map3d", value: true },
     { key: "categories", value: "∞" },
@@ -40,20 +46,19 @@ const PLAN_FEATURES: Record<
   ],
 };
 
-const PLAN_PRICES = {
-  monthly: { plus: 2.99, pro: 4.99 },
-  annual: { plus: 24.99, pro: 39.99 },
-} as const;
-
 const FEATURE_LABELS: Record<string, { vi: string; en: string }> = {
   pins: { vi: "Kỷ niệm", en: "Memories" },
-  photos: { vi: "Ảnh/kỷ niệm", en: "Photos/memory" },
-  video: { vi: "Upload video", en: "Video upload" },
-  styles: { vi: "Map styles", en: "Map styles" },
+  photos: { vi: "Ảnh mỗi kỷ niệm", en: "Photos per memory" },
+  video: { vi: "Tải video", en: "Video upload" },
+  emailReminders: {
+    vi: "Nhắc chuỗi qua email",
+    en: "Email streak reminders",
+  },
+  styles: { vi: "Kiểu bản đồ", en: "Map styles" },
   map3d: { vi: "Bản đồ 3D", en: "3D map" },
   categories: { vi: "Danh mục tùy chỉnh", en: "Custom categories" },
-  grace: { vi: "Streak grace (ngày)", en: "Streak grace (days)" },
-  watermark: { vi: "Share card watermark", en: "Share card watermark" },
+  grace: { vi: "Số ngày giữ chuỗi", en: "Streak grace days" },
+  watermark: { vi: "Logo trên thẻ chia sẻ", en: "Share card watermark" },
 };
 
 export function PricingPage({ onClose }: { onClose: () => void }) {
@@ -62,9 +67,9 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
     accountPlan,
     checkout,
     activateCode,
-    loading: subLoading,
+    accountLoading: subLoading,
   } = useSubscription();
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const [cycle, setCycle] = useState<"monthly" | "annual">("monthly");
   const [code, setCode] = useState("");
   const [activating, setActivating] = useState(false);
@@ -79,14 +84,6 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
     lang === "vi"
       ? "Không thể tạo phiên thanh toán."
       : "Unable to create checkout session.";
-
-  const prices = PLAN_PRICES[cycle];
-
-  const formatPrice = (amount: number) => {
-    return lang === "vi"
-      ? new Intl.NumberFormat("vi-VN").format(amount * 25000) + "đ"
-      : "$" + amount.toFixed(2).replace(/\.00$/, "");
-  };
 
   const periodLabel =
     cycle === "annual"
@@ -132,7 +129,7 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
     setCheckoutError(null);
 
     try {
-      await checkout(targetPlan, cycle);
+      await checkout(targetPlan, cycle, lang);
     } catch {
       setCheckoutError(checkoutErrorMessage);
     } finally {
@@ -145,7 +142,7 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
     setActivating(true);
     setActivateResult(null);
     try {
-      const result = await activateCode(code.trim());
+      const result = await activateCode(code.trim(), lang);
       setActivateResult(result);
       if (result.success) setCode("");
     } finally {
@@ -156,7 +153,12 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
   return (
     <div className="pricing-page">
       <header className="pricing-header">
-        <button type="button" className="pricing-close" onClick={onClose}>
+        <button
+          type="button"
+          className="pricing-close"
+          onClick={onClose}
+          aria-label={t("common.close")}
+        >
           ×
         </button>
         <div className="pricing-premium-badge">
@@ -173,8 +175,8 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
         </p>
         <p className="muted pricing-gift-note">
           {lang === "vi"
-            ? "🎁 Một lần mua áp dụng cho toàn bộ bản đồ!"
-            : "🎁 One purchase covers the whole map!"}
+            ? "Một gói áp dụng cho các bản đồ bạn sở hữu."
+            : "One plan covers the maps you own."}
         </p>
       </header>
 
@@ -193,7 +195,9 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
           onClick={() => setCycle("annual")}
         >
           {lang === "vi" ? "Năm" : "Annual"}
-          <span className="pricing-save-badge">-20%</span>
+          <span className="pricing-save-badge">
+            {annualSavingsLabel(lang)}
+          </span>
         </button>
       </div>
 
@@ -208,7 +212,9 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
             <h2>Plus</h2>
           </div>
           <div className="pricing-card-price">
-            <span className="pricing-amount">{formatPrice(prices.plus)}</span>
+            <span className="pricing-amount">
+              {formatPlanPrice(lang, cycle, "plus")}
+            </span>
             <span className="pricing-period">/{periodLabel}</span>
           </div>
           {currentPlan === "plus" ? (
@@ -252,7 +258,9 @@ export function PricingPage({ onClose }: { onClose: () => void }) {
             <h2>Pro</h2>
           </div>
           <div className="pricing-card-price">
-            <span className="pricing-amount">{formatPrice(prices.pro)}</span>
+            <span className="pricing-amount">
+              {formatPlanPrice(lang, cycle, "pro")}
+            </span>
             <span className="pricing-period">/{periodLabel}</span>
           </div>
           {currentPlan === "pro" ? (

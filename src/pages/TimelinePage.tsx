@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { usePinsCtx } from "../hooks/PinsContext";
 import { useCoupleCtx } from "../hooks/CoupleContext";
-import { useI18n } from "../hooks/I18nContext";
+import { translate, useI18n } from "../hooks/I18nContext";
 import { useCategoriesCtx } from "../hooks/CategoriesContext";
 import { useTimelinePins } from "../hooks/useTimelinePins";
 import {
@@ -40,10 +40,10 @@ import { PinDetail } from "../components/pins/PinDetail";
 import { TimelineCircleView } from "../components/timeline/TimelineCircleView";
 import type { Pin } from "../types";
 import type { UploadingPinInfo } from "../hooks/PinsContext";
+import { formatLocalizedDate } from "../lib/localeFormat";
 
 function monthKey(d: string, lang: string) {
-  const dt = new Date(d);
-  return dt.toLocaleDateString(lang === "vi" ? "vi-VN" : undefined, {
+  return formatLocalizedDate(d, lang, {
     year: "numeric",
     month: "long",
   });
@@ -62,9 +62,11 @@ function useDebouncedValue(value: string, delay = 350) {
 
 function formatFilterDate(value: string, lang: string) {
   if (!value) return "";
-  const [year, month, day] = value.split("-");
-  if (!year || !month || !day) return value;
-  return lang === "vi" ? `${day}/${month}/${year}` : `${month}/${day}/${year}`;
+  return formatLocalizedDate(value, lang, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
 }
 
 type TimelineRow =
@@ -195,9 +197,7 @@ function TimelineRowItem({
             {p.note && <span className="timeline-note">{p.note}</span>}
             <span className="timeline-meta">
               <MapPin size={12} aria-hidden="true" /> {p.city ?? "—"} · {who} ·{" "}
-              {new Date(p.created_at).toLocaleDateString(
-                lang === "vi" ? "vi-VN" : undefined,
-              )}
+              {formatLocalizedDate(p.created_at, lang)}
             </span>
             {uploadInfo && (
               <span className="timeline-upload-bar">
@@ -435,23 +435,19 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
             setDeepLinkError(null);
           } else {
             setDeepLinkError(
-              langRef.current === "vi"
-                ? "Không tìm thấy kỷ niệm này."
-                : "This memory could not be found.",
+              translate(langRef.current, "timeline.memoryNotFound"),
             );
           }
         });
       })
-      .catch((error) => {
+      .catch(() => {
         if (cancelled) return;
         deepLinkRequestRef.current = {
           pinId: deepLinkPinId,
           status: "settled",
         };
         scheduleState(() => {
-          setDeepLinkError(
-            error instanceof Error ? error.message : String(error),
-          );
+          setDeepLinkError(translate(langRef.current, "timeline.openFailed"));
         });
       })
       .finally(() => {
@@ -667,7 +663,7 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
             aria-expanded={filtersOpen}
           >
             <SlidersHorizontal size={16} />
-            <span>{lang === "vi" ? "Bộ lọc" : "Filters"}</span>
+            <span>{t("timeline.filters")}</span>
             {activeFilterCount > 0 && (
               <span className="timeline-filter-count">{activeFilterCount}</span>
             )}
@@ -697,7 +693,7 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
                     setDraftIncludeFavorites(false);
                   }}
                 >
-                  {lang === "vi" ? "Tất cả" : "All"} ({livePins.length})
+                  {t("timeline.all")} ({livePins.length})
                 </button>
                 {favoriteCount > 0 && (
                   <button
@@ -837,7 +833,7 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
                 onClick={applyDraftFilters}
               >
                 <Search size={15} />
-                <span>{lang === "vi" ? "Tìm kiếm" : "Search"}</span>
+                <span>{t("timeline.searchAction")}</span>
               </button>
             </div>
           </div>
@@ -858,13 +854,13 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
 
       {error && (
         <div className="timeline-empty-filter">
-          <p>{error}</p>
+          <p>{t("timeline.loadFailed")}</p>
         </div>
       )}
 
       {loading && (
         <div className="timeline-empty-filter">
-          <p>{lang === "vi" ? "Đang tải kỷ niệm..." : "Loading memories..."}</p>
+          <p>{t("timeline.loading")}</p>
         </div>
       )}
 
@@ -928,6 +924,7 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
       >
         {selectedPin ? (
           <PinDetail
+            key={selectedPin.id}
             pin={
               timelinePins.find((p) => p.id === selectedPin.id) ??
               livePins.find((p) => p.id === selectedPin.id) ??
@@ -953,8 +950,7 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
         ) : (
           <div className="pin-detail-deeplink-state" role="status">
             <p>
-              {deepLinkError ??
-                (lang === "vi" ? "Đang mở kỷ niệm..." : "Opening memory...")}
+              {deepLinkError ?? t("timeline.opening")}
             </p>
             {deepLinkError && (
               <button
@@ -962,7 +958,7 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
                 className="timeline-filter-search-btn"
                 onClick={() => navigate("/timeline", { replace: true })}
               >
-                {lang === "vi" ? "Về Timeline" : "Back to Timeline"}
+                {t("timeline.backToTimeline")}
               </button>
             )}
           </div>

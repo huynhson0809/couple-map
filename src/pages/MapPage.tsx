@@ -31,6 +31,7 @@ import { useMap3DMode } from "../hooks/useMap3DMode";
 import { useStreak } from "../hooks/useStreak";
 import { useSubscription } from "../hooks/useSubscription";
 import type { Pin } from "../types";
+import { DEFAULT_MAP_CENTER } from "../lib/mapDefaults";
 import { YEAR_REPLAY_ENABLED } from "../lib/featureFlags";
 import "../styles/yearReplayEntry.css";
 
@@ -179,7 +180,7 @@ export function MapPage() {
   const { pins, deletePin, fetchPins, onViewportChange, loadPinById } =
     usePinsCtx();
   const { items: bucketItems } = useBucket(currentSpaceId, user?.id);
-  const { getCurrentPosition } = useGeo();
+  const { getCurrentPosition } = useGeo(lang);
   const { canCreatePin, canUseMapStyle, canUseMap3D } = useSubscription();
   const { styleUrl } = useMapStyle(canUseMapStyle);
   const { map3DEnabled } = useMap3DMode(canUseMap3D);
@@ -221,7 +222,7 @@ export function MapPage() {
     accuracy?: number | null;
     receivedAt: number;
   } | null>(null);
-  const [mapCenter, setMapCenter] = useState({ lat: 10.8231, lng: 106.6297 });
+  const [mapCenter, setMapCenter] = useState({ ...DEFAULT_MAP_CENTER });
   const [streakFloatPosition, setStreakFloatPosition] =
     useState<StreakFloatPosition | null>(() => readStreakFloatPosition());
   const [streakDragging, setStreakDragging] = useState(false);
@@ -539,7 +540,7 @@ export function MapPage() {
   }
 
   if (!couple || !user)
-    return <div className="full-center muted">Loading map…</div>;
+    return <div className="full-center muted">{t("map.loading")}</div>;
 
   const streakFloatStyle: CSSProperties | undefined = streakFloatPosition
     ? {
@@ -564,7 +565,7 @@ export function MapPage() {
   return (
     <div className="map-page">
       <Suspense
-        fallback={<div className="full-center muted">Loading map…</div>}
+        fallback={<div className="full-center muted">{t("map.loading")}</div>}
       >
         <MapView
           pins={pins}
@@ -605,7 +606,7 @@ export function MapPage() {
         type="button"
         className="fab"
         onClick={handleFabClick}
-        aria-label="Pin here"
+        aria-label={t("map.pinHere")}
       >
         <Plus size={24} />
       </button>
@@ -654,6 +655,7 @@ export function MapPage() {
       >
         {selectedPin && (
           <PinDetail
+            key={selectedPin.id}
             pin={pins.find((p) => p.id === selectedPin.id) ?? selectedPin}
             currentUserId={user.id}
             currentUserName={profile?.display_name ?? user.email ?? null}

@@ -3,8 +3,10 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
 import { RefreshCw } from 'lucide-react'
 import { Button } from './Button'
 import { IconButton } from './IconButton'
+import { useI18n } from '../../hooks/I18nContext'
 
 export function UpdatePrompt() {
+  const { t } = useI18n()
   const [show, setShow] = useState(false)
   const {
     needRefresh: [needRefresh, setNeedRefresh],
@@ -25,17 +27,17 @@ export function UpdatePrompt() {
   return (
     <div className="update-prompt lg-update-prompt phase7-system-prompt" role="status">
       <RefreshCw size={16} />
-      <span>New version available</span>
+      <span>{t('app.updateAvailable')}</span>
       <Button
         size="sm"
         onClick={() => {
           updateServiceWorker(true)
         }}
       >
-        Update
+        {t('app.updateAction')}
       </Button>
       <IconButton
-        label="Dismiss"
+        label={t('common.dismiss')}
         size="sm"
         variant="ghost"
         className="dismiss"

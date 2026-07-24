@@ -29,6 +29,7 @@ import { toPinImageRows, uploadPinMediaFiles } from "../../lib/pinMediaUpload";
 import {
   savePendingUploads,
   removePendingUploads,
+  releasePendingUploads,
 } from "../../lib/pendingUploads";
 import { MAX_PIN_CATEGORIES } from "../../lib/pinCategories";
 import { reverseGeocode } from "../../lib/geocoding";
@@ -36,12 +37,12 @@ import { searchPlaces, type PlaceSearchResult } from "../../lib/placeSearch";
 import {
   normalizeAddress,
   normalizeCityName,
-  pickVietnamProvinceFromAddress,
 } from "../../lib/locationNames";
 import { useToast } from "../../hooks/ToastContext";
 import { usePinsCtx } from "../../hooks/PinsContext";
 import { supabase } from "../../lib/supabase";
 import { formatErrorMessage } from "../../lib/errorMessage";
+import { localizedMemoryError } from "../../lib/memoryErrorMessage";
 
 interface Props {
   spaceId: string;
@@ -108,6 +109,7 @@ export function CreatePinForm({
   onCreated,
   onCancel,
 }: Props) {
+  const { t, lang } = useI18n();
   const {
     canUploadVideo,
     canCreateCategory,
@@ -118,7 +120,8 @@ export function CreatePinForm({
   const { createPin } = usePins(
     spaceId,
     userId,
-    subscriptionLoading || currentSpaceWritable,
+    !subscriptionLoading && currentSpaceWritable,
+    lang,
   );
   const {
     allCategories,
@@ -127,7 +130,6 @@ export function CreatePinForm({
     saveCustomCategory,
     deleteCustomCategory,
   } = useCategoriesCtx();
-  const { t, lang } = useI18n();
   const { activeSpace } = useSpaceCtx();
   const activeSpaceId = activeSpace?.id ?? null;
   const { showToast } = useToast();
@@ -210,11 +212,11 @@ export function CreatePinForm({
         cancelled = true;
       };
     }
-    reverseGeocode(pinCoords.lat, pinCoords.lng, "vi")
+    reverseGeocode(pinCoords.lat, pinCoords.lng, lang)
       .then((geo) => {
         if (cancelled) return;
-        setAddress(normalizeAddress(geo.address));
-        setCity(normalizeCityName(geo.city));
+        setAddress(normalizeAddress(geo.address, lang));
+        setCity(normalizeCityName(geo.city, geo.country));
         setCountry(geo.country);
       })
       .catch(() => {
@@ -226,7 +228,7 @@ export function CreatePinForm({
     return () => {
       cancelled = true;
     };
-  }, [pinCoords.lat, pinCoords.lng]);
+  }, [lang, pinCoords.lat, pinCoords.lng]);
 
   useEffect(() => {
     if (!addressEdited || address.trim().length < 3) {
@@ -236,9 +238,8 @@ export function CreatePinForm({
     addressDebounce.current = window.setTimeout(async () => {
       setAddressSearching(true);
       try {
-        const language = "vi";
         const proximity = { lat: pinCoords.lat, lng: pinCoords.lng };
-        const results = await searchPlaces(address, { language, proximity });
+        const results = await searchPlaces(address, { language: lang, proximity });
         setAddressResults(results);
       } catch {
         setAddressResults([]);
@@ -246,7 +247,7 @@ export function CreatePinForm({
         setAddressSearching(false);
       }
     }, 400);
-  }, [address, addressEdited, pinCoords.lat, pinCoords.lng]);
+  }, [address, addressEdited, lang, pinCoords.lat, pinCoords.lng]);
 
   function addFiles(list: FileList | null, kind: "image" | "video") {
     if (!currentSpaceWritable) {
@@ -262,17 +263,17 @@ export function CreatePinForm({
     if (incoming.length === 0) return;
     // Gate: already at limit
     if (selectedMedia.length >= limits.photosPerPin) {
-      setError(
-        lang === "vi"
-          ? `Giới hạn ${limits.photosPerPin} ảnh/video. Nâng cấp để thêm.`
-          : `Limit ${limits.photosPerPin} photos/videos. Upgrade to add more.`,
-      );
+      setError(t("pin.mediaLimit", { count: limits.photosPerPin }));
       return;
     }
     // Validate video size
     for (const f of incoming) {
       if (f.type.startsWith("video/") && f.size > MAX_VIDEO_BYTES) {
-        setError(`Video quá lớn (max ${MAX_VIDEO_BYTES / 1024 / 1024}MB)`);
+        setError(
+          t("pin.videoTooLarge", {
+            size: MAX_VIDEO_BYTES / 1024 / 1024,
+          }),
+        );
         return;
       }
     }
@@ -305,7 +306,8 @@ export function CreatePinForm({
       setMarkerImageUrl(res.url);
       setMarkerEmoji(null);
     } catch (e) {
-      setError(formatErrorMessage(e));
+      console.warn("Marker upload failed:", e);
+      setError(t("pin.markerUploadFailed"));
     } finally {
       setMarkerUploading(false);
     }
@@ -341,9 +343,7 @@ export function CreatePinForm({
       }
       if (current.length >= MAX_PIN_CATEGORIES) {
         setError(
-          lang === "vi"
-            ? `Chọn tối đa ${MAX_PIN_CATEGORIES} danh mục.`
-            : `Choose up to ${MAX_PIN_CATEGORIES} categories.`,
+          t("pin.categorySelectionLimit", { count: MAX_PIN_CATEGORIES }),
         );
         return current;
       }
@@ -368,11 +368,7 @@ export function CreatePinForm({
     }
     // Gate: check custom category limit (only for new categories, not edits)
     if (!editingTagId && !canCreateCategory(customCategories.length)) {
-      setError(
-        lang === "vi"
-          ? "Giới hạn danh mục tuỳ chỉnh. Nâng cấp để tạo thêm."
-          : "Custom category limit reached. Upgrade your plan.",
-      );
+      setError(t("pin.customCategoryLimit"));
       return;
     }
     const id =
@@ -392,7 +388,8 @@ export function CreatePinForm({
       setCustomTagName("");
       setCustomTagEmoji("");
     } catch (e) {
-      setError(formatErrorMessage(e));
+      console.warn("Failed to save custom category:", e);
+      setError(t("pin.categorySaveFailed"));
     }
   }
 
@@ -403,27 +400,27 @@ export function CreatePinForm({
         current.filter((categoryId) => categoryId !== id),
       );
     } catch (e) {
-      setError(formatErrorMessage(e));
+      console.warn("Failed to delete custom category:", e);
+      setError(t("pin.categoryDeleteFailed"));
     }
   }
 
   function pickCity(place: PlaceSearchResult): string | null {
     const a = place.address;
-    return (
-      pickVietnamProvinceFromAddress(place.display_name) ??
-      normalizeCityName(
+    return normalizeCityName(
+      a?.city ??
+        a?.town ??
+        a?.village ??
+        a?.county ??
         a?.state ??
-          a?.province ??
-          a?.city ??
-          a?.county ??
-          a?.town ??
-          a?.village,
-      )
+        a?.province,
+      a?.country,
+      a?.country_code,
     );
   }
 
   function selectAddressResult(place: PlaceSearchResult) {
-    setAddress(normalizeAddress(place.display_name));
+    setAddress(normalizeAddress(place.display_name, lang));
     setAddressResults([]);
     setAddressEdited(false);
     skipReverseGeocode.current = true;
@@ -433,8 +430,15 @@ export function CreatePinForm({
       lng: parseFloat(place.lon),
       accuracy: null,
     });
-    setCity(normalizeCityName(pickCity(place)));
-    setCountry(place.address?.country ?? null);
+    const selectedCountry = place.address?.country ?? null;
+    setCity(
+      normalizeCityName(
+        pickCity(place),
+        selectedCountry,
+        place.address?.country_code,
+      ),
+    );
+    setCountry(selectedCountry);
   }
 
   function previewIcon() {
@@ -465,11 +469,7 @@ export function CreatePinForm({
       return;
     }
     if (activeSpaceId !== spaceId) {
-      setError(
-        lang === "vi"
-          ? "Không gian đã thay đổi. Vui lòng mở lại form tạo kỷ niệm."
-          : "The active space changed. Please reopen the create memory form.",
-      );
+      setError(t("pin.spaceChanged"));
       return;
     }
     setSaving(true);
@@ -485,8 +485,8 @@ export function CreatePinForm({
         marker_image_url: markerImageUrl,
         lat: pinCoords.lat,
         lng: pinCoords.lng,
-        address: normalizeAddress(address.trim()) || null,
-        city: normalizeCityName(city),
+        address: normalizeAddress(address.trim(), lang) || null,
+        city: normalizeCityName(city, country),
         country,
         images: [],
       });
@@ -498,23 +498,35 @@ export function CreatePinForm({
         return;
       }
 
-      setUploadProgress(pin.id, 0);
+      setUploadProgress(pin.id, 0, spaceId);
       showToast({ type: "success", title: t("toast.memoryCreated") });
       setSaving(false);
       onCreated();
 
       // Upload in background after the created-memory UI has had a frame to paint.
       startAfterNextPaint(() => {
+        let pendingUploadIds: string[] = [];
         void (async () => {
-          const pendingUploadIds = await savePendingUploads(
-            pin.id,
-            spaceId,
-            mediaFiles,
-          );
+          try {
+            pendingUploadIds = await savePendingUploads(
+              pin.id,
+              spaceId,
+              mediaFiles,
+            );
+          } catch (queueError) {
+            console.warn(
+              "Could not persist the upload retry queue; continuing with the direct upload:",
+              queueError,
+            );
+          }
           const uploaded = await uploadPinMediaFiles(
             mediaFiles,
             `pinly/${spaceId}`,
-            (pct) => setUploadProgress(pin.id, pct),
+            (pct) => setUploadProgress(pin.id, pct, spaceId),
+            {
+              videoTooLarge: (size) => t("pin.videoTooLarge", { size }),
+              uploadFailed: () => t("toast.photoUploadFailed"),
+            },
           );
           if (uploaded.length > 0) {
             const { error: imgErr } = await supabase
@@ -527,26 +539,25 @@ export function CreatePinForm({
           await removePendingUploads(pendingUploadIds);
         })()
           .catch((err) => {
-            const message = formatErrorMessage(err, {
+            releasePendingUploads(pendingUploadIds);
+            const technicalMessage = formatErrorMessage(err, {
               fallback: t("toast.photoUploadFailed"),
             });
-            console.warn("Background upload error:", message, err);
-            showToast({ type: "error", title: message });
+            console.warn("Background upload error:", technicalMessage, err);
+            showToast({ type: "error", title: t("toast.photoUploadFailed") });
           })
           .finally(() => {
-            clearUploadProgress(pin.id);
+            clearUploadProgress(pin.id, spaceId);
           });
       });
     } catch (e) {
       setSaving(false);
-      setError(
-        formatErrorMessage(e, {
-          fallback:
-            lang === "vi"
-              ? "Không thể tạo kỷ niệm. Vui lòng thử lại."
-              : "Could not create memory. Please try again.",
-        }),
+      console.warn(
+        "Create memory failed:",
+        formatErrorMessage(e, { fallback: "pin_create_failed" }),
+        e,
       );
+      setError(localizedMemoryError(e, lang, "pin.createFailed"));
       showToast({ type: "error", title: t("toast.actionFailed") });
     }
   }
@@ -599,7 +610,7 @@ export function CreatePinForm({
                       type="button"
                       className="category-delete-btn"
                       onClick={() => handleDeleteCustomTag(c.id)}
-                      aria-label="Delete tag"
+                      aria-label={t("pin.deleteTag")}
                     >
                       <Trash2 size={10} />
                     </button>
@@ -607,7 +618,7 @@ export function CreatePinForm({
                       type="button"
                       className="category-edit-btn"
                       onClick={() => openEditCustomTag(c)}
-                      aria-label="Edit tag"
+                      aria-label={t("pin.editTag")}
                     >
                       <Pencil size={10} />
                     </button>
@@ -785,7 +796,7 @@ export function CreatePinForm({
                 setAddressEdited(true);
                 setAddressResults([]);
               }}
-              aria-label="Clear address"
+              aria-label={t("pin.clearAddress")}
             >
               <X size={14} />
             </button>
@@ -849,11 +860,7 @@ export function CreatePinForm({
             className="photo-btn"
             onClick={() => {
               if (!canUploadVideo) {
-                setError(
-                  lang === "vi"
-                    ? "Video cần gói Pro"
-                    : "Video requires Pro plan",
-                );
+                setError(t("pin.videoRequiresPro"));
                 return;
               }
               if (videoInput.current) videoInput.current.value = "";
@@ -915,7 +922,7 @@ export function CreatePinForm({
                 <button
                   type="button"
                   onClick={() => removeFile(i)}
-                  aria-label="Remove"
+                  aria-label={t("pin.removeMedia")}
                 >
                   <X size={14} />
                 </button>

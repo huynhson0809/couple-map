@@ -42,6 +42,7 @@ export interface ReplaySnapshot {
     start: string;
     end: string;
     preset: ReplayPreset;
+    time_zone?: string | null;
     timezone_offset_minutes: number;
   };
   variant: ReplayVariant;

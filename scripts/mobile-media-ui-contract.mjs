@@ -37,14 +37,26 @@ assert.match(
   /preload="metadata"/,
   "create memory video previews should only preload metadata",
 );
+const submitBeforeBackgroundPersistence = createPinForm.slice(
+  createPinForm.indexOf("async function handleSubmit"),
+  createPinForm.indexOf("startAfterNextPaint", createPinForm.indexOf("async function handleSubmit")),
+);
 assert.doesNotMatch(
-  createPinForm,
+  submitBeforeBackgroundPersistence,
   /await\s+savePendingUploads/,
   "save memory should not wait for large files to be copied into IndexedDB before returning to the UI",
 );
-assert.match(
-  createPinForm,
-  /startAfterNextPaint\(\(\) => \{[\s\S]{0,120}savePendingUploads/,
+const backgroundPersistenceStart = createPinForm.indexOf(
+  "startAfterNextPaint(() =>",
+  createPinForm.indexOf("async function handleSubmit"),
+);
+const pendingPersistenceStart = createPinForm.indexOf(
+  "savePendingUploads(",
+  backgroundPersistenceStart,
+);
+assert(
+  backgroundPersistenceStart >= 0 &&
+    pendingPersistenceStart > backgroundPersistenceStart,
   "pending media persistence should start in the background after the created-memory UI paints",
 );
 

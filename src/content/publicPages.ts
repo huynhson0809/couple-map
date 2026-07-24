@@ -1,3 +1,5 @@
+import { formatPublicPlanPrice } from "../lib/pricingCatalog.ts";
+
 export type PublicLanguage = "vi" | "en";
 
 export type PublicPageKey =
@@ -337,8 +339,8 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         },
         {
           name: "Plus",
-          monthlyPrice: "59.000đ/tháng",
-          annualPrice: "566.000đ/năm",
+          monthlyPrice: formatPublicPlanPrice("vi", "monthly", "plus"),
+          annualPrice: formatPublicPlanPrice("vi", "annual", "plus"),
           description: "Thêm không gian lưu và bản đồ 3D.",
           features: [
             "300 kỷ niệm",
@@ -349,12 +351,13 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         },
         {
           name: "Pro",
-          monthlyPrice: "99.000đ/tháng",
-          annualPrice: "950.000đ/năm",
+          monthlyPrice: formatPublicPlanPrice("vi", "monthly", "pro"),
+          annualPrice: formatPublicPlanPrice("vi", "annual", "pro"),
           description: "Trọn bộ tính năng dành cho người lưu nhiều.",
           features: [
             "500 kỷ niệm",
             "5 ảnh và video cho mỗi kỷ niệm",
+            "Nhắc chuỗi qua email",
             "15 kiểu bản đồ và bản đồ 3D",
             "Danh mục tùy chỉnh không giới hạn",
           ],
@@ -401,8 +404,8 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         },
         {
           name: "Plus",
-          monthlyPrice: "$2.99/month",
-          annualPrice: "$24.99/year",
+          monthlyPrice: formatPublicPlanPrice("en", "monthly", "plus"),
+          annualPrice: formatPublicPlanPrice("en", "annual", "plus"),
           description: "More room and 3D maps.",
           features: [
             "300 memories",
@@ -413,12 +416,13 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         },
         {
           name: "Pro",
-          monthlyPrice: "$4.99/month",
-          annualPrice: "$39.99/year",
+          monthlyPrice: formatPublicPlanPrice("en", "monthly", "pro"),
+          annualPrice: formatPublicPlanPrice("en", "annual", "pro"),
           description: "The complete toolkit for a growing archive.",
           features: [
             "500 memories",
             "5 photos and video per memory",
+            "Email streak reminders",
             "15 map styles and 3D maps",
             "Unlimited custom categories",
           ],

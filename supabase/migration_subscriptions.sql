@@ -143,9 +143,9 @@ begin
 
   -- Determine limit based on plan
   v_limit := case v_couple_plan
-    when 'pro' then 999999999  -- unlimited
+    when 'pro' then 500
     when 'plus' then 300
-    else 100  -- free
+    else 50
   end;
 
   -- Count existing pins for this couple
