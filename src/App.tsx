@@ -11,8 +11,8 @@ import { UpdatePrompt } from "./components/ui/UpdatePrompt";
 import { AnniversaryPrompt } from "./components/onboard/AnniversaryPrompt";
 import { NotificationToast } from "./components/ui/NotificationToast";
 import { LockKeyhole } from "lucide-react";
+import { AppStatusScreen } from "./components/ui/AppStatusScreen";
 import { DesktopGate } from "./components/ui/DesktopGate";
-import { Logo } from "./components/ui/Logo";
 import { WebAnalytics } from "./components/analytics/WebAnalytics";
 import { getImageUrl } from "./lib/cloudinary";
 import { useAuth } from "./hooks/useAuth";
@@ -28,7 +28,7 @@ import { useAccountPreferencesSync } from "./hooks/useAccountPreferencesSync";
 import { NotificationFeedProvider } from "./hooks/NotificationFeedContext";
 import { SubscriptionProvider, useSubscription } from "./hooks/useSubscription";
 import { getPublicPageRouteByPath } from "./content/publicPages";
-import { lazy, Suspense, useEffect, useRef, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 
 const LoginPage = lazy(() =>
   import("./components/auth/LoginPage").then((module) => ({
@@ -124,31 +124,6 @@ const AdminSupportPage = lazy(() =>
     default: module.AdminSupportPage,
   })),
 );
-
-function AppStatusScreen({
-  title,
-  body,
-  children,
-  tone = "idle",
-}: {
-  title: string;
-  body?: string;
-  children?: ReactNode;
-  tone?: "idle" | "error";
-}) {
-  return (
-    <div className={`full-center app-status-screen ${tone}`}>
-      <div className="app-status-card">
-        <div className="app-status-logo">
-          <Logo size={44} />
-        </div>
-        <h2>{title}</h2>
-        {body && <p className="muted">{body}</p>}
-        {children}
-      </div>
-    </div>
-  );
-}
 
 function LocalizedLoadingScreen() {
   const { t } = useI18n();

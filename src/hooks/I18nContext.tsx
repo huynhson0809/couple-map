@@ -89,7 +89,6 @@ const dict = {
     "legal.terms": "Terms of Use",
     "legal.back": "Back",
     "legal.effectiveDate": "Effective date",
-    "legal.loadingConsent": "Checking privacy consent…",
     "legal.consentGateTitle": "Privacy update",
     "legal.consentGateDesc":
       "Please review and accept the latest Terms and Privacy Policy before continuing.",
@@ -809,7 +808,6 @@ const dict = {
     "legal.terms": "Điều khoản sử dụng",
     "legal.back": "Quay lại",
     "legal.effectiveDate": "Ngày hiệu lực",
-    "legal.loadingConsent": "Đang kiểm tra đồng ý quyền riêng tư…",
     "legal.consentGateTitle": "Cập nhật quyền riêng tư",
     "legal.consentGateDesc":
       "Vui lòng xem và chấp nhận Điều khoản cùng Chính sách quyền riêng tư mới nhất trước khi tiếp tục.",

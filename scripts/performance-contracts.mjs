@@ -890,7 +890,8 @@ assert(
     /\/terms/.test(consentGate) &&
     /\/privacy/.test(consentGate) &&
     /consent\.checked/.test(consentGate) &&
-    /legal\.loadingConsent/.test(consentGate) &&
+    /<AppStatusScreen title=\{t\(\"app\.loading\"\)\} \/>/.test(consentGate) &&
+    !/legal\.loadingConsent/.test(consentGate) &&
     /consent\.reloadConsent/.test(consentGate) &&
     /consent\.checked\s*&&\s*consent\.hasCurrentConsent/.test(consentGate) &&
     !/error\s*\|\|\s*consent\.error/.test(consentGate),

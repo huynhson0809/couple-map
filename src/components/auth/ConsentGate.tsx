@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import { useI18n } from "../../hooks/I18nContext";
 import { usePrivacyConsent } from "../../hooks/usePrivacyConsent";
+import { AppStatusScreen } from "../ui/AppStatusScreen";
 import { Button } from "../ui/Button";
 import { GlassSurface } from "../ui/GlassSurface";
 import { Logo } from "../ui/Logo";
@@ -21,6 +22,10 @@ export function ConsentGate({ userId, children }: Props) {
 
   const loadFailed = !consent.checked && Boolean(consent.error);
   const checking = !consent.checked && consent.loading;
+
+  if (checking) {
+    return <AppStatusScreen title={t("app.loading")} />;
+  }
 
   async function handleAccept() {
     setAccepting(true);
@@ -62,13 +67,11 @@ export function ConsentGate({ userId, children }: Props) {
               <ShieldCheck size={24} />
             </div>
             <p>
-              {checking
-                ? t("legal.loadingConsent")
-                : loadFailed
-                  ? t("legal.consentLoadError")
-                  : t("legal.consentGateDesc")}
+              {loadFailed
+                ? t("legal.consentLoadError")
+                : t("legal.consentGateDesc")}
             </p>
-            {!checking && !loadFailed && (
+            {!loadFailed && (
               <>
                 <p className="muted small">{t("legal.mediaDisclosureShort")}</p>
                 <p className="consent-links">
@@ -86,8 +89,7 @@ export function ConsentGate({ userId, children }: Props) {
             <Button
               type="button"
               size="lg"
-              loading={accepting || checking}
-              disabled={checking}
+              loading={accepting}
               onClick={loadFailed ? handleRetry : handleAccept}
             >
               {loadFailed ? t("common.retry") : t("legal.acceptAndContinue")}

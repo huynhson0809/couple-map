@@ -993,6 +993,13 @@ body { -webkit-tap-highlight-color: transparent; }
     inset 0 0 0 0.5px rgba(255, 255, 255, 0.58),
     0 14px 34px rgba(255, 90, 95, 0.14);
 }
+.app-status-screen.idle .app-status-logo {
+  animation: app-status-breathe 1.8s ease-in-out infinite;
+}
+@keyframes app-status-breathe {
+  0%, 100% { transform: scale(0.96); }
+  50% { transform: scale(1.04); }
+}
 [data-theme="dark"] .app-status-logo {
   background: rgba(33, 37, 52, 0.72);
   box-shadow:
@@ -1015,6 +1022,11 @@ body { -webkit-tap-highlight-color: transparent; }
   box-shadow:
     inset 0 0 0 0.5px rgba(255, 255, 255, 0.58),
     0 14px 34px rgba(220, 38, 38, 0.12);
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-status-screen.idle .app-status-logo {
+    animation: none;
+  }
 }
 .muted { color: var(--muted); }
 .small { font-size: 13px; }
