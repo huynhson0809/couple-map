@@ -10,6 +10,7 @@ import {
 } from "../../content/publicPages";
 import { useI18n } from "../../hooks/I18nContext";
 import { Logo } from "../ui/Logo";
+import { PublicSocialLinks } from "./PublicSocialLinks";
 
 const GUIDE_FOOTER_LABELS = {
   vi: {
@@ -122,6 +123,7 @@ export function PublicSiteFooter({ language }: { language: PublicLanguage }) {
           <span>Pinly</span>
         </Link>
         <p>{chrome.footer}</p>
+        <PublicSocialLinks language={language} tone="dark" />
       </div>
       <nav aria-label={chrome.navLabel}>
         {PUBLIC_INFO_PAGE_KEYS.map((key) => (

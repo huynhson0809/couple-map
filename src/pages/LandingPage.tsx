@@ -15,6 +15,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { LandingMapScene } from "../components/landing/LandingMapScene";
+import { PublicSocialLinks } from "../components/public/PublicSocialLinks";
 import { Logo } from "../components/ui/Logo";
 import {
   PUBLIC_INFO_PAGE_KEYS,
@@ -442,6 +443,10 @@ export function LandingPage({
           <span>Pinly</span>
         </div>
         <p>{t("landing.footerTagline")}</p>
+        <div className="lp-footer-meta">
+          <PublicSocialLinks language={language} tone="light" />
+          <small>© 2026 Pinly</small>
+        </div>
         <div className="lp-footer-links">
           {PUBLIC_INFO_PAGE_KEYS.map((key) => (
             <Link
@@ -459,7 +464,6 @@ export function LandingPage({
           </Link>
           <Link to="/login">{t("landing.login")}</Link>
         </div>
-        <small>© 2026 Pinly</small>
       </footer>
     </div>
   );

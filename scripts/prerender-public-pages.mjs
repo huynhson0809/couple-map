@@ -7,12 +7,21 @@ import {
   getLocalizedPublicPath,
   getPublicPageSchema,
 } from "../src/content/publicPages.ts";
+import { resolvePublicSocialLinks } from "../src/config/publicSocialLinks.ts";
 import { getLegalContent } from "../src/lib/legalContent.ts";
 
 const DIST_DIR = resolve("dist");
 const template = readFileSync(resolve(DIST_DIR, "index.html"), "utf8");
 const LANGUAGES = ["en", "vi"];
 const PRIMARY_ORIGIN = "https://pinly.tech";
+const PUBLIC_SOCIAL_LINKS = resolvePublicSocialLinks({
+  VITE_SOCIAL_LINKEDIN_URL: process.env.VITE_SOCIAL_LINKEDIN_URL,
+  VITE_SOCIAL_FACEBOOK_URL: process.env.VITE_SOCIAL_FACEBOOK_URL,
+  VITE_SOCIAL_INSTAGRAM_URL: process.env.VITE_SOCIAL_INSTAGRAM_URL,
+  VITE_SOCIAL_THREADS_URL: process.env.VITE_SOCIAL_THREADS_URL,
+  VITE_SOCIAL_TIKTOK_URL: process.env.VITE_SOCIAL_TIKTOK_URL,
+  VITE_SOCIAL_X_URL: process.env.VITE_SOCIAL_X_URL,
+});
 
 const STATIC_LABELS = {
   en: {
@@ -23,6 +32,7 @@ const STATIC_LABELS = {
     privacy: "Privacy",
     terms: "Terms",
     legal: "Legal information",
+    social: "Follow Pinly",
   },
   vi: {
     pricing: "Bảng giá Pinly",
@@ -32,6 +42,7 @@ const STATIC_LABELS = {
     privacy: "Quyền riêng tư",
     terms: "Điều khoản",
     legal: "Thông tin pháp lý",
+    social: "Theo dõi Pinly",
   },
 };
 
@@ -58,6 +69,24 @@ function replaceMeta(html, attribute, key, value) {
 
 function absolutePublicUrl(basePath, language) {
   return `${PRIMARY_ORIGIN}${getLocalizedPublicPath(basePath, language)}`;
+}
+
+function applyOrganizationSameAs(html) {
+  return html.replace(
+    /"sameAs":\s*\[[^\]]*\]/,
+    `"sameAs": ${JSON.stringify(PUBLIC_SOCIAL_LINKS.map((link) => link.url))}`,
+  );
+}
+
+function renderStaticSocialLinks(language) {
+  if (PUBLIC_SOCIAL_LINKS.length === 0) return "";
+
+  const links = PUBLIC_SOCIAL_LINKS.map(
+    (link) =>
+      `<a href="${escapeHtml(link.url)}" target="_blank" rel="me noopener noreferrer">${escapeHtml(link.label)}</a>`,
+  ).join("");
+
+  return `<nav class="pinly-static-social" aria-label="${STATIC_LABELS[language].social}">${links}</nav>`;
 }
 
 function replaceAlternate(html, hreflang, href) {
@@ -215,6 +244,7 @@ function renderStaticPage(page, language) {
       <footer>
         <strong>Pinly</strong>
         <nav>${links}<a href="${privacyPath}">${STATIC_LABELS[language].privacy}</a><a href="${termsPath}">${STATIC_LABELS[language].terms}</a></nav>
+        ${renderStaticSocialLinks(language)}
         <small>© 2026 Pinly</small>
       </footer>
     </div>`;
@@ -263,6 +293,7 @@ function renderStaticPolicyPage(kind, language) {
       <footer>
         <strong>Pinly</strong>
         <nav>${links}<a href="${privacyPath}">${STATIC_LABELS[language].privacy}</a><a href="${termsPath}">${STATIC_LABELS[language].terms}</a></nav>
+        ${renderStaticSocialLinks(language)}
         <small>© 2026 Pinly</small>
       </footer>
     </div>`;
@@ -277,7 +308,9 @@ function buildPageHtml(page, language) {
   const content = page[language];
   const canonicalUrl = absolutePublicUrl(page.path, language);
   const imageUrl = `${PRIMARY_ORIGIN}${page.image}`;
-  let html = applyLanguageMetadata(template, page.path, language);
+  let html = applyOrganizationSameAs(
+    applyLanguageMetadata(template, page.path, language),
+  );
 
   html = html.replace(
     /<title>[\s\S]*?<\/title>/,
@@ -336,7 +369,9 @@ function buildPolicyHtml(kind, language) {
         ? "Điều khoản sử dụng | Pinly"
         : "Terms of Use | Pinly";
   const imageUrl = `${PRIMARY_ORIGIN}/landing/da-nang-journey-map.jpg`;
-  let html = applyLanguageMetadata(template, basePath, language);
+  let html = applyOrganizationSameAs(
+    applyLanguageMetadata(template, basePath, language),
+  );
 
   html = html.replace(
     /<title>[\s\S]*?<\/title>/,

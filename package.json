@@ -37,6 +37,7 @@
     "check:ai-discoverability": "node scripts/ai-discoverability-contract.mjs",
     "check:web-analytics": "node --experimental-strip-types scripts/web-analytics-contract.mjs",
     "check:public-policy-layout": "node scripts/public-policy-layout-contract.mjs",
+    "check:public-social-links": "node --experimental-strip-types scripts/public-social-links-contract.mjs",
     "check:landing-homepage": "node scripts/landing-homepage-contract.mjs",
     "check:social-login": "node scripts/social-login-contract.mjs",
     "check:space-member-quota": "node scripts/space-member-quota-contract.mjs",

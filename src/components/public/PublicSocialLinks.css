@@ -1,0 +1,78 @@
+.public-social-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.public-social-link {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid;
+  border-radius: 50%;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.public-social-link svg {
+  width: 17px;
+  height: 17px;
+  overflow: visible;
+  fill: currentColor;
+  stroke: none;
+}
+
+.public-social-link svg rect,
+.public-social-link svg circle {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+}
+
+.public-social-link svg.public-social-icon--threads {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.85;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.public-social-link svg .public-social-icon-dot {
+  fill: currentColor;
+  stroke: none;
+}
+
+.public-social-links--light .public-social-link {
+  color: #414751;
+  border-color: rgba(20, 24, 31, 0.14);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.public-social-links--dark .public-social-link {
+  color: #f4f5f8;
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.public-social-link:hover {
+  color: #ff565c;
+  border-color: rgba(255, 86, 92, 0.46);
+  background: rgba(255, 86, 92, 0.08);
+  transform: translateY(-2px);
+}
+
+.public-social-link:focus-visible {
+  outline: 3px solid rgba(255, 86, 92, 0.28);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-social-link {
+    transition: none;
+  }
+}

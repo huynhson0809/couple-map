@@ -532,6 +532,10 @@
   color: #aeb4c0;
 }
 
+.public-footer-top .public-social-links {
+  flex-shrink: 0;
+}
+
 .public-footer nav {
   display: flex;
   flex-wrap: wrap;

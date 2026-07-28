@@ -954,6 +954,13 @@
   font-size: 13px;
 }
 
+.lp-footer-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+}
+
 .lp-footer-links {
   display: flex;
   grid-column: 1 / -1;
@@ -1483,14 +1490,19 @@
   }
 
   .lp-footer {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
     gap: 22px;
     padding: 28px 20px;
   }
 
+  .lp-footer-meta {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
   .lp-footer-links {
     grid-column: 1 / -1;
-    grid-row: 2;
+    grid-row: auto;
     gap: 18px;
   }
 }
