@@ -8,6 +8,7 @@ export type PublicPageKey =
   | "features"
   | "pricing"
   | "faq"
+  | "careers"
   | "memoryMapGuide"
   | "travelJournalGuide";
 
@@ -60,6 +61,7 @@ export const PUBLIC_CHROME = {
     features: "Tính năng",
     pricing: "Bảng giá",
     faq: "Hỏi đáp",
+    careers: "Cùng xây Pinly",
     guides: "Hướng dẫn",
     login: "Đăng nhập",
     register: "Bắt đầu miễn phí",
@@ -77,6 +79,7 @@ export const PUBLIC_CHROME = {
     features: "Features",
     pricing: "Pricing",
     faq: "FAQ",
+    careers: "Join Pinly",
     guides: "Guides",
     login: "Log in",
     register: "Start for free",
@@ -89,6 +92,215 @@ export const PUBLIC_CHROME = {
       "Pinly is a private memory map for individuals and the people they trust.",
   },
 } as const;
+
+export type CareersPageContent = {
+  heroEyebrow: string;
+  heroTitle: string;
+  heroDescription: string;
+  primaryAction: string;
+  secondaryAction: string;
+  facts: Array<{ label: string; value: string }>;
+  whyEyebrow: string;
+  whyTitle: string;
+  whyParagraphs: string[];
+  responsibilitiesEyebrow: string;
+  responsibilitiesTitle: string;
+  responsibilitiesIntro: string;
+  responsibilities: string[];
+  fitEyebrow: string;
+  fitTitle: string;
+  fitNote: string;
+  fitItems: string[];
+  offerEyebrow: string;
+  offerTitle: string;
+  offerIntro: string;
+  offerItems: string[];
+  processEyebrow: string;
+  processTitle: string;
+  processDescription: string;
+  process: Array<{ title: string; description: string }>;
+  applyEyebrow: string;
+  applyTitle: string;
+  applyDescription: string;
+  applyAction: string;
+  applyEmailLabel: string;
+  applicationNote: string;
+};
+
+export const CAREERS_CONTENT: Record<PublicLanguage, CareersPageContent> = {
+  vi: {
+    heroEyebrow: "Cùng xây Pinly",
+    heroTitle: "Founding Growth Partner tại Pinly",
+    heroDescription:
+      "Đồng hành cùng founder để tìm nhóm người dùng đầu tiên và xây con đường tăng trưởng cho một sản phẩm bản đồ kỷ niệm đang hoạt động. Pinly hiện ở giai đoạn pre-revenue và chưa có lương cố định.",
+    primaryAction: "Bắt đầu trao đổi",
+    secondaryAction: "Tìm hiểu vai trò",
+    facts: [
+      { label: "Giai đoạn", value: "Pre-revenue" },
+      { label: "Cam kết", value: "Bán thời gian · Linh hoạt" },
+      { label: "Hiện tại", value: "Chưa có lương cố định" },
+    ],
+    whyEyebrow: "Vì sao là lúc này",
+    whyTitle: "Không phải một vị trí nhân viên. Đây là lời mời cùng xây.",
+    whyParagraphs: [
+      "Pinly giúp mỗi người lưu địa điểm, ảnh, video và câu chuyện trên một bản đồ kỷ niệm riêng tư. Sản phẩm đã hoạt động nhưng vẫn đang ở giai đoạn rất sớm: cần hiểu sâu hơn ai thực sự cần Pinly, điều gì khiến họ bắt đầu và vì sao họ quay lại.",
+      "Pinly tìm một cộng sự tăng trưởng có thể cùng founder chịu trách nhiệm cho bài toán 0 đến 1. Bạn sẽ trực tiếp trò chuyện với người dùng, thử thông điệp và kênh phân phối, rồi đưa những gì học được trở lại sản phẩm. Đây là sự đồng hành có rủi ro và ảnh hưởng thật, không phải một công việc marketing được giao sẵn.",
+    ],
+    responsibilitiesEyebrow: "Phạm vi công việc",
+    responsibilitiesTitle: "Bạn sẽ giúp Pinly được tìm thấy và được nhớ đến",
+    responsibilitiesIntro:
+      "Bạn cùng xác định vấn đề, trực tiếp thực thi và chịu trách nhiệm cho điều học được sau mỗi thử nghiệm.",
+    responsibilities: [
+      "Làm rõ định vị và thông điệp cho các nhu cầu dùng Pinly một mình, khi đi du lịch hoặc cùng người được mời.",
+      "Thiết kế các thử nghiệm tăng trưởng gọn nhẹ trên SEO, social, video ngắn, cộng đồng và partnership.",
+      "Xây nhịp nội dung có chủ đích, từ ý tưởng đến sản xuất, phân phối và tái sử dụng nội dung hiệu quả.",
+      "Trao đổi với người dùng, tổng hợp insight và chuyển chúng thành đề xuất cho cả marketing lẫn sản phẩm.",
+      "Theo dõi những chỉ số có ý nghĩa như traffic phù hợp, activation, conversion và retention; ghi lại điều đã học sau mỗi thử nghiệm.",
+    ],
+    fitEyebrow: "Cách bạn làm việc",
+    fitTitle: "Bạn có thể hợp với Pinly nếu",
+    fitNote:
+      "Vai trò phù hợp nhất với người đang có nguồn thu ổn định khác, muốn dành thời gian đều đặn mỗi tuần cho một sản phẩm giai đoạn đầu và hiểu rõ rủi ro của startup pre-revenue.",
+    fitItems: [
+      "Viết tiếng Việt tự nhiên, có khả năng làm việc với nội dung tiếng Anh.",
+      "Có thể tự đi từ vấn đề, ý tưởng, thực thi đến đo lường thay vì chỉ dừng ở kế hoạch.",
+      "Quan tâm tới sản phẩm và hành vi người dùng, không xem marketing là phần đứng tách biệt.",
+      "Hiểu những chỉ số digital marketing cơ bản và biết đặt câu hỏi khi dữ liệu chưa đủ.",
+      "Thoải mái với nhịp làm việc startup: ưu tiên, thử nhỏ, học nhanh, tự chủ và giao tiếp thẳng thắn.",
+    ],
+    offerEyebrow: "Cách đồng hành",
+    offerTitle: "Minh bạch về rủi ro và quyền lợi",
+    offerIntro:
+      "Pinly hiện chưa có lương cố định cho vai trò này. Trước khi bắt đầu, hai bên sẽ thống nhất bằng văn bản về phạm vi, thời gian, quyền quyết định, quyền sở hữu công việc, cơ chế quyền lợi dài hạn và mốc xem xét thu nhập khi sản phẩm có doanh thu.",
+    offerItems: [
+      "Làm việc trực tiếp với founder và tham gia các quyết định về sản phẩm, định vị và tăng trưởng.",
+      "Cộng tác bán thời gian, remote-friendly, không độc quyền và ưu tiên kết quả thay vì giờ làm cố định.",
+      "Cùng xây nền tảng thương hiệu và cách vận hành growth thay vì tiếp quản một quy trình cứng.",
+      "Thảo luận rõ cơ chế quyền lợi dài hạn phù hợp với cấu trúc pháp lý của Pinly, chẳng hạn quyền sở hữu hoặc chia sẻ doanh thu.",
+      "Ưu tiên xem xét thu nhập bằng tiền khi Pinly đạt mốc doanh thu đã được hai bên thống nhất trước.",
+    ],
+    processEyebrow: "Quy trình tìm hiểu",
+    processTitle: "Gọn, thẳng và tôn trọng thời gian của nhau",
+    processDescription:
+      "Không có bài test dài hay yêu cầu làm chiến dịch miễn phí.",
+    process: [
+      {
+        title: "Gửi lời chào",
+        description:
+          "Giới thiệu ngắn về bạn, kèm 2-3 dự án hoặc nội dung thể hiện rõ cách bạn suy nghĩ và thực thi.",
+      },
+      {
+        title: "Trò chuyện 30 phút",
+        description:
+          "Cùng trao đổi về Pinly, điều bạn muốn xây và kỳ vọng thực tế của hai bên.",
+      },
+      {
+        title: "Cùng giải một tình huống",
+        description:
+          "Thảo luận trực tiếp một bài toán marketing hiện tại để hiểu cách hai bên làm việc, không yêu cầu bạn chuẩn bị một chiến dịch hoàn chỉnh.",
+      },
+      {
+        title: "Thống nhất cách bắt đầu",
+        description:
+          "Ghi nhận bằng văn bản phạm vi, thời gian, quyền quyết định, quyền lợi dài hạn, mốc xem xét thu nhập và một mục tiêu đầu tiên đủ rõ để cùng triển khai.",
+      },
+    ],
+    applyEyebrow: "Kết nối",
+    applyTitle: "Muốn cùng Pinly tìm những người dùng đầu tiên?",
+    applyDescription:
+      "Gửi một email ngắn về bạn, những sản phẩm hoặc nội dung bạn tự hào, thời gian có thể cam kết mỗi tuần và điều khiến bạn muốn đồng hành cùng Pinly ở giai đoạn pre-revenue.",
+    applyAction: "Bắt đầu trao đổi qua email",
+    applyEmailLabel: "Email liên hệ",
+    applicationNote:
+      "Đây là lời mời trao đổi về một vai trò cộng sự sáng lập, không phải đề nghị tuyển dụng nhân viên. Thông tin bạn gửi chỉ được dùng cho cuộc trao đổi này.",
+  },
+  en: {
+    heroEyebrow: "Build Pinly with us",
+    heroTitle: "Founding Growth Partner at Pinly",
+    heroDescription:
+      "Work alongside the founder to find Pinly's first core users and build a path to growth for a working memory-map product. Pinly is currently pre-revenue and this role does not yet include a fixed salary.",
+    primaryAction: "Start a conversation",
+    secondaryAction: "Understand the role",
+    facts: [
+      { label: "Stage", value: "Pre-revenue" },
+      { label: "Commitment", value: "Part-time · Flexible" },
+      { label: "Current pay", value: "No fixed salary yet" },
+    ],
+    whyEyebrow: "Why now",
+    whyTitle: "This is not an employee opening. It is an invitation to build.",
+    whyParagraphs: [
+      "Pinly helps people keep places, photos, videos, and stories together on a private memory map. The product works, but it is still very early: we need to learn who truly needs Pinly, what gets them started, and what brings them back.",
+      "Pinly is looking for a growth partner who can share ownership of that zero-to-one problem with the founder. You will talk with users, test messages and distribution channels, and feed what we learn back into the product. This is a collaboration with real risk and influence, not a predefined marketing job.",
+    ],
+    responsibilitiesEyebrow: "What you will own",
+    responsibilitiesTitle: "Help Pinly get discovered and remembered",
+    responsibilitiesIntro:
+      "You will help define the problem, execute directly, and own what we learn from each experiment.",
+    responsibilities: [
+      "Clarify positioning and messaging for solo memory keeping, travel, and sharing with invited people.",
+      "Design lean growth experiments across SEO, social, short-form video, communities, and partnerships.",
+      "Build a purposeful content rhythm from ideation and production through distribution and reuse.",
+      "Talk with users, synthesize insight, and turn it into recommendations for both marketing and product.",
+      "Track useful signals such as qualified traffic, activation, conversion, and retention, then document what each experiment teaches us.",
+    ],
+    fitEyebrow: "How you work",
+    fitTitle: "You may be a strong fit if",
+    fitNote:
+      "This role is best suited to someone with another stable source of income who can contribute consistently each week and understands the risk of joining a pre-revenue startup.",
+    fitItems: [
+      "You write naturally in Vietnamese and can work confidently with English-language content.",
+      "You can move from problem to idea, execution, and measurement instead of stopping at the plan.",
+      "You care about product behavior and customer context, not marketing in isolation.",
+      "You understand core digital metrics and know what to ask when the data is incomplete.",
+      "You are comfortable with startup work: prioritize, test small, learn quickly, work autonomously, and communicate plainly.",
+    ],
+    offerEyebrow: "How we collaborate",
+    offerTitle: "Clear about both risk and upside",
+    offerIntro:
+      "Pinly cannot currently offer a fixed salary for this role. Before any work begins, both sides will document the scope, time commitment, decision rights, ownership of work, long-term upside, and the revenue milestone that triggers a cash-compensation review.",
+    offerItems: [
+      "Work directly with the founder and contribute to product, positioning, and growth decisions.",
+      "Collaborate part-time, remotely, and non-exclusively, with outcomes taking priority over fixed hours.",
+      "Build the brand foundation and growth operating rhythm rather than inherit a rigid playbook.",
+      "Agree on a long-term upside structure that fits Pinly's legal setup, such as ownership or revenue sharing.",
+      "Prioritize cash compensation once Pinly reaches a revenue milestone agreed in advance.",
+    ],
+    processEyebrow: "Getting to know each other",
+    processTitle: "Focused, direct, and respectful of your time",
+    processDescription:
+      "There is no long take-home test and no request for a free campaign.",
+    process: [
+      {
+        title: "Say hello",
+        description:
+          "Share a short introduction and 2-3 projects or pieces of work that show how you think and execute.",
+      },
+      {
+        title: "A 30-minute conversation",
+        description:
+          "We will talk about Pinly, what you want to build, and the practical expectations on both sides.",
+      },
+      {
+        title: "Work through a real situation",
+        description:
+          "We will discuss a current marketing problem together to understand how we collaborate, without asking you to prepare a full campaign.",
+      },
+      {
+        title: "Agree on the starting point",
+        description:
+          "We will document the scope, time commitment, decision rights, long-term upside, compensation-review milestone, and one clear first outcome to pursue together.",
+      },
+    ],
+    applyEyebrow: "Connect",
+    applyTitle: "Want to help Pinly find its first core users?",
+    applyDescription:
+      "Send a short email about yourself, work you are proud of, the time you can commit each week, and what interests you about building Pinly at the pre-revenue stage.",
+    applyAction: "Start the conversation by email",
+    applyEmailLabel: "Contact email",
+    applicationNote:
+      "This is an invitation to discuss a founding collaboration, not an offer of employment. We use the information you send only for this conversation.",
+  },
+};
 
 export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
   home: {
@@ -537,6 +749,80 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
       ctaTitle: "Still have a question?",
       ctaDescription:
         "Signed-in users can send a question or bug report from the Support Center in Settings.",
+    },
+  },
+  careers: {
+    key: "careers",
+    path: "/careers",
+    schemaType: "WebPage",
+    image: "/landing/rooftop-da-nang-feature.jpg",
+    vi: {
+      eyebrow: CAREERS_CONTENT.vi.heroEyebrow,
+      title: CAREERS_CONTENT.vi.heroTitle,
+      description: CAREERS_CONTENT.vi.heroDescription,
+      metaTitle: "Founding Growth Partner tại Pinly | Cùng xây từ giai đoạn đầu",
+      metaDescription:
+        "Pinly tìm Founding Growth Partner đồng hành bán thời gian ở giai đoạn pre-revenue. Hiện chưa có lương cố định; quyền lợi dài hạn được thống nhất trước khi bắt đầu.",
+      sections: [
+        {
+          title: CAREERS_CONTENT.vi.whyTitle,
+          paragraphs: CAREERS_CONTENT.vi.whyParagraphs,
+        },
+        {
+          title: CAREERS_CONTENT.vi.responsibilitiesTitle,
+          paragraphs: [CAREERS_CONTENT.vi.responsibilitiesIntro],
+          bullets: CAREERS_CONTENT.vi.responsibilities,
+        },
+        {
+          title: CAREERS_CONTENT.vi.fitTitle,
+          paragraphs: [CAREERS_CONTENT.vi.fitNote],
+          bullets: CAREERS_CONTENT.vi.fitItems,
+        },
+        {
+          title: CAREERS_CONTENT.vi.offerTitle,
+          paragraphs: [CAREERS_CONTENT.vi.offerIntro],
+          bullets: CAREERS_CONTENT.vi.offerItems,
+        },
+      ],
+      steps: CAREERS_CONTENT.vi.process.map(
+        (step) => `${step.title}: ${step.description}`,
+      ),
+      ctaTitle: CAREERS_CONTENT.vi.applyTitle,
+      ctaDescription: CAREERS_CONTENT.vi.applyDescription,
+    },
+    en: {
+      eyebrow: CAREERS_CONTENT.en.heroEyebrow,
+      title: CAREERS_CONTENT.en.heroTitle,
+      description: CAREERS_CONTENT.en.heroDescription,
+      metaTitle: "Founding Growth Partner at Pinly | Build from day one",
+      metaDescription:
+        "Join Pinly as a part-time Founding Growth Partner at the pre-revenue stage. There is no fixed salary yet; long-term upside is agreed before work begins.",
+      sections: [
+        {
+          title: CAREERS_CONTENT.en.whyTitle,
+          paragraphs: CAREERS_CONTENT.en.whyParagraphs,
+        },
+        {
+          title: CAREERS_CONTENT.en.responsibilitiesTitle,
+          paragraphs: [CAREERS_CONTENT.en.responsibilitiesIntro],
+          bullets: CAREERS_CONTENT.en.responsibilities,
+        },
+        {
+          title: CAREERS_CONTENT.en.fitTitle,
+          paragraphs: [CAREERS_CONTENT.en.fitNote],
+          bullets: CAREERS_CONTENT.en.fitItems,
+        },
+        {
+          title: CAREERS_CONTENT.en.offerTitle,
+          paragraphs: [CAREERS_CONTENT.en.offerIntro],
+          bullets: CAREERS_CONTENT.en.offerItems,
+        },
+      ],
+      steps: CAREERS_CONTENT.en.process.map(
+        (step) => `${step.title}: ${step.description}`,
+      ),
+      ctaTitle: CAREERS_CONTENT.en.applyTitle,
+      ctaDescription: CAREERS_CONTENT.en.applyDescription,
     },
   },
   memoryMapGuide: {

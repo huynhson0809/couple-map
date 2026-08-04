@@ -80,6 +80,11 @@ const PublicContentPage = lazy(() =>
     default: module.PublicContentPage,
   })),
 );
+const CareersPage = lazy(() =>
+  import("./pages/CareersPage").then((module) => ({
+    default: module.CareersPage,
+  })),
+);
 const PublicPolicyPage = lazy(() =>
   import("./pages/PublicPolicyPage").then((module) => ({
     default: module.PublicPolicyPage,
@@ -305,6 +310,15 @@ function AppRoutes() {
   useAccountPreferencesSync(user?.id);
   const location = useLocation();
   const publicRoute = getPublicPageRouteByPath(location.pathname);
+
+  if (publicRoute?.page.key === "careers") {
+    return (
+      <>
+        <CareersPage language={publicRoute.language} />
+        <WebAnalytics />
+      </>
+    );
+  }
 
   if (publicRoute && publicRoute.page.key !== "home") {
     return (

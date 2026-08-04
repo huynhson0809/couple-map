@@ -78,6 +78,7 @@
     { "source": "/features", "destination": "/features/index.html" },
     { "source": "/pricing", "destination": "/pricing/index.html" },
     { "source": "/faq", "destination": "/faq/index.html" },
+    { "source": "/careers", "destination": "/careers/index.html" },
     {
       "source": "/guides/memory-map",
       "destination": "/guides/memory-map/index.html"
@@ -96,6 +97,10 @@
     },
     { "source": "/vi/pricing", "destination": "/vi/pricing/index.html" },
     { "source": "/vi/faq", "destination": "/vi/faq/index.html" },
+    {
+      "source": "/vi/careers",
+      "destination": "/vi/careers/index.html"
+    },
     {
       "source": "/vi/guides/memory-map",
       "destination": "/vi/guides/memory-map/index.html"

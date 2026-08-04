@@ -88,6 +88,12 @@ export function PublicSiteHeader({
         >
           {chrome.faq}
         </Link>
+        <Link
+          to={getLocalizedPublicPath("/careers", language)}
+          aria-current={activePageKey === "careers" ? "page" : undefined}
+        >
+          {chrome.careers}
+        </Link>
       </nav>
 
       <div className="public-nav-actions">

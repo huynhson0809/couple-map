@@ -26,6 +26,18 @@ assert.equal(
   "package.json should expose the public social links contract.",
 );
 
+assert.deepEqual(
+  resolvePublicSocialLinks({}),
+  [
+    {
+      id: "linkedin",
+      label: "LinkedIn",
+      url: "https://www.linkedin.com/company/pinly-tech",
+    },
+  ],
+  "The official Pinly LinkedIn page should be available without deployment configuration.",
+);
+
 const validLinks = resolvePublicSocialLinks({
   VITE_SOCIAL_LINKEDIN_URL: "https://www.linkedin.com/company/pinly-tech",
   VITE_SOCIAL_FACEBOOK_URL: "https://facebook.com/pinly.tech",
@@ -44,10 +56,16 @@ const invalidLinks = resolvePublicSocialLinks({
   VITE_SOCIAL_TIKTOK_URL: "",
   VITE_SOCIAL_X_URL: "not-a-url",
 });
-assert.equal(
-  invalidLinks.length,
-  0,
-  "Unsafe, generic, and off-platform URLs should remain hidden.",
+assert.deepEqual(
+  invalidLinks,
+  [
+    {
+      id: "linkedin",
+      label: "LinkedIn",
+      url: "https://www.linkedin.com/company/pinly-tech",
+    },
+  ],
+  "Unsafe profile URLs should remain hidden while LinkedIn falls back to the official page.",
 );
 
 for (const key of [

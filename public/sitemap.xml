@@ -63,6 +63,18 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/faq" />
   </url>
   <url>
+    <loc>https://pinly.tech/careers</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/careers" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/careers" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/careers" />
+  </url>
+  <url>
+    <loc>https://pinly.tech/vi/careers</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/careers" />
+    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/careers" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/careers" />
+  </url>
+  <url>
     <loc>https://pinly.tech/guides/memory-map</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/guides/memory-map" />
     <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/guides/memory-map" />

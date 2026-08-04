@@ -23,10 +23,11 @@ import "./PublicContentPage.css";
 
 const FEATURED_RELATED_KEYS: Record<PublicPageKey, PublicPageKey[]> = {
   home: ["about", "features", "faq"],
-  about: ["features", "memoryMapGuide", "faq"],
+  about: ["features", "careers", "faq"],
   features: ["pricing", "memoryMapGuide", "faq"],
   pricing: ["features", "faq", "memoryMapGuide"],
   faq: ["about", "pricing", "memoryMapGuide"],
+  careers: ["about", "features", "pricing"],
   memoryMapGuide: ["travelJournalGuide", "features", "faq"],
   travelJournalGuide: ["memoryMapGuide", "features", "pricing"],
 };

@@ -7,6 +7,10 @@ import {
   getLocalizedPublicPath,
   getPublicPageSchema,
 } from "../src/content/publicPages.ts";
+import {
+  DEFAULT_CAREERS_EMAIL,
+  createCareersMailto,
+} from "../src/config/careers.ts";
 import { resolvePublicSocialLinks } from "../src/config/publicSocialLinks.ts";
 import { getLegalContent } from "../src/lib/legalContent.ts";
 
@@ -29,6 +33,7 @@ const STATIC_LABELS = {
     steps: "How it works",
     questions: "Frequently asked questions",
     account: "Create a Pinly account",
+    apply: "Start a conversation",
     privacy: "Privacy",
     terms: "Terms",
     legal: "Legal information",
@@ -39,6 +44,7 @@ const STATIC_LABELS = {
     steps: "Cách thực hiện",
     questions: "Câu hỏi thường gặp",
     account: "Tạo tài khoản Pinly",
+    apply: "Bắt đầu trao đổi",
     privacy: "Quyền riêng tư",
     terms: "Điều khoản",
     legal: "Thông tin pháp lý",
@@ -211,6 +217,14 @@ function renderStaticPage(page, language) {
   const homePath = getLocalizedPublicPath("/", language);
   const privacyPath = getLocalizedPublicPath("/privacy", language);
   const termsPath = getLocalizedPublicPath("/terms", language);
+  const isCareersPage = page.key === "careers";
+  const careersEmail = DEFAULT_CAREERS_EMAIL;
+  const bottomCtaHref = isCareersPage
+    ? createCareersMailto(careersEmail, language)
+    : "/register";
+  const bottomCtaLabel = isCareersPage
+    ? STATIC_LABELS[language].apply
+    : STATIC_LABELS[language].account;
 
   return `
     <div id="pinly-prerender" class="pinly-prerender">
@@ -238,7 +252,7 @@ function renderStaticPage(page, language) {
         <section class="pinly-static-bottom">
           <h2>${escapeHtml(content.ctaTitle)}</h2>
           <p>${escapeHtml(content.ctaDescription)}</p>
-          <a class="pinly-static-cta" href="/register">${STATIC_LABELS[language].account}</a>
+          <a class="pinly-static-cta" href="${escapeHtml(bottomCtaHref)}">${bottomCtaLabel}</a>
         </section>
       </main>
       <footer>

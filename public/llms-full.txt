@@ -11,6 +11,7 @@ individually or shared with an invited person.
 - Features: https://pinly.tech/features
 - Pricing: https://pinly.tech/pricing
 - Frequently asked questions: https://pinly.tech/faq
+- Careers and open roles: https://pinly.tech/careers
 - How to create a personal memory map: https://pinly.tech/guides/memory-map
 - How to create a map-based travel journal: https://pinly.tech/guides/travel-memory-journal
 - Privacy policy: https://pinly.tech/privacy
@@ -22,6 +23,7 @@ individually or shared with an invited person.
 - Tính năng: https://pinly.tech/vi/features
 - Bảng giá: https://pinly.tech/vi/pricing
 - Câu hỏi thường gặp: https://pinly.tech/vi/faq
+- Tuyển dụng và vị trí đang mở: https://pinly.tech/vi/careers
 - Hướng dẫn tạo bản đồ kỷ niệm: https://pinly.tech/vi/guides/memory-map
 - Hướng dẫn làm nhật ký hành trình: https://pinly.tech/vi/guides/travel-memory-journal
 - Chính sách quyền riêng tư: https://pinly.tech/vi/privacy
@@ -156,6 +158,24 @@ No. Pinly is a Progressive Web App that runs in the browser. Add it to your Home
 ### What happens when I exceed a plan limit?
 
 Pinly does not automatically delete existing memories. You can continue viewing them, but cannot add more until usage is reduced or the plan is upgraded.
+
+---
+
+## Build Pinly with us
+
+Pinly is looking for a part-time Founding Growth Partner to work directly with the founder on finding the product's first core users and building a repeatable path to growth.
+
+This is a flexible, remote-friendly, non-exclusive founding collaboration focused on growth, content, community, and product insight. Pinly is pre-revenue and cannot currently offer a fixed salary. It is not presented as an employee opening.
+
+### Core responsibilities
+
+- Clarify positioning and messaging for solo memory keeping, travel, and private sharing.
+- Run lean experiments across SEO, social, short-form video, communities, and partnerships.
+- Build a repeatable content rhythm from production through distribution and reuse.
+- Talk with users and turn insight into recommendations for marketing and product.
+- Track qualified traffic, activation, conversion, and retention.
+
+Before work begins, both sides document the scope, time commitment, decision rights, ownership of work, long-term upside, and the revenue milestone for reviewing cash compensation. Conversations begin through the contact email linked on https://pinly.tech/careers.
 
 ---
 

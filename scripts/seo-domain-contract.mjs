@@ -24,6 +24,7 @@ const EXPECTED_PUBLIC_PATHS = [
   "/features",
   "/pricing",
   "/faq",
+  "/careers",
   "/guides/memory-map",
   "/guides/travel-memory-journal",
   "/privacy",

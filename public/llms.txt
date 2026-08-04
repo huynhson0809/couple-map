@@ -13,6 +13,7 @@ individually or shared with an invited person.
 - Features: https://pinly.tech/features
 - Pricing: https://pinly.tech/pricing
 - Frequently asked questions: https://pinly.tech/faq
+- Build Pinly with us: https://pinly.tech/careers
 - How to create a personal memory map: https://pinly.tech/guides/memory-map
 - How to create a map-based travel journal: https://pinly.tech/guides/travel-memory-journal
 - Privacy policy: https://pinly.tech/privacy
@@ -24,6 +25,7 @@ individually or shared with an invited person.
 - Tính năng: https://pinly.tech/vi/features
 - Bảng giá: https://pinly.tech/vi/pricing
 - Câu hỏi thường gặp: https://pinly.tech/vi/faq
+- Cùng xây Pinly: https://pinly.tech/vi/careers
 - Hướng dẫn tạo bản đồ kỷ niệm: https://pinly.tech/vi/guides/memory-map
 - Hướng dẫn làm nhật ký hành trình: https://pinly.tech/vi/guides/travel-memory-journal
 - Chính sách quyền riêng tư: https://pinly.tech/vi/privacy

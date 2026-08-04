@@ -4,36 +4,42 @@ export const PUBLIC_SOCIAL_PLATFORMS = [
     label: "LinkedIn",
     environmentKey: "VITE_SOCIAL_LINKEDIN_URL",
     hosts: ["linkedin.com"],
+    defaultUrl: "https://www.linkedin.com/company/pinly-tech",
   },
   {
     id: "facebook",
     label: "Facebook",
     environmentKey: "VITE_SOCIAL_FACEBOOK_URL",
     hosts: ["facebook.com", "fb.com"],
+    defaultUrl: undefined,
   },
   {
     id: "instagram",
     label: "Instagram",
     environmentKey: "VITE_SOCIAL_INSTAGRAM_URL",
     hosts: ["instagram.com"],
+    defaultUrl: undefined,
   },
   {
     id: "threads",
     label: "Threads",
     environmentKey: "VITE_SOCIAL_THREADS_URL",
     hosts: ["threads.net"],
+    defaultUrl: undefined,
   },
   {
     id: "tiktok",
     label: "TikTok",
     environmentKey: "VITE_SOCIAL_TIKTOK_URL",
     hosts: ["tiktok.com"],
+    defaultUrl: undefined,
   },
   {
     id: "x",
     label: "X",
     environmentKey: "VITE_SOCIAL_X_URL",
     hosts: ["x.com", "twitter.com"],
+    defaultUrl: undefined,
   },
 ] as const;
 
@@ -84,10 +90,13 @@ export function resolvePublicSocialLinks(
   environment: PublicSocialEnvironment,
 ): PublicSocialLink[] {
   return PUBLIC_SOCIAL_PLATFORMS.flatMap((platform) => {
-    const url = normalizeProfileUrl(
+    const configuredUrl = normalizeProfileUrl(
       environment[platform.environmentKey],
       platform.hosts,
     );
+    const url =
+      configuredUrl ??
+      normalizeProfileUrl(platform.defaultUrl, platform.hosts);
     return url
       ? [{ id: platform.id, label: platform.label, url }]
       : [];

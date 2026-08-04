@@ -21,6 +21,7 @@ const publicPaths = [
   "/features",
   "/pricing",
   "/faq",
+  "/careers",
   "/guides/memory-map",
   "/guides/travel-memory-journal",
 ];
