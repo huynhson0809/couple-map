@@ -246,7 +246,12 @@ function PinsScope() {
   const scopedUserId = spaceProfile?.id ?? coupleProfile?.id;
 
   return (
-    <SubscriptionProvider spaceId={scopedId} userId={scopedUserId}>
+    <SubscriptionProvider
+      spaceId={scopedId}
+      userId={scopedUserId}
+      spaceOwnerIdHint={activeSpace?.owner_id ?? null}
+      spacePlanHint={activeSpace?.plan ?? null}
+    >
       <PinsProvider spaceId={scopedId} userId={scopedUserId}>
         <CategoriesProvider spaceId={scopedId} userId={scopedUserId}>
           <RoutedShell />

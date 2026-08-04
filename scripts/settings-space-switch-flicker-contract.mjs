@@ -53,7 +53,7 @@ assert.doesNotMatch(
 
 assert.match(
   subscriptionProvider,
-  /if \(!hasLoadedPlanOnceRef\.current\) setLoading\(true\);/,
+  /else if \(!hasLoadedPlanOnceRef\.current\)\s*{\s*setLoading\(true\);/,
   "Plan refetches after the first load should keep the current Settings UI mounted.",
 );
 
@@ -80,8 +80,8 @@ assert.match(
 );
 assert.match(
   appShell,
-  /<SubscriptionProvider spaceId=\{scopedId\} userId=\{scopedUserId\}>/,
-  "SubscriptionProvider must receive the authenticated account scope.",
+  /<SubscriptionProvider[\s\S]*spaceId=\{scopedId\}[\s\S]*userId=\{scopedUserId\}[\s\S]*spaceOwnerIdHint=\{activeSpace\?\.owner_id \?\? null\}[\s\S]*spacePlanHint=\{activeSpace\?\.plan \?\? null\}/,
+  "SubscriptionProvider must receive the authenticated account and active-space fallback scope.",
 );
 assert.match(
   subscriptionProvider,
@@ -92,4 +92,29 @@ assert.match(
   subscriptionProvider,
   /activeSpaceWritable =\s*activeSpaceContextResolved && effectiveContext\.currentSpaceWritable/,
   "Writes must stay disabled while the next space's entitlement context is unresolved.",
+);
+assert.match(
+  subscriptionProvider,
+  /SPACE_SUBSCRIPTION_TIMEOUT_MS[\s\S]*withTimeout\([\s\S]*get_subscription_context_for_space/,
+  "Space subscription loading must have a bounded timeout.",
+);
+assert.match(
+  subscriptionProvider,
+  /readCachedSubscriptionContext[\s\S]*writeCachedSubscriptionContext/,
+  "The last verified subscription context must survive transient API failures.",
+);
+assert.match(
+  subscriptionProvider,
+  /createFallbackSubscriptionContext[\s\S]*spaceOwnerIdHint === targetUserId/,
+  "Owned spaces must recover their plan from the independent account subscription load.",
+);
+assert.match(
+  subscriptionProvider,
+  /applyAccountPlanToOwnedSpaceContext[\s\S]*currentContextMatches \? currentSpaceContext\.source : "fallback"/,
+  "A direct account-plan response must refresh the active owned space without discarding verified quota state.",
+);
+assert.match(
+  subscriptionProvider,
+  /latestContext = resolvedSpaceContextRef\.current[\s\S]*latestContextMatches \? latestContext\.context : null/,
+  "A late failed RPC must not overwrite a newer account-plan fallback.",
 );
