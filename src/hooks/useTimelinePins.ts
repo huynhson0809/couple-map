@@ -39,18 +39,21 @@ async function fetchTimelinePinPageIds(
   filters: TimelinePinFilters,
   offset: number,
 ): Promise<TimelinePinPageId[]> {
-  const { data, error } = await supabase
-    .rpc("get_timeline_pin_page_ids", {
-      in_couple_id: spaceId,
-      in_category_ids: filters.categoryIds,
-      in_include_favorites: filters.includeFavorites,
-      in_date_from: filters.dateFrom ? localDateBoundaryIso(filters.dateFrom, "start") : null,
-      in_date_to: filters.dateTo ? localDateBoundaryIso(filters.dateTo, "end") : null,
-      in_creator_id: filters.creatorId !== "all" ? filters.creatorId : null,
-      in_address: cleanSearch(filters.address) || null,
-      in_limit: PAGE_SIZE,
-      in_offset: offset,
-    });
+  const { data, error } = await supabase.rpc("get_timeline_pin_page_ids", {
+    in_couple_id: spaceId,
+    in_category_ids: filters.categoryIds,
+    in_include_favorites: filters.includeFavorites,
+    in_date_from: filters.dateFrom
+      ? localDateBoundaryIso(filters.dateFrom, "start")
+      : null,
+    in_date_to: filters.dateTo
+      ? localDateBoundaryIso(filters.dateTo, "end")
+      : null,
+    in_creator_id: filters.creatorId !== "all" ? filters.creatorId : null,
+    in_address: cleanSearch(filters.address) || null,
+    in_limit: PAGE_SIZE,
+    in_offset: offset,
+  });
   if (error) throw error;
   return (data as TimelinePinPageId[]) ?? [];
 }
@@ -70,22 +73,50 @@ async function fetchTimelinePinsByIds(ids: string[]): Promise<Pin[]> {
   );
 }
 
+async function fetchTimelineWindow(
+  spaceId: string,
+  filters: TimelinePinFilters,
+  offset: number,
+  count: number,
+  isCurrent: () => boolean,
+) {
+  const rows: TimelinePinPageId[] = [];
+  while (rows.length < count && isCurrent()) {
+    const page = await fetchTimelinePinPageIds(
+      spaceId,
+      filters,
+      offset + rows.length,
+    );
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
 export function useTimelinePins(
   spaceId: string | null | undefined,
   filters: TimelinePinFilters,
   version = 0,
 ) {
   const queryKey = useMemo(
-    () => JSON.stringify({ spaceId: spaceId ?? null, filters, version }),
-    [filters, spaceId, version],
+    () => JSON.stringify({ spaceId: spaceId ?? null, filters }),
+    [filters, spaceId],
+  );
+  const queryFilters = useMemo<TimelinePinFilters>(
+    () => JSON.parse(queryKey).filters,
+    [queryKey],
   );
   const [pins, setPins] = useState<Pin[]>([]);
   const [total, setTotal] = useState(0);
+  const [nextOffset, setNextOffset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dataQueryKey, setDataQueryKey] = useState(queryKey);
   const requestIdRef = useRef(0);
+  const inFlightRef = useRef(false);
+  const loadedCountRef = useRef(0);
+  const appliedVersionRef = useRef(version);
   const visiblePins = dataQueryKey === queryKey ? pins : [];
   const visibleTotal = dataQueryKey === queryKey ? total : 0;
   const visibleLoading = dataQueryKey === queryKey ? loading : Boolean(spaceId);
@@ -93,13 +124,17 @@ export function useTimelinePins(
   const visibleError = dataQueryKey === queryKey ? error : null;
 
   const fetchPage = useCallback(
-    async (offset: number, append: boolean) => {
+    async (offset: number, append: boolean, preserve = false) => {
+      if (append && inFlightRef.current) return;
       const targetQueryKey = queryKey;
       if (!spaceId) {
         requestIdRef.current += 1;
+        inFlightRef.current = false;
+        loadedCountRef.current = 0;
         setDataQueryKey(targetQueryKey);
         setPins([]);
         setTotal(0);
+        setNextOffset(0);
         setLoading(false);
         setLoadingMore(false);
         setError(null);
@@ -107,40 +142,65 @@ export function useTimelinePins(
       }
 
       const requestId = ++requestIdRef.current;
-      if (append) setLoadingMore(true);
+      inFlightRef.current = true;
+      const targetCount = preserve
+        ? Math.max(PAGE_SIZE, loadedCountRef.current)
+        : PAGE_SIZE;
+      if (append || preserve) setLoadingMore(true);
       else {
         setDataQueryKey(targetQueryKey);
         setLoading(true);
+        setLoadingMore(false);
         setPins([]);
         setTotal(0);
+        setNextOffset(0);
+        loadedCountRef.current = 0;
       }
       setError(null);
 
       try {
-        const pageIds = await fetchTimelinePinPageIds(spaceId, filters, offset);
+        const pageIds = await fetchTimelineWindow(
+          spaceId,
+          queryFilters,
+          offset,
+          targetCount,
+          () => requestId === requestIdRef.current,
+        );
         if (requestId !== requestIdRef.current) return;
 
         const ids = pageIds.map((row) => row.pin_id);
         const pagePins = await fetchTimelinePinsByIds(ids);
         if (requestId !== requestIdRef.current) return;
 
-        setPins((prev) => (append ? [...prev, ...pagePins] : pagePins));
+        setPins((prev) =>
+          append
+            ? [
+                ...new Map(
+                  [...prev, ...pagePins].map((pin) => [pin.id, pin]),
+                ).values(),
+              ]
+            : pagePins,
+        );
+        loadedCountRef.current = offset + pageIds.length;
+        setNextOffset(loadedCountRef.current);
         if (!append) setTotal(Number(pageIds[0]?.total_count ?? 0));
       } catch (fetchError) {
         if (requestId !== requestIdRef.current) return;
         console.error("Failed to load timeline memories:", fetchError);
         setError("timeline_load_failed");
-        if (!append) {
+        if (!append && !preserve) {
           setPins([]);
           setTotal(0);
         }
+      } finally {
+        if (requestId === requestIdRef.current) {
+          inFlightRef.current = false;
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
-
-      setLoading(false);
-      setLoadingMore(false);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [spaceId, filters, version, queryKey],
+    [spaceId, queryFilters, queryKey],
   );
 
   useEffect(() => {
@@ -150,17 +210,28 @@ export function useTimelinePins(
     return () => {
       window.clearTimeout(timer);
       requestIdRef.current += 1;
+      inFlightRef.current = false;
     };
   }, [fetchPage]);
 
-  const loadMore = useCallback(() => {
+  useEffect(() => {
     if (
-      visibleLoading ||
-      visibleLoadingMore ||
-      visiblePins.length >= visibleTotal
-    ) return;
-    void fetchPage(visiblePins.length, true);
-  }, [fetchPage, visibleLoading, visibleLoadingMore, visiblePins.length, visibleTotal]);
+      appliedVersionRef.current === version ||
+      dataQueryKey !== queryKey ||
+      loading ||
+      loadingMore ||
+      inFlightRef.current
+    )
+      return;
+    appliedVersionRef.current = version;
+    void fetchPage(0, false, true);
+  }, [dataQueryKey, fetchPage, loading, loadingMore, queryKey, version]);
+
+  const loadMore = useCallback(() => {
+    if (visibleLoading || visibleLoadingMore || nextOffset >= visibleTotal)
+      return;
+    void fetchPage(nextOffset, true);
+  }, [fetchPage, visibleLoading, visibleLoadingMore, nextOffset, visibleTotal]);
 
   return {
     pins: visiblePins,
@@ -168,7 +239,7 @@ export function useTimelinePins(
     loading: visibleLoading,
     loadingMore: visibleLoadingMore,
     error: visibleError,
-    hasMore: visiblePins.length < visibleTotal,
+    hasMore: nextOffset < visibleTotal,
     loadMore,
     refresh: () => fetchPage(0, false),
   };

@@ -37,8 +37,8 @@ assert.equal(
     pinCount: 0,
     hasExplicitCameraIntent: false,
   }),
-  false,
-  "Opening the map must not cause an unexpected location permission prompt.",
+  true,
+  "Opening the map should request current location when permission has not been decided.",
 );
 assert.equal(
   shouldAutoLocateMap({
@@ -46,8 +46,17 @@ assert.equal(
     pinCount: 1,
     hasExplicitCameraIntent: false,
   }),
+  true,
+  "Opening the map should locate the user even when saved memories exist.",
+);
+assert.equal(
+  shouldAutoLocateMap({
+    permissionState: "denied",
+    pinCount: 0,
+    hasExplicitCameraIntent: false,
+  }),
   false,
-  "Saved memories should take priority over automatic location.",
+  "Denied location permissions should not be requested again automatically.",
 );
 assert.equal(
   shouldAutoLocateMap({

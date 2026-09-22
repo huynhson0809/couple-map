@@ -2,150 +2,153 @@ import { useState } from "react";
 import { translate, type Lang } from "./I18nContext";
 
 export interface CurrentPosition {
-  lat: number
-  lng: number
-  accuracy: number | null
+  lat: number;
+  lng: number;
+  accuracy: number | null;
 }
 
-const CACHE_MS = 60_000
-const LOCATION_WAIT_MS = 15_000
-const GOOD_ACCURACY_METERS = 35
-const FALLBACK_ACCURACY_METERS = 180
+const CACHE_MS = 60_000;
+const LOCATION_WAIT_MS = 15_000;
+const GOOD_ACCURACY_METERS = 35;
+const FALLBACK_ACCURACY_METERS = 180;
 
-let cachedPosition: (CurrentPosition & { receivedAt: number }) | null = null
+let cachedPosition: (CurrentPosition & { receivedAt: number }) | null = null;
 
 export function useLocation(lang: Lang = "en") {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function getCurrentPosition(): Promise<CurrentPosition> {
     if (isUsableCachedPosition(cachedPosition)) {
-      return toCurrentPosition(cachedPosition)
+      return toCurrentPosition(cachedPosition);
     }
 
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     return new Promise((resolve, reject) => {
-      if (!('geolocation' in navigator)) {
+      if (!("geolocation" in navigator)) {
         const msg = translate(lang, "location.notSupported");
-        setError(msg)
-        setLoading(false)
-        reject(new Error(msg))
-        return
+        setError(msg);
+        setLoading(false);
+        reject(new Error(msg));
+        return;
       }
 
-      let settled = false
-      let best: GeolocationPosition | null = null
-      let lastError: GeolocationPositionError | null = null
-      let watchId: number | null = null
-      let timerId: number | null = null
+      let settled = false;
+      let best: GeolocationPosition | null = null;
+      let lastError: GeolocationPositionError | null = null;
+      let watchId: number | null = null;
+      let timerId: number | null = null;
 
       function cleanup() {
         if (watchId !== null) {
-          navigator.geolocation.clearWatch(watchId)
-          watchId = null
+          navigator.geolocation.clearWatch(watchId);
+          watchId = null;
         }
         if (timerId !== null) {
-          window.clearTimeout(timerId)
-          timerId = null
+          window.clearTimeout(timerId);
+          timerId = null;
         }
       }
 
       function finish(pos: GeolocationPosition) {
-        if (settled) return
-        settled = true
-        cleanup()
+        if (settled) return;
+        settled = true;
+        cleanup();
         const coords = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
-          accuracy: Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null,
-        }
-        cachedPosition = { ...coords, receivedAt: Date.now() }
-        setLoading(false)
-        resolve(coords)
+          accuracy: Number.isFinite(pos.coords.accuracy)
+            ? pos.coords.accuracy
+            : null,
+        };
+        cachedPosition = { ...coords, receivedAt: Date.now() };
+        setLoading(false);
+        resolve(coords);
       }
 
       function finishWithCache() {
-        if (cachedPosition) {
-          settled = true
-          cleanup()
-          setLoading(false)
-          resolve(toCurrentPosition(cachedPosition))
-          return true
+        if (
+          cachedPosition &&
+          Date.now() - cachedPosition.receivedAt < CACHE_MS &&
+          cachedPosition.accuracy !== null &&
+          cachedPosition.accuracy <= FALLBACK_ACCURACY_METERS
+        ) {
+          settled = true;
+          cleanup();
+          setLoading(false);
+          resolve(toCurrentPosition(cachedPosition));
+          return true;
         }
-        return false
+        return false;
       }
 
       function fail(err?: GeolocationPositionError) {
-        if (settled) return
-        if (finishWithCache()) return
-        settled = true
-        cleanup()
+        if (settled) return;
+        if (err?.code !== 1 && finishWithCache()) return;
+        settled = true;
+        cleanup();
         const msg = getLocationErrorMessage(lang, err);
-        setError(msg)
-        setLoading(false)
-        reject(new Error(msg))
+        setError(msg);
+        setLoading(false);
+        reject(new Error(msg));
       }
 
       function remember(pos: GeolocationPosition) {
+        if (settled) return;
         if (
           !best ||
           (Number.isFinite(pos.coords.accuracy) &&
             (!Number.isFinite(best.coords.accuracy) ||
               pos.coords.accuracy < best.coords.accuracy))
         ) {
-          best = pos
+          best = pos;
         }
 
         const accuracy = Number.isFinite(pos.coords.accuracy)
           ? pos.coords.accuracy
-          : Infinity
-        if (accuracy <= GOOD_ACCURACY_METERS) finish(pos)
+          : Infinity;
+        if (accuracy <= GOOD_ACCURACY_METERS) finish(pos);
       }
 
       function finishBestOrFail() {
-        if (settled) return
+        if (settled) return;
         if (best) {
-          const accuracy = Number.isFinite(best.coords.accuracy)
-            ? best.coords.accuracy
-            : Infinity
-          if (accuracy <= FALLBACK_ACCURACY_METERS || !cachedPosition) {
-            finish(best)
-            return
-          }
+          finish(best);
+          return;
         }
-        fail(lastError ?? undefined)
+        fail(lastError ?? undefined);
       }
 
       const options: PositionOptions = {
         enableHighAccuracy: true,
         maximumAge: 0,
         timeout: LOCATION_WAIT_MS,
-      }
+      };
 
       navigator.geolocation.getCurrentPosition(
         remember,
         (err) => {
-          lastError = err
-          if (err.code === err.PERMISSION_DENIED) fail(err)
+          lastError = err;
+          if (err.code === err.PERMISSION_DENIED) fail(err);
         },
         options,
-      )
+      );
 
       watchId = navigator.geolocation.watchPosition(
         remember,
         (err) => {
-          lastError = err
-          if (err.code === err.PERMISSION_DENIED) fail(err)
+          lastError = err;
+          if (err.code === err.PERMISSION_DENIED) fail(err);
         },
         options,
-      )
+      );
 
-      timerId = window.setTimeout(finishBestOrFail, LOCATION_WAIT_MS)
-    })
+      timerId = window.setTimeout(finishBestOrFail, LOCATION_WAIT_MS);
+    });
   }
 
-  return { getCurrentPosition, loading, error }
+  return { getCurrentPosition, loading, error };
 }
 
 export function getLocationErrorMessage(
@@ -171,13 +174,15 @@ function toCurrentPosition(
     lat: position.lat,
     lng: position.lng,
     accuracy: position.accuracy,
-  }
+  };
 }
 
 function isUsableCachedPosition(
   position: (CurrentPosition & { receivedAt: number }) | null,
 ): position is CurrentPosition & { receivedAt: number } {
-  if (!position) return false
-  if (Date.now() - position.receivedAt >= CACHE_MS) return false
-  return position.accuracy !== null && position.accuracy <= GOOD_ACCURACY_METERS
+  if (!position) return false;
+  if (Date.now() - position.receivedAt >= CACHE_MS) return false;
+  return (
+    position.accuracy !== null && position.accuracy <= GOOD_ACCURACY_METERS
+  );
 }

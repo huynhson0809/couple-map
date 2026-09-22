@@ -34,10 +34,7 @@ import {
 import { MAX_PIN_CATEGORIES } from "../../lib/pinCategories";
 import { reverseGeocode } from "../../lib/geocoding";
 import { searchPlaces, type PlaceSearchResult } from "../../lib/placeSearch";
-import {
-  normalizeAddress,
-  normalizeCityName,
-} from "../../lib/locationNames";
+import { normalizeAddress, normalizeCityName } from "../../lib/locationNames";
 import { useToast } from "../../hooks/ToastContext";
 import { usePinsCtx } from "../../hooks/PinsContext";
 import { supabase } from "../../lib/supabase";
@@ -146,6 +143,7 @@ export function CreatePinForm({
   const [markerImageUrl, setMarkerImageUrl] = useState<string | null>(null);
   const [markerUploading, setMarkerUploading] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<SelectedMediaFile[]>([]);
+  const [preparingMedia, setPreparingMedia] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [customEmojiInput, setCustomEmojiInput] = useState("");
@@ -171,6 +169,10 @@ export function CreatePinForm({
   const manualPinCoordsRef = useRef(false);
   const lastAutoCoordsRef = useRef(coords);
   const selectedMediaRef = useRef<SelectedMediaFile[]>([]);
+  const submittingRef = useRef(false);
+  const createdPinIdRef = useRef<string | null>(null);
+  const mediaSelectionRunRef = useRef(0);
+  const preparingMediaRef = useRef(false);
   const [categoriesExpanded, setCategoriesExpanded] = useState(false);
   const VISIBLE_ROWS = 2;
   const ITEMS_PER_ROW = 3;
@@ -183,6 +185,7 @@ export function CreatePinForm({
 
   useEffect(
     () => () => {
+      mediaSelectionRunRef.current += 1;
       selectedMediaRef.current.forEach(({ previewUrl }) =>
         URL.revokeObjectURL(previewUrl),
       );
@@ -239,7 +242,10 @@ export function CreatePinForm({
       setAddressSearching(true);
       try {
         const proximity = { lat: pinCoords.lat, lng: pinCoords.lng };
-        const results = await searchPlaces(address, { language: lang, proximity });
+        const results = await searchPlaces(address, {
+          language: lang,
+          proximity,
+        });
         setAddressResults(results);
       } catch {
         setAddressResults([]);
@@ -249,7 +255,8 @@ export function CreatePinForm({
     }, 400);
   }, [address, addressEdited, lang, pinCoords.lat, pinCoords.lng]);
 
-  function addFiles(list: FileList | null, kind: "image" | "video") {
+  async function addFiles(list: FileList | null, kind: "image" | "video") {
+    if (preparingMediaRef.current || submittingRef.current) return;
     if (!currentSpaceWritable) {
       setError(t("settings.spaceReadOnlyBannerTitle"));
       return;
@@ -280,14 +287,42 @@ export function CreatePinForm({
     setError(null);
     const remaining = limits.photosPerPin - selectedMedia.length;
     if (remaining <= 0) return;
-    const nextMedia = incoming.slice(0, remaining).map(createSelectedMediaFile);
-    setSelectedMedia((prev) => [...prev, ...nextMedia]);
+    const selectionRun = ++mediaSelectionRunRef.current;
+    preparingMediaRef.current = true;
+    setPreparingMedia(true);
+    try {
+      for (const file of incoming.slice(0, remaining)) {
+        const prepared = file.type.startsWith("image/")
+          ? await compressImageForUpload(file)
+          : file;
+        if (selectionRun !== mediaSelectionRunRef.current) return;
+        const media = createSelectedMediaFile(prepared);
+        const nextMedia = [...selectedMediaRef.current, media];
+        selectedMediaRef.current = nextMedia;
+        setSelectedMedia(nextMedia);
+      }
+    } catch (error) {
+      console.warn("Could not prepare selected media:", error);
+      if (selectionRun === mediaSelectionRunRef.current) {
+        setError(t("toast.photoUploadFailed"));
+      }
+    } finally {
+      if (selectionRun === mediaSelectionRunRef.current) {
+        preparingMediaRef.current = false;
+        setPreparingMedia(false);
+      }
+    }
   }
 
   function removeFile(i: number) {
+    if (submittingRef.current) return;
     const removed = selectedMedia[i];
     if (removed) URL.revokeObjectURL(removed.previewUrl);
-    setSelectedMedia((prev) => prev.filter((_, idx) => idx !== i));
+    const nextMedia = selectedMediaRef.current.filter(
+      (_, index) => index !== i,
+    );
+    selectedMediaRef.current = nextMedia;
+    setSelectedMedia(nextMedia);
     setError(null);
   }
 
@@ -408,12 +443,7 @@ export function CreatePinForm({
   function pickCity(place: PlaceSearchResult): string | null {
     const a = place.address;
     return normalizeCityName(
-      a?.city ??
-        a?.town ??
-        a?.village ??
-        a?.county ??
-        a?.state ??
-        a?.province,
+      a?.city ?? a?.town ?? a?.village ?? a?.county ?? a?.state ?? a?.province,
       a?.country,
       a?.country_code,
     );
@@ -460,6 +490,8 @@ export function CreatePinForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submittingRef.current) return;
+    if (preparingMediaRef.current || markerUploading) return;
     if (!currentSpaceWritable) {
       setError(t("settings.spaceReadOnlyBannerTitle"));
       return;
@@ -472,72 +504,93 @@ export function CreatePinForm({
       setError(t("pin.spaceChanged"));
       return;
     }
+    submittingRef.current = true;
     setSaving(true);
     setError(null);
     try {
       const mediaFiles = selectedMedia.map(({ file }) => file);
-      const pin = await createPin({
-        title: title.trim(),
-        note: note.trim() || undefined,
-        category: selectedCategoryIds[0] ?? undefined,
-        categoryIds: selectedCategoryIds,
-        marker_emoji: markerEmoji,
-        marker_image_url: markerImageUrl,
-        lat: pinCoords.lat,
-        lng: pinCoords.lng,
-        address: normalizeAddress(address.trim(), lang) || null,
-        city: normalizeCityName(city, country),
-        country,
-        images: [],
-      });
+      const pinId =
+        createdPinIdRef.current ??
+        (
+          await createPin({
+            title: title.trim(),
+            note: note.trim() || undefined,
+            category: selectedCategoryIds[0] ?? undefined,
+            categoryIds: selectedCategoryIds,
+            marker_emoji: markerEmoji,
+            marker_image_url: markerImageUrl,
+            lat: pinCoords.lat,
+            lng: pinCoords.lng,
+            address: normalizeAddress(address.trim(), lang) || null,
+            city: normalizeCityName(city, country),
+            country,
+            images: [],
+          })
+        ).id;
+      createdPinIdRef.current = pinId;
 
       if (mediaFiles.length === 0) {
         showToast({ type: "success", title: t("toast.memoryCreated") });
+        submittingRef.current = false;
         setSaving(false);
         onCreated();
         return;
       }
 
-      setUploadProgress(pin.id, 0, spaceId);
+      let pendingUploadIds: string[] = [];
+      try {
+        pendingUploadIds = await savePendingUploads(pinId, spaceId, mediaFiles);
+      } catch (queueError) {
+        console.warn(
+          "Could not persist the upload retry queue; continuing with the direct upload:",
+          queueError,
+        );
+      }
+
+      const uploadMedia = async () => {
+        const uploaded = await uploadPinMediaFiles(
+          mediaFiles,
+          `pinly/${spaceId}`,
+          (pct) => setUploadProgress(pinId, pct, spaceId),
+          {
+            videoTooLarge: (size) => t("pin.videoTooLarge", { size }),
+            uploadFailed: () => t("toast.photoUploadFailed"),
+          },
+        );
+        if (uploaded.length > 0) {
+          const { error: imgErr } = await supabase
+            .from("pin_images")
+            .insert(toPinImageRows(pinId, uploaded));
+          if (imgErr) throw imgErr;
+        }
+        await removePendingUploads(pendingUploadIds);
+        await fetchPinImages(pinId).catch((error) => {
+          console.warn("Could not refresh uploaded media:", error);
+        });
+        bumpPinsVersion();
+      };
+
+      setUploadProgress(pinId, 0, spaceId);
+      if (pendingUploadIds.length === 0) {
+        try {
+          await uploadMedia();
+        } finally {
+          clearUploadProgress(pinId, spaceId);
+        }
+        showToast({ type: "success", title: t("toast.memoryCreated") });
+        submittingRef.current = false;
+        setSaving(false);
+        onCreated();
+        return;
+      }
+
       showToast({ type: "success", title: t("toast.memoryCreated") });
+      submittingRef.current = false;
       setSaving(false);
       onCreated();
 
-      // Upload in background after the created-memory UI has had a frame to paint.
       startAfterNextPaint(() => {
-        let pendingUploadIds: string[] = [];
-        void (async () => {
-          try {
-            pendingUploadIds = await savePendingUploads(
-              pin.id,
-              spaceId,
-              mediaFiles,
-            );
-          } catch (queueError) {
-            console.warn(
-              "Could not persist the upload retry queue; continuing with the direct upload:",
-              queueError,
-            );
-          }
-          const uploaded = await uploadPinMediaFiles(
-            mediaFiles,
-            `pinly/${spaceId}`,
-            (pct) => setUploadProgress(pin.id, pct, spaceId),
-            {
-              videoTooLarge: (size) => t("pin.videoTooLarge", { size }),
-              uploadFailed: () => t("toast.photoUploadFailed"),
-            },
-          );
-          if (uploaded.length > 0) {
-            const { error: imgErr } = await supabase
-              .from("pin_images")
-              .insert(toPinImageRows(pin.id, uploaded));
-            if (imgErr) throw imgErr;
-            await fetchPinImages(pin.id);
-            bumpPinsVersion();
-          }
-          await removePendingUploads(pendingUploadIds);
-        })()
+        void uploadMedia()
           .catch((err) => {
             releasePendingUploads(pendingUploadIds);
             const technicalMessage = formatErrorMessage(err, {
@@ -547,10 +600,11 @@ export function CreatePinForm({
             showToast({ type: "error", title: t("toast.photoUploadFailed") });
           })
           .finally(() => {
-            clearUploadProgress(pin.id, spaceId);
+            clearUploadProgress(pinId, spaceId);
           });
       });
     } catch (e) {
+      submittingRef.current = false;
       setSaving(false);
       console.warn(
         "Create memory failed:",
@@ -837,7 +891,10 @@ export function CreatePinForm({
               cameraInput.current?.click();
             }}
             disabled={
-              !currentSpaceWritable || files.length >= limits.photosPerPin
+              saving ||
+              preparingMedia ||
+              !currentSpaceWritable ||
+              files.length >= limits.photosPerPin
             }
           >
             <Camera size={20} /> {t("pin.takePhoto")}
@@ -850,7 +907,10 @@ export function CreatePinForm({
               libraryInput.current?.click();
             }}
             disabled={
-              !currentSpaceWritable || files.length >= limits.photosPerPin
+              saving ||
+              preparingMedia ||
+              !currentSpaceWritable ||
+              files.length >= limits.photosPerPin
             }
           >
             <ImagePlus size={20} /> {t("pin.fromLibrary")}
@@ -867,7 +927,10 @@ export function CreatePinForm({
               videoInput.current?.click();
             }}
             disabled={
-              !currentSpaceWritable || files.length >= limits.photosPerPin
+              saving ||
+              preparingMedia ||
+              !currentSpaceWritable ||
+              files.length >= limits.photosPerPin
             }
           >
             <Video size={20} /> {t("pin.addVideo")} {!canUploadVideo && "🔒"}
@@ -917,7 +980,12 @@ export function CreatePinForm({
                     preload="metadata"
                   />
                 ) : (
-                  <img src={previewUrl} alt="" decoding="async" />
+                  <img
+                    src={previewUrl}
+                    alt=""
+                    decoding="async"
+                    loading="lazy"
+                  />
                 )}
                 <button
                   type="button"
@@ -951,7 +1019,11 @@ export function CreatePinForm({
         >
           {t("pin.cancel")}
         </Button>
-        <Button type="submit" disabled={saving} style={{ flex: 1 }}>
+        <Button
+          type="submit"
+          disabled={saving || preparingMedia || markerUploading}
+          style={{ flex: 1 }}
+        >
           {saving ? t("pin.saving") : t("pin.save")}
         </Button>
       </div>

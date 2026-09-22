@@ -64,6 +64,16 @@ assert.match(
   "Map add FAB should refine GPS in the background after the sheet is open.",
 );
 assert.match(
+  handleFabClickBody,
+  /setFlyTo\(\{ \.\.\.c, key: flyKey\.current \}\)/,
+  "A fresh GPS result should move the camera to the creation location.",
+);
+assert.match(
+  handleFabClickBody,
+  /showToast\(/,
+  "Location failures must not be silently ignored when creating a memory.",
+);
+assert.match(
   mapPage,
   /const\s+addPinGpsRequestRef\s*=\s*useRef\(0\)/,
   "Background GPS refinement should use a request id to ignore stale results.",

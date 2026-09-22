@@ -6,6 +6,7 @@ import { supabase } from "../../lib/supabase";
 import { useCategoriesCtx } from "../../hooks/CategoriesContext";
 import { useI18n } from "../../hooks/I18nContext";
 import { getPrimaryCategory } from "../../lib/pinCategories";
+import { getDeviceBudget } from "../../lib/deviceBudget";
 import {
   DEFAULT_MAP_CENTER,
   DEFAULT_MAP_ZOOM,
@@ -121,6 +122,26 @@ type MemoryFeatureCollection = GeoJSON.FeatureCollection<
   MemoryFeatureProperties
 >;
 
+type MapSessionState = {
+  userId: string | undefined;
+  hasLocated: boolean;
+  camera: {
+    center: [number, number];
+    zoom: number;
+    pitch: number;
+    bearing: number;
+  } | null;
+};
+
+let lastMapSession: MapSessionState | null = null;
+
+function getMapSession(userId: string | undefined): MapSessionState {
+  if (!lastMapSession || lastMapSession.userId !== userId) {
+    lastMapSession = { userId, hasLocated: false, camera: null };
+  }
+  return lastMapSession;
+}
+
 export function MapView({
   pins,
   currentUserId,
@@ -148,6 +169,7 @@ export function MapView({
   });
   const memoryLayerReadyRef = useRef(false);
   const memorySpriteLoadIdsRef = useRef<Set<string>>(new Set());
+  const memorySpriteImagesRef = useRef(new Map<string, HTMLImageElement>());
   const bucketMarkersRef = useRef<maplibregl.Marker[]>([]);
   const longPressTimer = useRef<number | null>(null);
   const styleLoadedRef = useRef(false);
@@ -358,6 +380,16 @@ export function MapView({
     map: maplibregl.Map,
     featureCollection: MemoryFeatureCollection,
   ) {
+    const neededSprites = new Set(
+      featureCollection.features
+        .filter((feature) => feature.properties.type === "memory-pin")
+        .map((feature) => feature.properties.iconImageId),
+    );
+    for (const imageId of map.listImages()) {
+      if (imageId.startsWith("memory-marker-") && !neededSprites.has(imageId)) {
+        releaseMemorySprite(map, imageId);
+      }
+    }
     for (const feature of featureCollection.features) {
       const props = feature.properties;
       if (props.type !== "memory-pin") continue;
@@ -370,6 +402,18 @@ export function MapView({
     }
   }
 
+  function releaseMemorySprite(map: maplibregl.Map, imageId: string) {
+    const image = memorySpriteImagesRef.current.get(imageId);
+    if (image) {
+      image.onload = null;
+      image.onerror = null;
+      image.src = "";
+      memorySpriteImagesRef.current.delete(imageId);
+    }
+    memorySpriteLoadIdsRef.current.delete(imageId);
+    if (map.hasImage(imageId)) map.removeImage(imageId);
+  }
+
   function loadMemorySpriteImage(
     map: maplibregl.Map,
     input: MemoryFeatureProperties,
@@ -378,19 +422,23 @@ export function MapView({
     memorySpriteLoadIdsRef.current.add(input.iconImageId);
 
     const image = new Image();
+    memorySpriteImagesRef.current.set(input.iconImageId, image);
     image.crossOrigin = "anonymous";
     image.decoding = "async";
     image.onload = () => {
-      if (mapRef.current !== map || !map.isStyleLoaded()) return;
+      if (memorySpriteImagesRef.current.get(input.iconImageId) !== image)
+        return;
+      memorySpriteImagesRef.current.delete(input.iconImageId);
+      if (mapRef.current !== map || !map.hasImage(input.iconImageId)) return;
       const sprite = renderMemorySprite({ ...input, image });
-      if (map.hasImage(input.iconImageId)) {
-        map.updateImage(input.iconImageId, sprite);
-      } else {
-        map.addImage(input.iconImageId, sprite, {
-          pixelRatio: MEMORY_PIN_SPRITE_PIXEL_RATIO,
-        });
-      }
+      map.updateImage(input.iconImageId, sprite);
       map.triggerRepaint();
+    };
+    image.onerror = () => {
+      if (memorySpriteImagesRef.current.get(input.iconImageId) !== image)
+        return;
+      memorySpriteImagesRef.current.delete(input.iconImageId);
+      memorySpriteLoadIdsRef.current.delete(input.iconImageId);
     };
     image.src = input.markerImageUrl;
   }
@@ -446,7 +494,10 @@ export function MapView({
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    return ctx.getImageData(0, 0, canvasSize, canvasSize);
+    const sprite = ctx.getImageData(0, 0, canvasSize, canvasSize);
+    canvas.width = 1;
+    canvas.height = 1;
+    return sprite;
   }
 
   function drawCoverImage(
@@ -504,8 +555,16 @@ export function MapView({
     const fontSize = glyphCount > 2 ? 15 : glyphCount > 1 ? 19 : 23;
     ctx.font = `${fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
     ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(emoji, centerX, centerY + 1);
+    ctx.textBaseline = "alphabetic";
+    const metrics = ctx.measureText(emoji);
+    ctx.fillText(
+      emoji,
+      centerX +
+        (metrics.actualBoundingBoxLeft - metrics.actualBoundingBoxRight) / 2,
+      centerY +
+        (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) /
+          2,
+    );
   }
 
   function syncMemoryLayers() {
@@ -698,6 +757,10 @@ export function MapView({
       if (map.getLayer(layerId)) map.removeLayer(layerId);
     }
     if (map.getSource(MEMORY_SOURCE_ID)) map.removeSource(MEMORY_SOURCE_ID);
+    for (const imageId of map.listImages()) {
+      if (imageId.startsWith("memory-marker-"))
+        releaseMemorySprite(map, imageId);
+    }
     memorySpriteLoadIdsRef.current.clear();
     memoryLayerReadyRef.current = false;
   }
@@ -768,11 +831,7 @@ export function MapView({
     // layer. Prefer a source with a recognizable id/URL instead of attaching
     // the extrusion layer to an unrelated vector source.
     const openMapTilesSource = vectorSources.find(({ id, definition }) => {
-      const signature = [
-        id,
-        definition.url ?? "",
-        ...(definition.tiles ?? []),
-      ]
+      const signature = [id, definition.url ?? "", ...(definition.tiles ?? [])]
         .join(" ")
         .toLowerCase();
       return /openmaptiles|openfreemap|maptiler|planet/.test(signature);
@@ -1035,25 +1094,33 @@ export function MapView({
     return false;
   }
 
-  async function autoLocateIfAlreadyGranted(
+  async function autoLocateOnOpen(
+    map: maplibregl.Map,
     geolocateControl: maplibregl.GeolocateControl,
+    session: MapSessionState,
   ) {
-    if (!("permissions" in navigator)) return;
+    if (session.hasLocated || hasExplicitCameraIntent()) return;
+    let permissionState: PermissionState = "prompt";
     try {
-      const permission = await navigator.permissions.query({
-        name: "geolocation",
-      });
-      if (
-        shouldAutoLocateMap({
-          permissionState: permission.state,
-          pinCount: pinsRef.current.length,
-          hasExplicitCameraIntent: hasExplicitCameraIntent(),
-        })
-      ) {
-        geolocateControl.trigger();
+      if ("permissions" in navigator) {
+        const permission = await navigator.permissions.query({
+          name: "geolocation",
+        });
+        permissionState = permission.state;
       }
     } catch {
-      // Safari versions without geolocation permission queries keep the world view.
+      permissionState = "prompt";
+    }
+    if (
+      mapRef.current === map &&
+      !session.hasLocated &&
+      shouldAutoLocateMap({
+        permissionState,
+        pinCount: pinsRef.current.length,
+        hasExplicitCameraIntent: hasExplicitCameraIntent(),
+      })
+    ) {
+      geolocateControl.trigger();
     }
   }
 
@@ -1179,6 +1246,19 @@ export function MapView({
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
+    const spriteImages = memorySpriteImagesRef.current;
+    const session = getMapSession(currentUserId);
+    const restoredCamera = session.camera
+      ? {
+          ...session.camera,
+          pitch: map3DEnabled ? session.camera.pitch : 0,
+          bearing: map3DEnabled ? session.camera.bearing : 0,
+        }
+      : undefined;
+    didInitialFitRef.current = Boolean(restoredCamera);
+    const budget = getDeviceBudget();
+    maplibregl.setWorkerCount(budget.constrained ? 1 : 2);
+    maplibregl.setMaxParallelImageRequests(budget.constrained ? 4 : 16);
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: mapStyleUrl,
@@ -1187,10 +1267,28 @@ export function MapView({
       pitch: map3DEnabled ? MAP_DEFAULT_PITCH : 0,
       bearing: map3DEnabled ? MAP_DEFAULT_BEARING : 0,
       maxPitch: 85,
-      antialias: true,
+      pixelRatio: budget.mapPixelRatio,
+      maxTileCacheSize: budget.mapTileCacheSize,
+      fadeDuration: budget.constrained ? 0 : 300,
+      canvasContextAttributes: {
+        antialias: !budget.constrained,
+        preserveDrawingBuffer: false,
+        powerPreference: budget.constrained ? "low-power" : "default",
+      },
       attributionControl: false,
-      ...({ preserveDrawingBuffer: true } as Record<string, unknown>),
-    } as ConstructorParameters<typeof maplibregl.Map>[0]);
+      ...restoredCamera,
+    });
+
+    function rememberCamera() {
+      if (!styleLoadedRef.current) return;
+      session.camera = {
+        center: map.getCenter().toArray(),
+        zoom: map.getZoom(),
+        pitch: map.getPitch(),
+        bearing: map.getBearing(),
+      };
+    }
+
     const geolocateControl = new maplibregl.GeolocateControl({
       positionOptions: {
         enableHighAccuracy: true,
@@ -1200,7 +1298,10 @@ export function MapView({
       trackUserLocation: false,
     });
     geolocateControl.on("geolocate", (event) => {
+      if (mapRef.current !== map) return;
       const position = event as GeolocationPosition;
+      session.hasLocated = true;
+      didInitialFitRef.current = true;
       onUserLocationRef.current?.({
         lat: position.coords.latitude,
         lng: position.coords.longitude,
@@ -1262,27 +1363,46 @@ export function MapView({
     map.on("load", () => {
       styleLoadedRef.current = true;
       syncMap3DMode(map);
+      if (restoredCamera && !hasExplicitCameraIntent()) {
+        map.jumpTo(restoredCamera);
+      }
       fitToPinsOnce(map);
       emitMapCenter(map);
       syncMemoryLayers();
-      void autoLocateIfAlreadyGranted(geolocateControl);
+      void autoLocateOnOpen(map, geolocateControl, session);
       requestAnimationFrame(() => {
         map.resize();
         if (pendingFlyToRef.current) applyFlyTo(pendingFlyToRef.current);
       });
     });
     map.on("moveend", () => {
+      rememberCamera();
       emitMapCenter(map);
     });
     map.on("click", handleMemoryFeatureClick);
     map.on("mousemove", handleMemoryPointerMove);
     map.on("error", (e) => console.error("[MapLibre]", e?.error ?? e));
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") map.stop();
+      else map.resize();
+    };
+    const handleContextLost = () => map.stop();
+    const handleContextRestored = () => {
+      map.resize();
+      syncMemoryLayers();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    map.on("webglcontextlost", handleContextLost);
+    map.on("webglcontextrestored", handleContextRestored);
     const ro = new ResizeObserver(() => map.resize());
     if (containerRef.current) ro.observe(containerRef.current);
 
     mapRef.current = map;
     return () => {
+      rememberCamera();
+      cancelLongPress();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       ro.disconnect();
       map.off("sourcedata", handle3DSourceReady);
       map.off("idle", handle3DSourceReady);
@@ -1290,6 +1410,9 @@ export function MapView({
       map.off("mousemove", handleMemoryPointerMove);
       bucketMarkersRef.current.forEach((marker) => marker.remove());
       bucketMarkersRef.current = [];
+      for (const imageId of spriteImages.keys()) {
+        releaseMemorySprite(map, imageId);
+      }
       map.remove();
       mapRef.current = null;
       styleLoadedRef.current = false;

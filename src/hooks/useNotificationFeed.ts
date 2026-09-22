@@ -71,10 +71,13 @@ export function useNotificationFeed(
   const activeUserIdRef = useRef(userId);
   const dataUserIdRef = useRef(userId);
   const onNewNotifRef = useRef(onNewNotification);
+  const refreshPendingRef = useRef(false);
+  const liveRevisionRef = useRef(0);
   useLayoutEffect(() => {
     activeUserIdRef.current = userId;
     requestIdRef.current += 1;
     loadingRef.current = false;
+    refreshPendingRef.current = false;
   }, [userId]);
   useEffect(() => {
     onNewNotifRef.current = onNewNotification;
@@ -82,20 +85,22 @@ export function useNotificationFeed(
 
   const setNotificationState = useCallback(
     (updater: (current: AppNotification[]) => AppNotification[]) => {
-      setNotifications((current) => {
-        const next = updater(current);
-        notificationsRef.current = next;
-        return next;
-      });
+      const next = updater(notificationsRef.current);
+      notificationsRef.current = next;
+      setNotifications(next);
     },
     [],
   );
 
   const fetchNotifications = useCallback(
-    async (reset = false) => {
+    async function loadNotifications(reset = false, preserve = false) {
       if (!userId || !activeSpaceId) return;
-      if (loadingRef.current) return;
+      if (loadingRef.current) {
+        if (reset) refreshPendingRef.current = true;
+        return;
+      }
       const targetUserId = userId;
+      const liveRevision = liveRevisionRef.current;
 
       loadingRef.current = true;
       setLoading(true);
@@ -113,7 +118,13 @@ export function useNotificationFeed(
           error ||
           requestId !== requestIdRef.current ||
           activeUserIdRef.current !== targetUserId
-        ) return;
+        )
+          return;
+
+        if (liveRevision !== liveRevisionRef.current) {
+          refreshPendingRef.current = true;
+          return;
+        }
 
         const { rows, unreadCount: nextUnreadCount } =
           normalizeFeedPayload(data);
@@ -125,20 +136,31 @@ export function useNotificationFeed(
         }
         dataUserIdRef.current = targetUserId;
         setDataUserId(targetUserId);
-        nextOffsetRef.current = reset || replacingAccount
-          ? rows.length
-          : nextOffsetRef.current + rows.length;
+        nextOffsetRef.current =
+          replacingAccount || (reset && !preserve)
+            ? rows.length
+            : reset
+              ? Math.max(nextOffsetRef.current, rows.length)
+              : nextOffsetRef.current + rows.length;
         setNotificationState((prev) =>
-          reset || replacingAccount
+          (reset && !preserve) || replacingAccount
             ? mergeNotifications([], rows)
             : mergeNotifications(prev, rows),
         );
-        setHasMore(rows.length === PAGE_SIZE);
+        if (!preserve || nextOffsetRef.current <= PAGE_SIZE) {
+          setHasMore(rows.length === PAGE_SIZE);
+        }
         setUnreadCount(nextUnreadCount);
+      } catch (error) {
+        console.warn("Could not refresh notifications:", error);
       } finally {
         if (requestId === requestIdRef.current) {
           loadingRef.current = false;
           setLoading(false);
+          if (refreshPendingRef.current) {
+            refreshPendingRef.current = false;
+            void loadNotifications(true, true);
+          }
         }
       }
     },
@@ -161,6 +183,7 @@ export function useNotificationFeed(
       if (error) return;
       if (activeUserIdRef.current !== userId) return;
 
+      liveRevisionRef.current += 1;
       setNotificationState((prev) =>
         prev.map((notification) =>
           notification.id === id
@@ -185,6 +208,7 @@ export function useNotificationFeed(
     if (error) return;
     if (activeUserIdRef.current !== targetUserId) return;
 
+    liveRevisionRef.current += 1;
     setNotificationState((prev) =>
       prev.map((notification) => ({ ...notification, read: true })),
     );
@@ -197,7 +221,7 @@ export function useNotificationFeed(
   );
 
   const refresh = useCallback(
-    () => fetchNotifications(true),
+    () => fetchNotifications(true, true),
     [fetchNotifications],
   );
 
@@ -227,6 +251,39 @@ export function useNotificationFeed(
     return () => window.clearTimeout(timer);
   }, [activeSpaceId, refresh, userId]);
 
+  useEffect(() => {
+    if (!userId || !activeSpaceId) return;
+    const refreshVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    const handleMessage = (event: MessageEvent) => {
+      if (
+        ["NOTIFICATION_RECEIVED", "NOTIFICATION_CLICK"].includes(
+          event.data?.type,
+        )
+      ) {
+        void refresh();
+      }
+    };
+    document.addEventListener("visibilitychange", refreshVisible);
+    window.addEventListener("focus", refreshVisible);
+    window.addEventListener("pageshow", refreshVisible);
+    window.addEventListener("online", refreshVisible);
+    navigator.serviceWorker?.addEventListener("message", handleMessage);
+    const timer = window.setInterval(refreshVisible, 60_000);
+    return () => {
+      document.removeEventListener("visibilitychange", refreshVisible);
+      window.removeEventListener("focus", refreshVisible);
+      window.removeEventListener("pageshow", refreshVisible);
+      window.removeEventListener("online", refreshVisible);
+      navigator.serviceWorker?.removeEventListener("message", handleMessage);
+      window.clearInterval(timer);
+      requestIdRef.current += 1;
+      loadingRef.current = false;
+      refreshPendingRef.current = false;
+    };
+  }, [activeSpaceId, refresh, userId]);
+
   // Realtime subscription
   useEffect(() => {
     if (!userId) return;
@@ -243,6 +300,7 @@ export function useNotificationFeed(
         },
         (payload) => {
           if (activeUserIdRef.current !== userId) return;
+          liveRevisionRef.current += 1;
           const newNotif = payload.new as AppNotification;
           const replacingAccount = dataUserIdRef.current !== userId;
           if (replacingAccount) {
@@ -260,19 +318,24 @@ export function useNotificationFeed(
             mergeNotifications(replacingAccount ? [] : prev, [newNotif]),
           );
           if (!alreadyLoaded && !newNotif.read) {
-            setUnreadCount((count) => replacingAccount ? 1 : count + 1);
+            setUnreadCount((count) => (replacingAccount ? 1 : count + 1));
             onNewNotifRef.current?.(newNotif);
           } else if (replacingAccount) {
             setUnreadCount(0);
           }
+          if (!alreadyLoaded && nextOffsetRef.current > 0)
+            nextOffsetRef.current += 1;
+          void refresh();
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") void refresh();
+      });
 
     return () => {
       void channel.unsubscribe();
     };
-  }, [instanceId, setNotificationState, userId]);
+  }, [instanceId, refresh, setNotificationState, userId]);
 
   const payloadMatchesUser = dataUserId === userId;
 

@@ -10,7 +10,9 @@ function readProjectFile(path) {
 }
 
 const mapView = readProjectFile("src/components/map/MapView.tsx");
-const demoSeed = readProjectFile("supabase/script_seed_vietnam_demo_timeline_500.sql");
+const demoSeed = readProjectFile(
+  "supabase/script_seed_vietnam_demo_timeline_500.sql",
+);
 
 assert.doesNotMatch(
   mapView,

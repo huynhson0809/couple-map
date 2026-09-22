@@ -158,6 +158,21 @@ assert.match(
   /await insertPendingUploadRows\(pinId, results\);[\s\S]*await removePendingUpload/,
   "Pending uploads should be removed only after pin_images rows are inserted.",
 );
+assert.doesNotMatch(
+  pendingUploads,
+  /store\.getAll\(/,
+  "Recovery must not materialize every queued photo and video in memory at startup.",
+);
+assert.match(
+  pendingUploads,
+  /getPendingUpload\(entry\.id\)[\s\S]*uploadPinMediaFiles\(\[saved\.file\]/,
+  "Recovery should read and prepare one queued file at a time.",
+);
+assert.match(
+  pendingUploads,
+  /tx\.onabort/,
+  "Aborted iOS storage transactions must reject instead of leaving save pending forever.",
+);
 assert.match(
   pendingUploads,
   /export async function savePendingUploads\([\s\S]*\): Promise<string\[]>/,
@@ -173,10 +188,44 @@ assert.match(
   /pendingUploadIds = await savePendingUploads\([\s\S]*await removePendingUploads\(pendingUploadIds\);/,
   "CreatePinForm should clear only the pending ids created for the current upload batch.",
 );
+const queueStart = createForm.indexOf(
+  "pendingUploadIds = await savePendingUploads(",
+);
+const queuedClose = createForm.indexOf("onCreated();", queueStart);
+const backgroundStart = createForm.indexOf(
+  "startAfterNextPaint(() =>",
+  queueStart,
+);
+assert.ok(
+  queueStart > 0 && queuedClose > queueStart && backgroundStart > queuedClose,
+  "Selected media must be persisted before closing the form and starting background work.",
+);
+assert.match(
+  createForm,
+  /if \(pendingUploadIds\.length === 0\)[\s\S]*await uploadMedia\(\)/,
+  "An unavailable retry queue must keep the direct upload in the foreground.",
+);
+assert.match(
+  createForm,
+  /if \(submittingRef\.current\) return/,
+  "Rapid repeated submissions must not create duplicate memories.",
+);
 assert.match(
   editForm,
   /let pendingUploadIds: string\[\] = \[\];[\s\S]*pendingUploadIds = await savePendingUploads\([\s\S]*await removePendingUploads\(pendingUploadIds\);/,
   "EditPinForm should clear only the pending ids created for the current upload batch.",
+);
+assert.match(
+  editForm,
+  /if \(pendingUploadIds\.length === 0\) \{\s*await uploadTask;/,
+  "Editing must keep failed-queue uploads in the foreground too.",
+);
+const editQueueStart = editForm.indexOf(
+  "pendingUploadIds = await savePendingUploads(",
+);
+assert.ok(
+  editForm.indexOf("onSaved();", editQueueStart) > editQueueStart,
+  "New edit media must be queued before closing the form.",
 );
 assert.match(
   pendingUploads,

@@ -39,12 +39,15 @@ assert.match(
 );
 const submitBeforeBackgroundPersistence = createPinForm.slice(
   createPinForm.indexOf("async function handleSubmit"),
-  createPinForm.indexOf("startAfterNextPaint", createPinForm.indexOf("async function handleSubmit")),
+  createPinForm.indexOf(
+    "startAfterNextPaint",
+    createPinForm.indexOf("async function handleSubmit"),
+  ),
 );
-assert.doesNotMatch(
+assert.match(
   submitBeforeBackgroundPersistence,
   /await\s+savePendingUploads/,
-  "save memory should not wait for large files to be copied into IndexedDB before returning to the UI",
+  "save memory must persist selected files before background work can be suspended by iOS",
 );
 const backgroundPersistenceStart = createPinForm.indexOf(
   "startAfterNextPaint(() =>",
@@ -52,12 +55,13 @@ const backgroundPersistenceStart = createPinForm.indexOf(
 );
 const pendingPersistenceStart = createPinForm.indexOf(
   "savePendingUploads(",
-  backgroundPersistenceStart,
+  createPinForm.indexOf("async function handleSubmit"),
 );
 assert(
   backgroundPersistenceStart >= 0 &&
-    pendingPersistenceStart > backgroundPersistenceStart,
-  "pending media persistence should start in the background after the created-memory UI paints",
+    pendingPersistenceStart >= 0 &&
+    pendingPersistenceStart < backgroundPersistenceStart,
+  "pending media persistence must complete before background upload starts",
 );
 
 assert.doesNotMatch(

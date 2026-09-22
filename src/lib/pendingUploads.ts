@@ -1,6 +1,6 @@
-import { uploadToCloudinary, type CloudinaryUploadResult } from "./cloudinary";
+import type { CloudinaryUploadResult } from "./cloudinary";
 import { formatErrorMessage } from "./errorMessage";
-import { toPinImageRows } from "./pinMediaUpload";
+import { toPinImageRows, uploadPinMediaFiles } from "./pinMediaUpload";
 import { supabase } from "./supabase";
 
 const DB_NAME = "pinly-pending-uploads";
@@ -20,6 +20,8 @@ type PendingUploadResult = CloudinaryUploadResult & {
   sortOrder: number;
 };
 
+type PendingUploadMetadata = Omit<PendingUpload, "file">;
+
 const pendingUploadRuns = new Map<string, Promise<void>>();
 const claimedPendingUploadIds = new Set<string>();
 
@@ -35,6 +37,19 @@ function openDB(): Promise<IDBDatabase> {
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
+}
+
+async function finishTransaction(tx: IDBTransaction, db: IDBDatabase) {
+  try {
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () =>
+        reject(tx.error ?? new Error("Upload queue transaction aborted."));
+    });
+  } finally {
+    db.close();
+  }
 }
 
 export async function savePendingUploads(
@@ -59,11 +74,7 @@ export async function savePendingUploads(
     ids.push(id);
     store.put(entry);
   }
-  await new Promise<void>((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-  db.close();
+  await finishTransaction(tx, db);
   ids.forEach((id) => claimedPendingUploadIds.add(id));
   return ids;
 }
@@ -72,15 +83,28 @@ export function releasePendingUploads(ids: string[]) {
   ids.forEach((id) => claimedPendingUploadIds.delete(id));
 }
 
-export async function getPendingUploads(): Promise<PendingUpload[]> {
+export async function getPendingUploads(): Promise<PendingUploadMetadata[]> {
   const db = await openDB();
   const tx = db.transaction(STORE_NAME, "readonly");
   const store = tx.objectStore(STORE_NAME);
   return new Promise((resolve, reject) => {
-    const req = store.getAll();
+    const entries: PendingUploadMetadata[] = [];
+    const req = store.openCursor();
     req.onsuccess = () => {
+      const cursor = req.result;
+      if (cursor) {
+        const entry = cursor.value as PendingUpload;
+        entries.push({
+          id: entry.id,
+          pinId: entry.pinId,
+          coupleId: entry.coupleId,
+          sortOrder: entry.sortOrder,
+        });
+        cursor.continue();
+        return;
+      }
       db.close();
-      resolve(req.result);
+      resolve(entries);
     };
     req.onerror = () => {
       db.close();
@@ -89,15 +113,31 @@ export async function getPendingUploads(): Promise<PendingUpload[]> {
   });
 }
 
+async function getPendingUpload(
+  id: string,
+): Promise<PendingUpload | undefined> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const request = db
+      .transaction(STORE_NAME, "readonly")
+      .objectStore(STORE_NAME)
+      .get(id);
+    request.onsuccess = () => {
+      db.close();
+      resolve(request.result);
+    };
+    request.onerror = () => {
+      db.close();
+      reject(request.error);
+    };
+  });
+}
+
 export async function removePendingUpload(id: string): Promise<void> {
   const db = await openDB();
   const tx = db.transaction(STORE_NAME, "readwrite");
   tx.objectStore(STORE_NAME).delete(id);
-  await new Promise<void>((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-  db.close();
+  await finishTransaction(tx, db);
   releasePendingUploads([id]);
 }
 
@@ -109,11 +149,7 @@ export async function removePendingUploads(ids: string[]): Promise<void> {
   for (const id of ids) {
     store.delete(id);
   }
-  await new Promise<void>((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-  db.close();
+  await finishTransaction(tx, db);
   releasePendingUploads(ids);
 }
 
@@ -136,6 +172,35 @@ async function insertPendingUploadRows(
   }
 }
 
+async function recoverPendingUpload(
+  entry: PendingUploadMetadata,
+  shouldContinue: () => boolean,
+) {
+  const saved = await getPendingUpload(entry.id);
+  if (!saved || claimedPendingUploadIds.has(entry.id) || !shouldContinue())
+    return;
+  claimedPendingUploadIds.add(entry.id);
+  try {
+    const [result] = await uploadPinMediaFiles(
+      [saved.file],
+      `pinly/${entry.coupleId}`,
+    );
+    if (!result) throw new Error("Queued media could not be uploaded.");
+    const pinId = entry.pinId;
+    const results: PendingUploadResult[] = [
+      {
+        ...result,
+        pendingId: entry.id,
+        sortOrder: entry.sortOrder,
+      },
+    ];
+    await insertPendingUploadRows(pinId, results);
+    await removePendingUpload(entry.id);
+  } finally {
+    releasePendingUploads([entry.id]);
+  }
+}
+
 export async function clearPendingUploadsForPin(pinId: string): Promise<void> {
   const all = await getPendingUploads();
   const toRemove = all.filter((u) => u.pinId === pinId);
@@ -146,11 +211,7 @@ export async function clearPendingUploadsForPin(pinId: string): Promise<void> {
   for (const entry of toRemove) {
     store.delete(entry.id);
   }
-  await new Promise<void>((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-  db.close();
+  await finishTransaction(tx, db);
   releasePendingUploads(toRemove.map((entry) => entry.id));
 }
 
@@ -162,6 +223,7 @@ async function processPendingUploadsForSpace(
   coupleId: string,
   onProgress?: (pinId: string, pct: number) => void,
   onDone?: (pinId: string) => void,
+  shouldContinue: () => boolean = () => true,
 ): Promise<void> {
   const pending = (await getPendingUploads()).filter(
     (entry) =>
@@ -170,7 +232,7 @@ async function processPendingUploadsForSpace(
   if (pending.length === 0) return;
 
   // Group by pinId
-  const byPin = new Map<string, PendingUpload[]>();
+  const byPin = new Map<string, PendingUploadMetadata[]>();
   for (const entry of pending) {
     const group = byPin.get(entry.pinId) ?? [];
     group.push(entry);
@@ -178,6 +240,7 @@ async function processPendingUploadsForSpace(
   }
 
   for (const [pinId, queuedEntries] of byPin) {
+    if (!shouldContinue()) return;
     const { data: pin, error: pinError } = await supabase
       .from("pins")
       .select("id")
@@ -228,18 +291,11 @@ async function processPendingUploadsForSpace(
 
     let completed = 0;
     const total = entries.length;
-    const results: PendingUploadResult[] = [];
-
     for (const entry of entries) {
+      if (!shouldContinue()) return;
+      if (claimedPendingUploadIds.has(entry.id)) continue;
       try {
-        const result = await uploadToCloudinary(entry.file, {
-          folder: `pinly/${entry.coupleId}`,
-        });
-        results.push({
-          ...result,
-          pendingId: entry.id,
-          sortOrder: entry.sortOrder,
-        });
+        await recoverPendingUpload(entry, shouldContinue);
       } catch (err) {
         console.warn(
           "Pending upload failed for",
@@ -247,23 +303,9 @@ async function processPendingUploadsForSpace(
           formatErrorMessage(err),
           err,
         );
-        // Leave in queue for next retry
       }
       completed++;
       onProgress?.(pinId, Math.round((completed / total) * 100));
-    }
-
-    if (results.length > 0) {
-      try {
-        await insertPendingUploadRows(pinId, results);
-        await removePendingUploads(results.map((result) => result.pendingId));
-      } catch (error) {
-        console.warn(
-          "Failed to insert pending upload rows:",
-          formatErrorMessage(error),
-          error,
-        );
-      }
     }
 
     onDone?.(pinId);
@@ -274,16 +316,21 @@ export function processPendingUploads(
   coupleId: string,
   onProgress?: (pinId: string, pct: number) => void,
   onDone?: (pinId: string) => void,
+  shouldContinue?: () => boolean,
 ): Promise<void> {
   const currentRun = pendingUploadRuns.get(coupleId);
   if (currentRun) return currentRun;
 
-  const run = processPendingUploadsForSpace(coupleId, onProgress, onDone)
-    .finally(() => {
-      if (pendingUploadRuns.get(coupleId) === run) {
-        pendingUploadRuns.delete(coupleId);
-      }
-    });
+  const run = processPendingUploadsForSpace(
+    coupleId,
+    onProgress,
+    onDone,
+    shouldContinue,
+  ).finally(() => {
+    if (pendingUploadRuns.get(coupleId) === run) {
+      pendingUploadRuns.delete(coupleId);
+    }
+  });
   pendingUploadRuns.set(coupleId, run);
   return run;
 }

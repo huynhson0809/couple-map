@@ -30,6 +30,7 @@ import { useMapStyle } from "../hooks/useMapStyle";
 import { useMap3DMode } from "../hooks/useMap3DMode";
 import { useStreak } from "../hooks/useStreak";
 import { useSubscription } from "../hooks/useSubscription";
+import { useToast } from "../hooks/ToastContext";
 import type { Pin } from "../types";
 import { DEFAULT_MAP_CENTER } from "../lib/mapDefaults";
 import { YEAR_REPLAY_ENABLED } from "../lib/featureFlags";
@@ -181,6 +182,7 @@ export function MapPage() {
     usePinsCtx();
   const { items: bucketItems } = useBucket(currentSpaceId, user?.id);
   const { getCurrentPosition } = useGeo(lang);
+  const { showToast } = useToast();
   const { canCreatePin, canUseMapStyle, canUseMap3D } = useSubscription();
   const { styleUrl } = useMapStyle(canUseMapStyle);
   const { map3DEnabled } = useMap3DMode(canUseMap3D);
@@ -493,25 +495,6 @@ export function MapPage() {
     return { ...mapCenter, accuracy: null };
   }
 
-  function getPinCoordAccuracy(coords: NewPinCoords) {
-    return coords.accuracy === null || coords.accuracy === undefined
-      ? Infinity
-      : coords.accuracy;
-  }
-
-  function shouldUseRefinedGpsCoords(
-    current: NewPinCoords,
-    next: NewPinCoords,
-  ) {
-    if (current.accuracy === null || current.accuracy === undefined) {
-      return true;
-    }
-    if (next.accuracy === null || next.accuracy === undefined) {
-      return false;
-    }
-    return getPinCoordAccuracy(next) < getPinCoordAccuracy(current);
-  }
-
   function handleFabClick() {
     if (!canCreatePin(pins.length)) {
       setShowUpgradePrompt(true);
@@ -531,12 +514,18 @@ export function MapPage() {
       .then((c) => {
         setLastUserLocation({ ...c, receivedAt: Date.now() });
         if (addPinGpsRequestRef.current !== requestId) return;
-        setNewPinCoords((current) => {
-          if (!current) return current;
-          return shouldUseRefinedGpsCoords(current, c) ? c : current;
-        });
+        setNewPinCoords((current) => (current ? c : current));
+        flyKey.current += 1;
+        setFlyTo({ ...c, key: flyKey.current });
       })
-      .catch(() => {});
+      .catch((error: unknown) => {
+        if (addPinGpsRequestRef.current !== requestId) return;
+        showToast({
+          type: "error",
+          title:
+            error instanceof Error ? error.message : t("location.unavailable"),
+        });
+      });
   }
 
   if (!couple || !user)

@@ -231,7 +231,9 @@ export function TimelinePage() {
   return <TimelinePageContent />;
 }
 
-export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps) {
+export function TimelinePageContent({
+  deepLinkPinId,
+}: TimelinePageContentProps) {
   const {
     pins: livePins,
     deletePin,
@@ -308,10 +310,10 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
   const circleResetKey = useMemo(
     () =>
       JSON.stringify({
+        spaceId: couple?.id,
         filters: timelineFilters,
-        firstPinId: timelinePins[0]?.id ?? null,
       }),
-    [timelineFilters, timelinePins],
+    [couple?.id, timelineFilters],
   );
 
   const favoriteCount = livePins.filter((p) => p.is_favorite).length;
@@ -949,9 +951,7 @@ export function TimelinePageContent({ deepLinkPinId }: TimelinePageContentProps)
           />
         ) : (
           <div className="pin-detail-deeplink-state" role="status">
-            <p>
-              {deepLinkError ?? t("timeline.opening")}
-            </p>
+            <p>{deepLinkError ?? t("timeline.opening")}</p>
             {deepLinkError && (
               <button
                 type="button"

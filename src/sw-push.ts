@@ -11,7 +11,11 @@ import { ExpirationPlugin } from "workbox-expiration";
 declare const self: ServiceWorkerGlobalScope;
 
 // --- Workbox setup ---
-self.skipWaiting();
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    event.waitUntil(self.skipWaiting());
+  }
+});
 clientsClaim();
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
@@ -87,7 +91,18 @@ self.addEventListener("push", (event) => {
     tag: "pinly-pin",
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(title, options),
+      self.clients
+        .matchAll({ type: "window", includeUncontrolled: true })
+        .then((clients) => {
+          for (const client of clients) {
+            client.postMessage({ type: "NOTIFICATION_RECEIVED" });
+          }
+        }),
+    ]),
+  );
 });
 
 // Handle notification click — open/focus the app

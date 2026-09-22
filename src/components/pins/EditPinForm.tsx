@@ -19,10 +19,7 @@ import {
   removePendingUploads,
   releasePendingUploads,
 } from "../../lib/pendingUploads";
-import {
-  MAX_PIN_CATEGORIES,
-  getPinCategoryIds,
-} from "../../lib/pinCategories";
+import { MAX_PIN_CATEGORIES, getPinCategoryIds } from "../../lib/pinCategories";
 import { supabase } from "../../lib/supabase";
 import {
   deletePinMedia,
@@ -81,8 +78,8 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   const { showToast } = useToast();
   const [title, setTitle] = useState(pin.title);
   const [note, setNote] = useState(pin.note ?? "");
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
-    () => getPinCategoryIds(pin),
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(() =>
+    getPinCategoryIds(pin),
   );
   const [markerEmoji, setMarkerEmoji] = useState<string | null>(
     pin.marker_emoji,
@@ -94,6 +91,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   const [error, setError] = useState<string | null>(null);
   const mediaLoadError = t("pin.mediaLoadFailed");
   const [saving, setSaving] = useState(false);
+  const submittingRef = useRef(false);
   const [customEmojiInput, setCustomEmojiInput] = useState("");
   const [showCustomTag, setShowCustomTag] = useState(false);
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
@@ -326,6 +324,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submittingRef.current || markerUploading) return;
     if (!currentSpaceWritable) {
       setError(t("settings.spaceReadOnlyBannerTitle"));
       return;
@@ -334,6 +333,7 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
       setError(t("pin.required"));
       return;
     }
+    submittingRef.current = true;
     setSaving(true);
     setError(null);
     const mediaFiles = [...newFiles];
@@ -369,12 +369,11 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
       console.warn("Edit failed:", technicalMessage, e);
       showToast({ type: "error", title: message });
       setError(message);
+      clearUploadProgress(pin.id, pinSpaceId);
+      submittingRef.current = false;
       setSaving(false);
       return;
     }
-
-    setSaving(false);
-    onSaved();
 
     if (!hasUpload) {
       if (mediaToRemove.length > 0) {
@@ -382,6 +381,9 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         bumpPinsVersion();
       }
       showToast({ type: "success", title: t("toast.memoryUpdated") });
+      submittingRef.current = false;
+      setSaving(false);
+      onSaved();
       return;
     }
 
@@ -401,7 +403,13 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
       );
     }
 
-    void uploadPinMediaFiles(
+    if (pendingUploadIds.length > 0) {
+      submittingRef.current = false;
+      setSaving(false);
+      onSaved();
+    }
+    let uploadedSuccessfully = false;
+    const uploadTask = uploadPinMediaFiles(
       mediaFiles,
       `pinly/${pinSpaceId}`,
       (pct) => setUploadProgress(pin.id, pct, pinSpaceId),
@@ -417,9 +425,12 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
             .insert(toPinImageRows(pin.id, uploads, startOrder));
           if (imgErr) throw imgErr;
         }
-        await fetchPinImages(pin.id);
-        bumpPinsVersion();
         await removePendingUploads(pendingUploadIds);
+        uploadedSuccessfully = true;
+        await fetchPinImages(pin.id).catch((error) => {
+          console.warn("Could not refresh uploaded media:", error);
+        });
+        bumpPinsVersion();
         showToast({ type: "success", title: t("toast.memoryUpdated") });
       })
       .catch((err) => {
@@ -429,10 +440,18 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
         });
         console.warn("Background upload error:", technicalMessage, err);
         showToast({ type: "error", title: t("toast.photoUploadFailed") });
+        if (pendingUploadIds.length === 0)
+          setError(t("toast.photoUploadFailed"));
       })
       .finally(() => {
         clearUploadProgress(pin.id, pinSpaceId);
       });
+    if (pendingUploadIds.length === 0) {
+      await uploadTask;
+      submittingRef.current = false;
+      setSaving(false);
+      if (uploadedSuccessfully) onSaved();
+    }
   }
 
   return (
