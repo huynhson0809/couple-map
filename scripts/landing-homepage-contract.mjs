@@ -1,6 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import assert from "node:assert/strict";
+import {
+  getPublicFooterLabel,
+  PUBLIC_INFO_PAGE_KEYS,
+} from "../src/content/publicPages.ts";
 
 const landingPage = readFileSync(resolve("src/pages/LandingPage.tsx"), "utf8");
 const landingMap = readFileSync(
@@ -10,6 +14,38 @@ const landingMap = readFileSync(
 const landingCss = readFileSync(resolve("src/pages/LandingPage.css"), "utf8");
 const i18n = readFileSync(resolve("src/hooks/I18nContext.tsx"), "utf8");
 const indexHtml = readFileSync(resolve("index.html"), "utf8");
+const publicChrome = readFileSync(
+  resolve("src/components/public/PublicSiteChrome.tsx"),
+  "utf8",
+);
+
+for (const language of ["en", "vi"]) {
+  const labels = PUBLIC_INFO_PAGE_KEYS.map((key) =>
+    getPublicFooterLabel(key, language),
+  );
+  assert.equal(
+    new Set(labels).size,
+    labels.length,
+    `Footer links must have distinct descriptive labels in ${language}.`,
+  );
+}
+assert.equal(getPublicFooterLabel("memoryMapGuide", "vi"), "Bản đồ kỷ niệm");
+assert.equal(
+  getPublicFooterLabel("travelJournalGuide", "vi"),
+  "Nhật ký hành trình",
+);
+assert.equal(getPublicFooterLabel("memoryMapGuide", "en"), "Memory map guide");
+assert.equal(
+  getPublicFooterLabel("travelJournalGuide", "en"),
+  "Travel journal guide",
+);
+for (const footer of [landingPage, publicChrome]) {
+  assert.match(
+    footer,
+    /getPublicFooterLabel\(key, language\)/,
+    "Landing and public-page footers must use the same localized link labels.",
+  );
+}
 
 function landingBlock(localeAnchor, fromIndex = 0) {
   const start = i18n.indexOf(localeAnchor, fromIndex);
@@ -135,6 +171,16 @@ assert.match(
 assert.match(enLanding, /Memories come alive/);
 assert.match(enLanding, /in every place\./);
 assert.match(enLanding, /Pin private moments/);
+assert.match(
+  enLanding,
+  /"landing\.navStories":\s*"Discover Pinly"/,
+  "The English story navigation should match the Vietnamese discovery label.",
+);
+assert.match(
+  viLanding,
+  /"landing\.navStories":\s*"Khám phá Pinly"/,
+  "The Vietnamese story navigation should retain its natural discovery label.",
+);
 assert.match(viLanding, /Mỗi nơi chốn,/);
 assert.match(viLanding, /một câu chuyện để nhớ\./);
 assert.match(

@@ -81,8 +81,7 @@ const dict = {
     "activation.invalid": "This activation code is not valid.",
     "activation.used": "This activation code has already been used.",
     "activation.expired": "This activation code has expired.",
-    "activation.rateLimited":
-      "Too many attempts. Wait a moment and try again.",
+    "activation.rateLimited": "Too many attempts. Wait a moment and try again.",
     "activation.failed": "Could not activate this plan. Please try again.",
     "activation.success": "{{plan}} is active until {{date}}.",
     "legal.privacy": "Privacy Policy",
@@ -97,8 +96,7 @@ const dict = {
     "legal.acceptAndContinue": "Accept and continue",
     "legal.consentLoadError":
       "Could not verify your privacy consent. Check your connection and try again.",
-    "legal.consentSaveError":
-      "Could not save your consent. Please try again.",
+    "legal.consentSaveError": "Could not save your consent. Please try again.",
 
     "pair.title": "Start a shared map",
     "pair.create": "Create a shared map",
@@ -192,7 +190,8 @@ const dict = {
     "pin.customCategoryLimit":
       "Custom category limit reached. Upgrade your plan to create more.",
     "pin.categorySaveFailed": "Could not save this category. Please try again.",
-    "pin.categoryDeleteFailed": "Could not delete this category. Please try again.",
+    "pin.categoryDeleteFailed":
+      "Could not delete this category. Please try again.",
     "pin.interactionsLoadFailed":
       "Comments and reactions could not be loaded. Please try again.",
     "pin.spaceChanged":
@@ -252,13 +251,13 @@ const dict = {
     "toast.actionFailed": "Something went wrong",
     "toast.photosUploaded": "Photos uploaded",
     "toast.photoUploadFailed": "Photo upload failed",
-    "location.notSupported":
-      "Location is not available in this browser.",
+    "location.notSupported": "Location is not available in this browser.",
     "location.permissionDenied":
       "Location access is off. Allow it in your browser settings and try again.",
     "location.temporarilyUnavailable":
       "Your current location is temporarily unavailable. Try again in a moment.",
-    "location.timeout": "Finding your location took too long. Please try again.",
+    "location.timeout":
+      "Finding your location took too long. Please try again.",
     "location.unavailable": "Could not find your current location.",
     "timeline.favorites": "Favorites",
     "settings.anniversary": "Started date",
@@ -281,8 +280,7 @@ const dict = {
     "notif.denied": "Permission denied — enable in browser settings",
     "notif.granted": "Notifications on",
     "notif.pushHint": "Get reminders about memories and your daily streak",
-    "notif.pushError":
-      "Could not update push notifications. Please try again.",
+    "notif.pushError": "Could not update push notifications. Please try again.",
     "notif.newMemory": "added a new memory",
     "notif.memoryAdded": "New memories",
     "notif.memoryAddedHint": "When another member adds a memory",
@@ -313,7 +311,8 @@ const dict = {
     "notif.actionCommentReply": "replied to your comment",
     "notif.actionCommentReaction": "reacted to your comment",
     "notif.actionNudge": "sent a gentle reminder",
-    "notif.nudgeBody": "Today's shared streak is still waiting for your moment.",
+    "notif.nudgeBody":
+      "Today's shared streak is still waiting for your moment.",
     "notif.actorFallback": "A map member",
     "notif.justNow": "Just now",
     "notif.minutesAgo": "m ago",
@@ -394,8 +393,7 @@ const dict = {
       "The other member has already saved a memory today.",
     "streak.nudgePostFirst":
       "Save your memory for today before sending a reminder.",
-    "streak.nudgeDisabled":
-      "The other member has turned off streak reminders.",
+    "streak.nudgeDisabled": "The other member has turned off streak reminders.",
 
     "stats.title": "Memory space",
     "stats.memories": "Memories",
@@ -647,7 +645,7 @@ const dict = {
     "landing.proofSpaces": "Solo, family, friends, trips",
     "landing.langSwitch": "Tiếng Việt",
     "landing.navLabel": "Primary navigation",
-    "landing.navStories": "Less clutter",
+    "landing.navStories": "Discover Pinly",
     "landing.languageLabel": "Switch language",
     "landing.heroMapLabel":
       "A map of Da Nang and Hoi An with a route connecting saved memories",
@@ -786,15 +784,13 @@ const dict = {
     "auth.invalidCredentials": "Email hoặc mật khẩu chưa đúng.",
     "auth.emailNotConfirmed": "Hãy xác nhận email trước khi đăng nhập.",
     "auth.passwordTooShort": "Mật khẩu cần có ít nhất 6 ký tự.",
-    "auth.passwordUnchanged":
-      "Hãy chọn mật khẩu khác với mật khẩu hiện tại.",
+    "auth.passwordUnchanged": "Hãy chọn mật khẩu khác với mật khẩu hiện tại.",
     "auth.resetLinkExpired":
       "Liên kết đặt lại mật khẩu đã hết hạn. Hãy yêu cầu một liên kết mới.",
     "auth.loginError": "Chưa thể đăng nhập. Vui lòng thử lại.",
     "auth.signupError": "Chưa thể tạo tài khoản. Vui lòng thử lại.",
     "auth.emailError": "Chưa thể gửi email. Vui lòng thử lại.",
-    "auth.resendFailed":
-      "Chưa thể gửi lại email xác nhận. Vui lòng thử lại.",
+    "auth.resendFailed": "Chưa thể gửi lại email xác nhận. Vui lòng thử lại.",
     "activation.codeRequired": "Hãy nhập mã kích hoạt.",
     "activation.codeTooLong": "Mã kích hoạt này quá dài.",
     "activation.invalid": "Mã kích hoạt này không hợp lệ.",
@@ -926,8 +922,7 @@ const dict = {
       "Bạn đang tạo kỷ niệm quá nhanh. Vui lòng chờ một chút rồi thử lại.",
     "pin.mediaDeleteFailed":
       "Chưa thể xóa ảnh hoặc video này. Vui lòng thử lại.",
-    "pin.mediaLoadFailed":
-      "Chưa tải được ảnh và video. Vui lòng thử lại.",
+    "pin.mediaLoadFailed": "Chưa tải được ảnh và video. Vui lòng thử lại.",
     "pin.markerUploadFailed": "Chưa thể tải ảnh đánh dấu lên.",
     "pin.deleteTag": "Xóa tag",
     "pin.editTag": "Sửa tag",
@@ -971,8 +966,7 @@ const dict = {
     "toast.actionFailed": "Có lỗi xảy ra",
     "toast.photosUploaded": "Đã tải ảnh lên",
     "toast.photoUploadFailed": "Tải ảnh thất bại",
-    "location.notSupported":
-      "Trình duyệt này không hỗ trợ xác định vị trí.",
+    "location.notSupported": "Trình duyệt này không hỗ trợ xác định vị trí.",
     "location.permissionDenied":
       "Quyền truy cập vị trí đang tắt. Hãy bật lại trong cài đặt trình duyệt.",
     "location.temporarilyUnavailable":
@@ -999,8 +993,7 @@ const dict = {
     "notif.denied": "Bị chặn — bật lại trong cài đặt trình duyệt",
     "notif.granted": "Thông báo đang bật",
     "notif.pushHint": "Nhận lời nhắc về kỷ niệm và chuỗi mỗi ngày",
-    "notif.pushError":
-      "Chưa thể cập nhật thông báo đẩy. Vui lòng thử lại.",
+    "notif.pushError": "Chưa thể cập nhật thông báo đẩy. Vui lòng thử lại.",
     "notif.newMemory": "vừa thêm 1 kỷ niệm",
     "notif.memoryAdded": "Kỷ niệm mới",
     "notif.memoryAddedHint": "Khi thành viên khác thêm kỷ niệm",
@@ -1110,10 +1103,8 @@ const dict = {
     "streak.nudgeFailed": "Chưa thể gửi lời nhắc. Vui lòng thử lại.",
     "streak.nudgeAlreadyPosted":
       "Thành viên còn lại đã lưu kỷ niệm hôm nay rồi.",
-    "streak.nudgePostFirst":
-      "Hãy lưu kỷ niệm hôm nay trước khi gửi lời nhắc.",
-    "streak.nudgeDisabled":
-      "Thành viên còn lại đã tắt lời nhắc chuỗi.",
+    "streak.nudgePostFirst": "Hãy lưu kỷ niệm hôm nay trước khi gửi lời nhắc.",
+    "streak.nudgeDisabled": "Thành viên còn lại đã tắt lời nhắc chuỗi.",
 
     "stats.title": "Không gian kỷ niệm",
     "stats.memories": "Kỷ niệm",

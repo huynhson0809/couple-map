@@ -21,13 +21,10 @@ import {
   PUBLIC_INFO_PAGE_KEYS,
   PUBLIC_PAGES,
   getLocalizedPublicPath,
+  getPublicFooterLabel,
   type PublicLanguage,
 } from "../content/publicPages";
-import {
-  translate,
-  useI18n,
-  type I18nKey,
-} from "../hooks/I18nContext";
+import { translate, useI18n, type I18nKey } from "../hooks/I18nContext";
 import { usePublicPageSeo } from "../hooks/usePublicPageSeo";
 import "./LandingPage.css";
 
@@ -64,10 +61,8 @@ export function LandingPage({
   const { setLang } = useI18n();
   const navigate = useNavigate();
   const lang = language;
-  const t = (
-    key: I18nKey,
-    values?: Record<string, string | number>,
-  ) => translate(language, key, values);
+  const t = (key: I18nKey, values?: Record<string, string | number>) =>
+    translate(language, key, values);
   const [privacyMode, setPrivacyMode] = useState<PrivacyMode>("shared");
   const [installPlatform, setInstallPlatform] =
     useState<InstallPlatform>("ios");
@@ -117,9 +112,7 @@ export function LandingPage({
           },
           {
             label: t("landing.installIos3"),
-            icon: (
-              <SquarePlus size={20} strokeWidth={1.8} aria-hidden="true" />
-            ),
+            icon: <SquarePlus size={20} strokeWidth={1.8} aria-hidden="true" />,
           },
         ]
       : [
@@ -139,9 +132,7 @@ export function LandingPage({
           },
           {
             label: t("landing.installAndroid3"),
-            icon: (
-              <Smartphone size={20} strokeWidth={1.8} aria-hidden="true" />
-            ),
+            icon: <Smartphone size={20} strokeWidth={1.8} aria-hidden="true" />,
           },
         ];
 
@@ -453,7 +444,7 @@ export function LandingPage({
               key={key}
               to={getLocalizedPublicPath(PUBLIC_PAGES[key].path, language)}
             >
-              {PUBLIC_PAGES[key][lang].eyebrow}
+              {getPublicFooterLabel(key, language)}
             </Link>
           ))}
           <Link to={getLocalizedPublicPath("/privacy", language)}>

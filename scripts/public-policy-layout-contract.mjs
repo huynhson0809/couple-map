@@ -13,6 +13,27 @@ const publicContent = readFileSync(
   "utf8",
 );
 
+assert.match(
+  app,
+  /useLayoutEffect\(\(\) => \{\s*if \(resetPublicScroll && !location\.hash\) \{\s*window\.scrollTo\(\{ top: 0, left: 0, behavior: "instant" \}\);/,
+  "Public navigation should reset document scroll after the destination renders, without overriding fragment navigation.",
+);
+assert.match(
+  app,
+  /document\.getElementById\("root"\)\?\.scrollTo\(\{\s*top: 0,\s*left: 0,\s*behavior: "instant",?\s*\}\)/,
+  "Public navigation must reset the fixed-height root scroll container, not only window scroll.",
+);
+assert.match(
+  app,
+  /\[resetPublicScroll, location\.key, location\.hash\]/,
+  "Every public navigation, including another click on the current footer link, should reset scroll.",
+);
+assert.match(
+  app,
+  /publicRoute\.page\.key !== "home"\s*\|\|\s*publicRoute\.language === "vi"\s*\|\|\s*!user/,
+  "Public scroll resets must not include the signed-in map or other authenticated tabs.",
+);
+
 assert.equal(
   packageJson.scripts["check:public-policy-layout"],
   "node scripts/public-policy-layout-contract.mjs",

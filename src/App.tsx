@@ -28,7 +28,7 @@ import { useAccountPreferencesSync } from "./hooks/useAccountPreferencesSync";
 import { NotificationFeedProvider } from "./hooks/NotificationFeedContext";
 import { SubscriptionProvider, useSubscription } from "./hooks/useSubscription";
 import { getPublicPageRouteByPath } from "./content/publicPages";
-import { lazy, Suspense, useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef } from "react";
 
 const LoginPage = lazy(() =>
   import("./components/auth/LoginPage").then((module) => ({
@@ -141,8 +141,7 @@ function PairedShell() {
   const navigate = useNavigate();
   const isMap = location.pathname === "/";
   const isReplay =
-    location.pathname === "/replay" ||
-    location.pathname.startsWith("/replay/");
+    location.pathname === "/replay" || location.pathname.startsWith("/replay/");
   const bgUrl = activeSpace?.background_image_url;
   const backgroundImageUrl = bgUrl ? getImageUrl(bgUrl, 1200) : undefined;
   const backgroundPreloadRef = useRef<HTMLImageElement | null>(null);
@@ -310,6 +309,27 @@ function AppRoutes() {
   useAccountPreferencesSync(user?.id);
   const location = useLocation();
   const publicRoute = getPublicPageRouteByPath(location.pathname);
+  const resetPublicScroll =
+    Boolean(
+      publicRoute &&
+      (publicRoute.page.key !== "home" ||
+        publicRoute.language === "vi" ||
+        !user),
+    ) ||
+    /^(?:\/vi)?\/(?:privacy|terms)$/.test(location.pathname) ||
+    location.pathname === "/login" ||
+    location.pathname === "/register";
+
+  useLayoutEffect(() => {
+    if (resetPublicScroll && !location.hash) {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      document.getElementById("root")?.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: "instant",
+      });
+    }
+  }, [resetPublicScroll, location.key, location.hash]);
 
   if (publicRoute?.page.key === "careers") {
     return (

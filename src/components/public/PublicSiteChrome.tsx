@@ -5,23 +5,13 @@ import {
   PUBLIC_INFO_PAGE_KEYS,
   PUBLIC_PAGES,
   getLocalizedPublicPath,
+  getPublicFooterLabel,
   type PublicLanguage,
   type PublicPageKey,
 } from "../../content/publicPages";
 import { useI18n } from "../../hooks/I18nContext";
 import { Logo } from "../ui/Logo";
 import { PublicSocialLinks } from "./PublicSocialLinks";
-
-const GUIDE_FOOTER_LABELS = {
-  vi: {
-    memoryMapGuide: "Bản đồ kỷ niệm",
-    travelJournalGuide: "Nhật ký hành trình",
-  },
-  en: {
-    memoryMapGuide: "Memory map guide",
-    travelJournalGuide: "Travel journal guide",
-  },
-} as const;
 
 const LEGAL_FOOTER_LABELS = {
   vi: {
@@ -137,9 +127,7 @@ export function PublicSiteFooter({ language }: { language: PublicLanguage }) {
             key={key}
             to={getLocalizedPublicPath(PUBLIC_PAGES[key].path, language)}
           >
-            {key === "memoryMapGuide" || key === "travelJournalGuide"
-              ? GUIDE_FOOTER_LABELS[language][key]
-              : PUBLIC_PAGES[key][language].eyebrow}
+            {getPublicFooterLabel(key, language)}
           </Link>
         ))}
         <Link to={getLocalizedPublicPath("/privacy", language)}>

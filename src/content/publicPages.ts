@@ -760,7 +760,8 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
       eyebrow: CAREERS_CONTENT.vi.heroEyebrow,
       title: CAREERS_CONTENT.vi.heroTitle,
       description: CAREERS_CONTENT.vi.heroDescription,
-      metaTitle: "Founding Growth Partner tại Pinly | Cùng xây từ giai đoạn đầu",
+      metaTitle:
+        "Founding Growth Partner tại Pinly | Cùng xây từ giai đoạn đầu",
       metaDescription:
         "Pinly tìm Founding Growth Partner đồng hành bán thời gian ở giai đoạn pre-revenue. Hiện chưa có lương cố định; quyền lợi dài hạn được thống nhất trước khi bắt đầu.",
       sections: [
@@ -973,13 +974,31 @@ export const PUBLIC_INFO_PAGE_KEYS = PUBLIC_PAGE_KEYS.filter(
   (key) => key !== "home",
 );
 
+const GUIDE_FOOTER_LABELS = {
+  vi: {
+    memoryMapGuide: "Bản đồ kỷ niệm",
+    travelJournalGuide: "Nhật ký hành trình",
+  },
+  en: {
+    memoryMapGuide: "Memory map guide",
+    travelJournalGuide: "Travel journal guide",
+  },
+} as const;
+
+export function getPublicFooterLabel(
+  key: PublicPageKey,
+  language: PublicLanguage,
+) {
+  return key === "memoryMapGuide" || key === "travelJournalGuide"
+    ? GUIDE_FOOTER_LABELS[language][key]
+    : PUBLIC_PAGES[key][language].eyebrow;
+}
+
 export const PUBLIC_POLICY_PATHS = ["/privacy", "/terms"] as const;
 
 function normalizePublicPath(pathname: string) {
   if (!pathname) return "/";
-  const withLeadingSlash = pathname.startsWith("/")
-    ? pathname
-    : `/${pathname}`;
+  const withLeadingSlash = pathname.startsWith("/") ? pathname : `/${pathname}`;
   return withLeadingSlash.length > 1
     ? withLeadingSlash.replace(/\/+$/, "")
     : withLeadingSlash;
@@ -1004,9 +1023,7 @@ export function getLocalizedPublicPath(
 export function getPublicPageRouteByPath(pathname: string) {
   const normalizedPath = normalizePublicPath(pathname);
   const language: PublicLanguage =
-    normalizedPath === "/vi" || normalizedPath.startsWith("/vi/")
-      ? "vi"
-      : "en";
+    normalizedPath === "/vi" || normalizedPath.startsWith("/vi/") ? "vi" : "en";
   const basePath = getLocalizedPublicPath(normalizedPath, "en");
   const page = PUBLIC_PAGE_KEYS.map((key) => PUBLIC_PAGES[key]).find(
     (candidate) => candidate.path === basePath,

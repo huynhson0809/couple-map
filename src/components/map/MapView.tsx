@@ -553,18 +553,60 @@ export function MapView({
   ) {
     const glyphCount = [...emoji].length;
     const fontSize = glyphCount > 2 ? 15 : glyphCount > 1 ? 19 : 23;
-    ctx.font = `${fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "alphabetic";
-    const metrics = ctx.measureText(emoji);
-    ctx.fillText(
-      emoji,
-      centerX +
-        (metrics.actualBoundingBoxLeft - metrics.actualBoundingBoxRight) / 2,
-      centerY +
-        (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) /
-          2,
-    );
+    const canvas = document.createElement("canvas");
+    const size = MEMORY_PIN_SPRITE_SIZE * MEMORY_PIN_SPRITE_PIXEL_RATIO * 2;
+    canvas.width = size;
+    canvas.height = size;
+    try {
+      const glyphContext = canvas.getContext("2d", {
+        willReadFrequently: true,
+      });
+      if (!glyphContext) return;
+      glyphContext.font = `${fontSize * MEMORY_PIN_SPRITE_PIXEL_RATIO}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+      glyphContext.textAlign = "center";
+      glyphContext.textBaseline = "middle";
+      glyphContext.fillText(emoji, size / 2, size / 2);
+
+      const { data } = glyphContext.getImageData(0, 0, size, size);
+      let left = size;
+      let top = size;
+      let right = -1;
+      let bottom = -1;
+      for (let offset = 3; offset < data.length; offset += 4) {
+        if (data[offset] === 0) continue;
+        const pixelIndex = (offset - 3) / 4;
+        const pixelX = pixelIndex % size;
+        const pixelY = Math.floor(pixelIndex / size);
+        left = Math.min(left, pixelX);
+        top = Math.min(top, pixelY);
+        right = Math.max(right, pixelX);
+        bottom = Math.max(bottom, pixelY);
+      }
+      if (right < left || bottom < top) return;
+
+      const width = right - left + 1;
+      const height = bottom - top + 1;
+      const scale = Math.min(
+        1 / MEMORY_PIN_SPRITE_PIXEL_RATIO,
+        (MEMORY_PIN_IMAGE_RADIUS * 2) / Math.hypot(width, height),
+      );
+      const drawWidth = width * scale;
+      const drawHeight = height * scale;
+      ctx.drawImage(
+        canvas,
+        left,
+        top,
+        width,
+        height,
+        centerX - drawWidth / 2,
+        centerY - drawHeight / 2,
+        drawWidth,
+        drawHeight,
+      );
+    } finally {
+      canvas.width = 1;
+      canvas.height = 1;
+    }
   }
 
   function syncMemoryLayers() {

@@ -306,49 +306,92 @@ function checkMapSpriteRendering() {
     "src/components/map/MapView.tsx",
     "drawEmojiSprite",
   );
-  for (const metrics of [
-    {
-      actualBoundingBoxLeft: 8,
-      actualBoundingBoxRight: 14,
-      actualBoundingBoxAscent: 20,
-      actualBoundingBoxDescent: 2,
-    },
-    {
-      actualBoundingBoxLeft: 14,
-      actualBoundingBoxRight: 7,
-      actualBoundingBoxAscent: 15,
-      actualBoundingBoxDescent: 5,
-    },
+  for (const bounds of [
+    { left: 119, top: 74, width: 36, height: 48 },
+    { left: 59, top: 101, width: 45, height: 31 },
+    { left: 8, top: 20, width: 190, height: 82 },
+    null,
   ]) {
     let drawn = false;
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: () => ({
+        measureText: () =>
+          assert.fail("Emoji centering must not trust platform text metrics."),
+        fillText() {},
+        getImageData(_left, _top, width, height) {
+          const data = new Uint8ClampedArray(width * height * 4);
+          if (bounds) {
+            for (
+              let row = bounds.top;
+              row < bounds.top + bounds.height;
+              row += 1
+            ) {
+              for (
+                let column = bounds.left;
+                column < bounds.left + bounds.width;
+                column += 1
+              ) {
+                data[(row * width + column) * 4 + 3] = 255;
+              }
+            }
+          }
+          return { data };
+        },
+      }),
+    };
     const context = {
-      measureText: () => metrics,
-      fillText(_emoji, positionX, positionY) {
+      drawImage(
+        image,
+        sourceX,
+        sourceY,
+        width,
+        height,
+        targetX,
+        targetY,
+        targetWidth,
+        targetHeight,
+      ) {
         drawn = true;
-        assert.equal(
-          (positionX -
-            metrics.actualBoundingBoxLeft +
-            positionX +
-            metrics.actualBoundingBoxRight) /
-            2,
-          32,
+        assert.equal(image, canvas);
+        assert.deepEqual(
+          { left: sourceX, top: sourceY, width, height },
+          bounds,
         );
         assert.equal(
-          (positionY -
-            metrics.actualBoundingBoxAscent +
-            positionY +
-            metrics.actualBoundingBoxDescent) /
-            2,
+          targetX + targetWidth / 2,
           32,
+          "The visible emoji pixels must be centered horizontally, regardless of font bearings.",
+        );
+        assert.equal(
+          targetY + targetHeight / 2,
+          32,
+          "The visible emoji pixels must be centered vertically, regardless of font baseline.",
+        );
+        assert.ok(
+          Math.hypot(targetWidth, targetHeight) <= 35 + Number.EPSILON * 35,
+          "Even wide custom emoji strings must fit inside the circular badge.",
         );
       },
     };
     runInNewContext(
       `${source}\ndrawEmojiSprite(context, "\\u2708\\ufe0f", 32, 32)`,
-      { context },
+      {
+        context,
+        document: { createElement: () => canvas },
+        MEMORY_PIN_SPRITE_SIZE: 56,
+        MEMORY_PIN_SPRITE_PIXEL_RATIO: 2,
+        MEMORY_PIN_IMAGE_RADIUS: 17.5,
+      },
     );
-    assert.ok(drawn);
-    assert.equal(context.textBaseline, "alphabetic");
+    assert.equal(drawn, Boolean(bounds));
+    assert.equal(
+      canvas.width,
+      1,
+      "Temporary glyph canvases must release their backing buffer.",
+    );
+    assert.equal(canvas.height, 1);
   }
   const map = readFileSync(
     resolve(root, "src/components/map/MapView.tsx"),
