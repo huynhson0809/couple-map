@@ -1,7 +1,7 @@
 # Pinly
 
-Pinly is a private memory map web application at https://pinly.tech/.
-It lets people save places, dates, notes, photos, and videos as memories,
+Pinly is a free, private memory map web application at https://pinly.tech/.
+It lets people save places, dates, notes, and photos as memories,
 then revisit them on a map and chronological timeline. Pinly can be used
 individually or shared with an invited person.
 

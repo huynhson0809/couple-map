@@ -153,6 +153,26 @@ assert.match(
   "Build-time prerender must emit static HTML for each localized public route.",
 );
 assert.match(
+  prerender,
+  /page\.key === "home"\s*\?\s*renderStaticHomePage\(page, language\)/,
+  "The homepage must prerender its landing copy for crawlers that do not run JavaScript.",
+);
+assert.match(
+  prerender,
+  /getPublicFooterLabel\(key, language\)/,
+  "Static navigation must use distinct, descriptive link labels.",
+);
+assert.match(
+  indexHtml,
+  /"isAccessibleForFree": true/,
+  "The app schema must state that Pinly is free to use.",
+);
+assert.doesNotMatch(
+  `${indexHtml}\n${llms}\n${llmsFull}`,
+  /photos, (?:and )?videos|video memories|3D map/i,
+  "AI-facing content must not promise video or 3D features that the Free plan lacks.",
+);
+assert.match(
   packageJson,
   /vite build && node --experimental-strip-types scripts\/prerender-public-pages\.mjs/,
   "Production builds must run public-page prerendering.",

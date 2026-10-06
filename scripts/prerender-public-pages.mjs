@@ -1,11 +1,13 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { runInNewContext } from "node:vm";
 import {
   PUBLIC_CHROME,
   PUBLIC_INFO_PAGE_KEYS,
   PUBLIC_PAGES,
   PUBLIC_PAGE_KEYS,
   getLocalizedPublicPath,
+  getPublicFooterLabel,
   getPublicPageSchema,
 } from "../src/content/publicPages.ts";
 import {
@@ -27,6 +29,21 @@ const PUBLIC_SOCIAL_LINKS = resolvePublicSocialLinks({
   VITE_SOCIAL_TIKTOK_URL: process.env.VITE_SOCIAL_TIKTOK_URL,
   VITE_SOCIAL_X_URL: process.env.VITE_SOCIAL_X_URL,
 });
+
+// I18nContext.tsx is TSX that Node cannot import, so evaluate only its plain dictionary literal.
+function readTranslations() {
+  const source = readFileSync(resolve("src/hooks/I18nContext.tsx"), "utf8");
+  const start = source.indexOf("const dict = {");
+  const end = source.indexOf("\n} as const;", start);
+  if (start === -1 || end === -1) {
+    throw new Error("Could not find the translation dictionary in I18nContext.tsx.");
+  }
+  return runInNewContext(
+    `(${source.slice(start + "const dict = ".length, end + 2)})`,
+  );
+}
+
+const TRANSLATIONS = readTranslations();
 
 const STATIC_LABELS = {
   en: {
@@ -64,6 +81,14 @@ function escapeHtml(value) {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function landingText(language, key) {
+  const value = TRANSLATIONS[language][`landing.${key}`];
+  if (typeof value !== "string") {
+    throw new Error(`Missing landing.${key} copy for ${language}.`);
+  }
+  return escapeHtml(value);
 }
 
 function replaceMeta(html, attribute, key, value) {
@@ -208,16 +233,93 @@ function renderQuestions(questions, language) {
     </section>`;
 }
 
+function renderStaticInfoLinks(language) {
+  return PUBLIC_INFO_PAGE_KEYS.map(
+    (key) =>
+      `<a href="${getLocalizedPublicPath(PUBLIC_PAGES[key].path, language)}">${escapeHtml(getPublicFooterLabel(key, language))}</a>`,
+  ).join("");
+}
+
+function renderStaticHeader(language) {
+  const chrome = PUBLIC_CHROME[language];
+  return `
+      <header class="pinly-static-nav">
+        <a class="pinly-static-brand" href="${getLocalizedPublicPath("/", language)}">
+          <img src="/favicon.svg" width="30" height="30" alt="" />
+          <span>Pinly</span>
+        </a>
+        <nav aria-label="${escapeHtml(chrome.navLabel)}">${renderStaticInfoLinks(language)}</nav>
+        <a class="pinly-static-cta" href="/register">${escapeHtml(chrome.register)}</a>
+      </header>`;
+}
+
+function renderStaticFooter(language) {
+  return `
+      <footer>
+        <strong>Pinly</strong>
+        <nav>${renderStaticInfoLinks(language)}<a href="${getLocalizedPublicPath("/privacy", language)}">${STATIC_LABELS[language].privacy}</a><a href="${getLocalizedPublicPath("/terms", language)}">${STATIC_LABELS[language].terms}</a></nav>
+        ${renderStaticSocialLinks(language)}
+        <small>© 2026 Pinly</small>
+      </footer>`;
+}
+
+function renderStaticHomePage(page, language) {
+  const content = page[language];
+  const installSteps = (prefix) =>
+    [1, 2, 3]
+      .map((step) => `<li>${landingText(language, `${prefix}${step}`)}</li>`)
+      .join("");
+
+  return `
+    <div id="pinly-prerender" class="pinly-prerender">${renderStaticHeader(language)}
+      <main>
+        <section class="pinly-static-hero">
+          <img src="${page.image}" alt="" />
+          <div>
+            <span>${escapeHtml(content.eyebrow)}</span>
+            <h1>${landingText(language, "heroTitle")} ${landingText(language, "heroAccent")}</h1>
+            <p>${landingText(language, "heroDesc")}</p>
+          </div>
+        </section>
+        ${renderSections([{ title: content.title, paragraphs: [content.description] }])}
+        <section class="pinly-static-section">
+          <h2>${landingText(language, "featuredPrivacy")}</h2>
+          <div>
+            <ul>
+              <li><strong>${landingText(language, "privacyPrivate")}:</strong> ${landingText(language, "privacyPrivateDesc")}</li>
+              <li><strong>${landingText(language, "privacyShared")}:</strong> ${landingText(language, "privacySharedDesc")}</li>
+            </ul>
+          </div>
+        </section>
+        <section class="pinly-static-section">
+          <h2>${landingText(language, "modesTitle")}</h2>
+          <div>
+            <p>${landingText(language, "modesDesc")}</p>
+            <ul><li>${landingText(language, "modeSolo")}</li><li>${landingText(language, "modeFriends")}</li><li>${landingText(language, "modeFamily")}</li></ul>
+          </div>
+        </section>
+        <section class="pinly-static-section">
+          <h2>${landingText(language, "installTitle")}</h2>
+          <div>
+            <p>${landingText(language, "installDesc")}</p>
+            <p><strong>iPhone / iPad</strong></p>
+            <ol>${installSteps("installIos")}</ol>
+            <p><strong>Android</strong></p>
+            <ol>${installSteps("installAndroid")}</ol>
+          </div>
+        </section>
+        ${renderQuestions(PUBLIC_PAGES.faq[language].questions?.slice(0, 4), language)}
+        <section class="pinly-static-bottom">
+          <h2>${escapeHtml(content.ctaTitle)}</h2>
+          <p>${escapeHtml(content.ctaDescription)}</p>
+          <a class="pinly-static-cta" href="/register">${STATIC_LABELS[language].account}</a>
+        </section>
+      </main>${renderStaticFooter(language)}
+    </div>`;
+}
+
 function renderStaticPage(page, language) {
   const content = page[language];
-  const chrome = PUBLIC_CHROME[language];
-  const links = PUBLIC_INFO_PAGE_KEYS.map((key) => {
-    const linkedPage = PUBLIC_PAGES[key];
-    return `<a href="${getLocalizedPublicPath(linkedPage.path, language)}">${escapeHtml(linkedPage[language].eyebrow)}</a>`;
-  }).join("");
-  const homePath = getLocalizedPublicPath("/", language);
-  const privacyPath = getLocalizedPublicPath("/privacy", language);
-  const termsPath = getLocalizedPublicPath("/terms", language);
   const isCareersPage = page.key === "careers";
   const careersEmail = DEFAULT_CAREERS_EMAIL;
   const bottomCtaHref = isCareersPage
@@ -228,15 +330,7 @@ function renderStaticPage(page, language) {
     : STATIC_LABELS[language].account;
 
   return `
-    <div id="pinly-prerender" class="pinly-prerender">
-      <header class="pinly-static-nav">
-        <a class="pinly-static-brand" href="${homePath}">
-          <img src="/favicon.svg" width="30" height="30" alt="" />
-          <span>Pinly</span>
-        </a>
-        <nav aria-label="${escapeHtml(chrome.navLabel)}">${links}</nav>
-        <a class="pinly-static-cta" href="/register">${escapeHtml(chrome.register)}</a>
-      </header>
+    <div id="pinly-prerender" class="pinly-prerender">${renderStaticHeader(language)}
       <main>
         <section class="pinly-static-hero">
           <img src="${page.image}" alt="" />
@@ -255,37 +349,15 @@ function renderStaticPage(page, language) {
           <p>${escapeHtml(content.ctaDescription)}</p>
           <a class="pinly-static-cta" href="${escapeHtml(bottomCtaHref)}">${bottomCtaLabel}</a>
         </section>
-      </main>
-      <footer>
-        <strong>Pinly</strong>
-        <nav>${links}<a href="${privacyPath}">${STATIC_LABELS[language].privacy}</a><a href="${termsPath}">${STATIC_LABELS[language].terms}</a></nav>
-        ${renderStaticSocialLinks(language)}
-        <small>© 2026 Pinly</small>
-      </footer>
+      </main>${renderStaticFooter(language)}
     </div>`;
 }
 
 function renderStaticPolicyPage(kind, language) {
   const content = getLegalContent(kind, language);
-  const chrome = PUBLIC_CHROME[language];
-  const links = PUBLIC_INFO_PAGE_KEYS.map((key) => {
-    const linkedPage = PUBLIC_PAGES[key];
-    return `<a href="${getLocalizedPublicPath(linkedPage.path, language)}">${escapeHtml(linkedPage[language].eyebrow)}</a>`;
-  }).join("");
-  const homePath = getLocalizedPublicPath("/", language);
-  const privacyPath = getLocalizedPublicPath("/privacy", language);
-  const termsPath = getLocalizedPublicPath("/terms", language);
 
   return `
-    <div id="pinly-prerender" class="pinly-prerender">
-      <header class="pinly-static-nav">
-        <a class="pinly-static-brand" href="${homePath}">
-          <img src="/favicon.svg" width="30" height="30" alt="" />
-          <span>Pinly</span>
-        </a>
-        <nav aria-label="${escapeHtml(chrome.navLabel)}">${links}</nav>
-        <a class="pinly-static-cta" href="/register">${escapeHtml(chrome.register)}</a>
-      </header>
+    <div id="pinly-prerender" class="pinly-prerender">${renderStaticHeader(language)}
       <main>
         <section class="pinly-static-legal-hero">
           <span>${STATIC_LABELS[language].legal}</span>
@@ -304,13 +376,7 @@ function renderStaticPolicyPage(kind, language) {
             )
             .join("")}
         </article>
-      </main>
-      <footer>
-        <strong>Pinly</strong>
-        <nav>${links}<a href="${privacyPath}">${STATIC_LABELS[language].privacy}</a><a href="${termsPath}">${STATIC_LABELS[language].terms}</a></nav>
-        ${renderStaticSocialLinks(language)}
-        <small>© 2026 Pinly</small>
-      </footer>
+      </main>${renderStaticFooter(language)}
     </div>`;
 }
 
@@ -365,7 +431,7 @@ function buildPageHtml(page, language) {
   );
   html = html.replace(
     '<div id="root"></div>',
-    `${renderStaticPage(page, language)}\n    <div id="root"></div>`,
+    `${page.key === "home" ? renderStaticHomePage(page, language) : renderStaticPage(page, language)}\n    <div id="root"></div>`,
   );
 
   return html;

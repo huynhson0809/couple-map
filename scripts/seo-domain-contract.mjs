@@ -55,7 +55,7 @@ assert.match(
 );
 assert.match(
   indexHtml,
-  /<title>Pinly - A Private Map for Your Memories<\/title>/,
+  /<title>Pinly - A Free, Private Map for Your Memories<\/title>/,
   "The static homepage title must be English.",
 );
 assert.match(

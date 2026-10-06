@@ -145,7 +145,7 @@ export const CAREERS_CONTENT: Record<PublicLanguage, CareersPageContent> = {
     whyEyebrow: "Vì sao là lúc này",
     whyTitle: "Không phải một vị trí nhân viên. Đây là lời mời cùng xây.",
     whyParagraphs: [
-      "Pinly giúp mỗi người lưu địa điểm, ảnh, video và câu chuyện trên một bản đồ kỷ niệm riêng tư. Sản phẩm đã hoạt động nhưng vẫn đang ở giai đoạn rất sớm: cần hiểu sâu hơn ai thực sự cần Pinly, điều gì khiến họ bắt đầu và vì sao họ quay lại.",
+      "Pinly giúp mỗi người lưu địa điểm, ảnh và câu chuyện trên một bản đồ kỷ niệm riêng tư. Sản phẩm đã hoạt động nhưng vẫn đang ở giai đoạn rất sớm: cần hiểu sâu hơn ai thực sự cần Pinly, điều gì khiến họ bắt đầu và vì sao họ quay lại.",
       "Pinly tìm một cộng sự tăng trưởng có thể cùng founder chịu trách nhiệm cho bài toán 0 đến 1. Bạn sẽ trực tiếp trò chuyện với người dùng, thử thông điệp và kênh phân phối, rồi đưa những gì học được trở lại sản phẩm. Đây là sự đồng hành có rủi ro và ảnh hưởng thật, không phải một công việc marketing được giao sẵn.",
     ],
     responsibilitiesEyebrow: "Phạm vi công việc",
@@ -231,7 +231,7 @@ export const CAREERS_CONTENT: Record<PublicLanguage, CareersPageContent> = {
     whyEyebrow: "Why now",
     whyTitle: "This is not an employee opening. It is an invitation to build.",
     whyParagraphs: [
-      "Pinly helps people keep places, photos, videos, and stories together on a private memory map. The product works, but it is still very early: we need to learn who truly needs Pinly, what gets them started, and what brings them back.",
+      "Pinly helps people keep places, photos, and stories together on a private memory map. The product works, but it is still very early: we need to learn who truly needs Pinly, what gets them started, and what brings them back.",
       "Pinly is looking for a growth partner who can share ownership of that zero-to-one problem with the founder. You will talk with users, test messages and distribution channels, and feed what we learn back into the product. This is a collaboration with real risk and influence, not a predefined marketing job.",
     ],
     responsibilitiesEyebrow: "What you will own",
@@ -314,10 +314,10 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
       eyebrow: "Bản đồ kỷ niệm Pinly",
       title: "Lưu kỷ niệm theo từng nơi chốn",
       description:
-        "Pinly là ứng dụng bản đồ kỷ niệm giúp bạn lưu địa điểm, ảnh, video và câu chuyện trên một timeline riêng tư. Bạn có thể dùng một mình hoặc chia sẻ với người được mời.",
-      metaTitle: "Pinly - Bản đồ kỷ niệm theo từng nơi chốn",
+        "Pinly là ứng dụng bản đồ kỷ niệm miễn phí giúp bạn lưu địa điểm, ảnh và câu chuyện trên một timeline riêng tư. Bạn có thể dùng một mình hoặc chia sẻ với người được mời.",
+      metaTitle: "Pinly - Bản đồ kỷ niệm miễn phí theo từng nơi chốn",
       metaDescription:
-        "Lưu địa điểm, ảnh, video và câu chuyện trên bản đồ kỷ niệm riêng tư. Dùng Pinly một mình hoặc chia sẻ với người bạn tin tưởng.",
+        "Lưu địa điểm, ảnh và câu chuyện trên bản đồ kỷ niệm riêng tư, miễn phí. Dùng Pinly một mình hoặc chia sẻ với người bạn tin tưởng.",
       socialImage: "/landing/social-preview-vi.jpg",
       sections: [],
       ctaTitle: "Tạo bản đồ kỷ niệm đầu tiên",
@@ -327,10 +327,10 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
       eyebrow: "Pinly memory map",
       title: "Keep every memory connected to its place",
       description:
-        "Pinly is a private memory map for saving places, photos, videos, and stories on a personal timeline. Use it on your own or share it with someone you invite.",
-      metaTitle: "Pinly - A Private Map for Your Memories",
+        "Pinly is a free, private memory map for saving places, photos, and stories on a personal timeline. Use it on your own or share it with someone you invite.",
+      metaTitle: "Pinly - A Free, Private Map for Your Memories",
       metaDescription:
-        "Save places, photos, videos, and stories on a private memory map. Use Pinly on your own or share it with someone you trust.",
+        "Save places, photos, and stories on a free, private memory map. Use Pinly on your own or share it with someone you trust.",
       socialImage: "/landing/social-preview-en.jpg",
       sections: [],
       ctaTitle: "Create your first memory map",
@@ -349,7 +349,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         "Pinly là ứng dụng bản đồ kỷ niệm dành cho người muốn lưu lại cuộc sống theo địa điểm, thay vì để ảnh và câu chuyện trôi lẫn trong nhiều ứng dụng khác nhau.",
       metaTitle: "Pinly là gì? Ứng dụng bản đồ kỷ niệm riêng tư",
       metaDescription:
-        "Tìm hiểu Pinly là gì, cách ứng dụng lưu ảnh, video và câu chuyện theo địa điểm, cũng như cách dùng riêng hoặc chia sẻ với người được mời.",
+        "Tìm hiểu Pinly là gì, cách ứng dụng lưu ảnh và câu chuyện theo địa điểm, cũng như cách dùng riêng hoặc chia sẻ với người được mời.",
       sections: [
         {
           title: "Pinly giải quyết điều gì?",
@@ -388,7 +388,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         "Pinly is a memory map for people who want to preserve life by location instead of letting photos and stories disappear across separate apps.",
       metaTitle: "What is Pinly? A private memory map app",
       metaDescription:
-        "Learn how Pinly connects places, photos, videos, and stories, and how to keep a map private or share it with someone you invite.",
+        "Learn how Pinly connects places, photos, and stories, and how to keep a map private or share it with someone you invite.",
       sections: [
         {
           title: "What problem does Pinly solve?",
@@ -433,7 +433,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         "Pinly sắp xếp kỷ niệm theo nơi chốn và thời gian, để bạn tìm lại một khoảnh khắc bằng câu chuyện chứ không phải tên file ảnh.",
       metaTitle: "Tính năng Pinly - Bản đồ, timeline và kỷ niệm riêng tư",
       metaDescription:
-        "Khám phá bản đồ kỷ niệm, timeline, ảnh, video, chuỗi mỗi ngày, wishlist địa điểm và chế độ chia sẻ riêng tư của Pinly.",
+        "Khám phá bản đồ kỷ niệm, timeline, ảnh, chuỗi mỗi ngày, wishlist địa điểm và chế độ chia sẻ riêng tư của Pinly.",
       sections: [
         {
           title: "Ghim một kỷ niệm vào đúng nơi",
@@ -476,7 +476,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         "Pinly organizes memories by place and time, so you can find a moment through its story instead of an image filename.",
       metaTitle: "Pinly features - Private memory map and timeline",
       metaDescription:
-        "Explore Pinly's memory map, timeline, photos, video, daily streak, place wishlist, search, and private sharing controls.",
+        "Explore Pinly's memory map, timeline, photos, daily streak, place wishlist, search, and private sharing controls.",
       sections: [
         {
           title: "Pin a memory to the place it belongs",
@@ -1070,8 +1070,10 @@ export function getPublicPageSchema(
       applicationCategory: "LifestyleApplication",
       operatingSystem: "Web",
       url: "https://pinly.tech/",
+      isAccessibleForFree: true,
     },
-    dateModified: "2026-07-22",
+    // Update when public page copy changes; build dates would fake freshness.
+    dateModified: "2026-10-06",
   };
 
   if (page.schemaType === "FAQPage") {

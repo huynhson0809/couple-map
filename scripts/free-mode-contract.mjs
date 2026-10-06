@@ -33,12 +33,21 @@ for (const path of ["/pricing", "/vi/pricing"]) {
 
 const PAID_PLAN_COPY =
   /\b(?:Plus|Pro)\b|upgrade|pricing|nâng cấp|bảng giá|tùy theo gói|depending on the plan/i;
+const PAID_FEATURE_COPY = /\bvideos?\b|\b3D\b/i;
 for (const key of PUBLIC_PAGE_KEYS) {
   for (const language of ["en", "vi"]) {
+    const copy = JSON.stringify(PUBLIC_PAGES[key][language]);
     assert.doesNotMatch(
-      JSON.stringify(PUBLIC_PAGES[key][language]),
+      copy,
       PAID_PLAN_COPY,
       `Published ${key} (${language}) copy must not advertise paid plans.`,
+    );
+    // Careers mentions short-form video as a marketing channel, not a product feature.
+    if (key === "careers") continue;
+    assert.doesNotMatch(
+      copy,
+      PAID_FEATURE_COPY,
+      `Published ${key} (${language}) copy must not promise video or 3D, which Free lacks.`,
     );
   }
 }
