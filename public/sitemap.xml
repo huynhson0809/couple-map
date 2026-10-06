@@ -39,18 +39,6 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/features" />
   </url>
   <url>
-    <loc>https://pinly.tech/pricing</loc>
-    <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/pricing" />
-    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/pricing" />
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/pricing" />
-  </url>
-  <url>
-    <loc>https://pinly.tech/vi/pricing</loc>
-    <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/pricing" />
-    <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/pricing" />
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://pinly.tech/pricing" />
-  </url>
-  <url>
     <loc>https://pinly.tech/faq</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://pinly.tech/faq" />
     <xhtml:link rel="alternate" hreflang="vi" href="https://pinly.tech/vi/faq" />

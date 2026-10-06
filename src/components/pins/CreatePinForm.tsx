@@ -19,6 +19,7 @@ import { isBuiltInCategory, type Category } from "../../lib/categories";
 import { useCategoriesCtx } from "../../hooks/CategoriesContext";
 import { useI18n } from "../../hooks/I18nContext";
 import { useSubscription } from "../../hooks/useSubscription";
+import { PAID_PLANS_ENABLED } from "../../config/paidPlans";
 import { useSpaceCtx } from "../../hooks/SpaceContext";
 import {
   uploadToCloudinary,
@@ -177,6 +178,9 @@ export function CreatePinForm({
   const VISIBLE_ROWS = 2;
   const ITEMS_PER_ROW = 3;
   const maxVisibleItems = VISIBLE_ROWS * ITEMS_PER_ROW;
+  const canAddCustomCategory =
+    PAID_PLANS_ENABLED || canCreateCategory(customCategories.length);
+  const addCategoryChipCount = canAddCustomCategory ? 1 : 0;
   const files = selectedMedia.map(({ file }) => file);
 
   useEffect(() => {
@@ -681,7 +685,7 @@ export function CreatePinForm({
               </div>
             );
           })}
-          {categoriesExpanded && (
+          {categoriesExpanded && canAddCustomCategory && (
             <button
               type="button"
               className="category-chip"
@@ -694,7 +698,7 @@ export function CreatePinForm({
             </button>
           )}
         </div>
-        {allCategories.length + 1 > maxVisibleItems && (
+        {allCategories.length + addCategoryChipCount > maxVisibleItems && (
           <button
             type="button"
             className="category-toggle-btn"
@@ -707,7 +711,7 @@ export function CreatePinForm({
             ) : (
               <>
                 <ChevronDown size={14} /> {t("pin.showMore")} (
-                {allCategories.length - maxVisibleItems + 1})
+                {allCategories.length - maxVisibleItems + addCategoryChipCount})
               </>
             )}
           </button>
@@ -915,26 +919,28 @@ export function CreatePinForm({
           >
             <ImagePlus size={20} /> {t("pin.fromLibrary")}
           </button>
-          <button
-            type="button"
-            className="photo-btn"
-            onClick={() => {
-              if (!canUploadVideo) {
-                setError(t("pin.videoRequiresPro"));
-                return;
+          {(PAID_PLANS_ENABLED || canUploadVideo) && (
+            <button
+              type="button"
+              className="photo-btn"
+              onClick={() => {
+                if (!canUploadVideo) {
+                  setError(t("pin.videoRequiresPro"));
+                  return;
+                }
+                if (videoInput.current) videoInput.current.value = "";
+                videoInput.current?.click();
+              }}
+              disabled={
+                saving ||
+                preparingMedia ||
+                !currentSpaceWritable ||
+                files.length >= limits.photosPerPin
               }
-              if (videoInput.current) videoInput.current.value = "";
-              videoInput.current?.click();
-            }}
-            disabled={
-              saving ||
-              preparingMedia ||
-              !currentSpaceWritable ||
-              files.length >= limits.photosPerPin
-            }
-          >
-            <Video size={20} /> {t("pin.addVideo")} {!canUploadVideo && "🔒"}
-          </button>
+            >
+              <Video size={20} /> {t("pin.addVideo")} {!canUploadVideo && "🔒"}
+            </button>
+          )}
         </div>
         <input
           ref={cameraInput}

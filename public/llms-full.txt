@@ -9,7 +9,6 @@ individually or shared with an invited person.
 
 - Product overview: https://pinly.tech/about
 - Features: https://pinly.tech/features
-- Pricing: https://pinly.tech/pricing
 - Frequently asked questions: https://pinly.tech/faq
 - Careers and open roles: https://pinly.tech/careers
 - How to create a personal memory map: https://pinly.tech/guides/memory-map
@@ -21,7 +20,6 @@ individually or shared with an invited person.
 
 - Pinly là gì: https://pinly.tech/vi/about
 - Tính năng: https://pinly.tech/vi/features
-- Bảng giá: https://pinly.tech/vi/pricing
 - Câu hỏi thường gặp: https://pinly.tech/vi/faq
 - Tuyển dụng và vị trí đang mở: https://pinly.tech/vi/careers
 - Hướng dẫn tạo bản đồ kỷ niệm: https://pinly.tech/vi/guides/memory-map
@@ -69,7 +67,7 @@ Pinly organizes memories by place and time, so you can find a moment through its
 Choose a location, then add a title, date, note, and photos. Each pin becomes a memory page with useful context.
 
 - Search for a place or choose it directly on the map
-- Save photos and, on supported plans, video
+- Save up to 3 photos with each memory
 - Find memories by title, address, creator, or date range
 
 ### Return through the map or timeline
@@ -86,58 +84,15 @@ A personal map belongs to you. When sharing is enabled, only invited people can 
 
 ---
 
-## Pricing
-
-Start free, then grow when your map does.
-
-Each Pinly plan offers a different memory limit and creative toolkit. Existing memories are not automatically deleted when your plan changes.
-
-### Start without a payment card
-
-Free is enough to create a first map and try the complete memory flow. Plus adds more capacity and 3D maps. Pro is for people who want video and the full map-style library.
-
-### What happens when a plan expires?
-
-Pinly keeps existing data. If the number of memories is above the current plan limit, you can still view them but must upgrade or reduce usage before adding more.
-
-### Free plan — $0
-
-Create your first memory map.
-
-- 50 memories
-- 3 photos per memory
-- 3 map styles
-- Memory streak tracking
-
-### Plus plan — $2.99/month or $24.99/year
-
-More room and 3D maps.
-
-- 300 memories
-- 5 photos per memory
-- 10 map styles and 3D maps
-- 5 custom categories
-
-### Pro plan — $4.99/month or $39.99/year
-
-The complete toolkit for a growing archive.
-
-- 500 memories
-- 5 photos and video per memory
-- 15 map styles and 3D maps
-- Unlimited custom categories
-
----
-
 ## Frequently Asked Questions
 
 ### What is Pinly?
 
-Pinly is a memory map app. A memory can include a location, title, date, note, photos, or video depending on the plan. Memories can be revisited on the map and timeline.
+Pinly is a memory map app. A memory can include a location, title, date, note, and photos. Memories can be revisited on the map and timeline.
 
 ### Is Pinly free?
 
-Yes. Free includes up to 50 memories, 3 photos per memory, and 3 map styles. Plus and Pro increase limits and unlock additional features.
+Yes. Pinly is free to use. Each map holds up to 50 memories, each memory can include up to 3 photos, and you can choose from 3 map styles.
 
 ### Who can see my memories?
 
@@ -155,9 +110,9 @@ Yes. When sharing is enabled, you can send an invitation code to someone you tru
 
 No. Pinly is a Progressive Web App that runs in the browser. Add it to your Home Screen from Safari or Chrome to open it like an app.
 
-### What happens when I exceed a plan limit?
+### What happens when a map reaches its memory limit?
 
-Pinly does not automatically delete existing memories. You can continue viewing them, but cannot add more until usage is reduced or the plan is upgraded.
+Pinly does not automatically delete existing memories. You can keep viewing all of them; to add a new memory, remove one you no longer need.
 
 ---
 
@@ -196,7 +151,7 @@ Choose a place you remember clearly: a favorite cafe, a recent trip, an old home
 1. Create a Pinly account and open your personal map.
 2. Choose Add memory, then search for a place or select it directly on the map.
 3. Write a clear title, choose the date, and add a short note about what happened.
-4. Add photos or video when supported by the current plan, then save the memory.
+4. Add up to 3 photos, then save the memory.
 5. Open Timeline to revisit the story in order, or search by title and address.
 
 ---

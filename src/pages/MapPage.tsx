@@ -32,6 +32,7 @@ import { useStreak } from "../hooks/useStreak";
 import { useSubscription } from "../hooks/useSubscription";
 import { useToast } from "../hooks/ToastContext";
 import type { Pin } from "../types";
+import { PAID_PLANS_ENABLED } from "../config/paidPlans";
 import { DEFAULT_MAP_CENTER } from "../lib/mapDefaults";
 import { YEAR_REPLAY_ENABLED } from "../lib/featureFlags";
 import "../styles/yearReplayEntry.css";
@@ -183,7 +184,8 @@ export function MapPage() {
   const { items: bucketItems } = useBucket(currentSpaceId, user?.id);
   const { getCurrentPosition } = useGeo(lang);
   const { showToast } = useToast();
-  const { canCreatePin, canUseMapStyle, canUseMap3D } = useSubscription();
+  const { canCreatePin, canUseMapStyle, canUseMap3D, limits } =
+    useSubscription();
   const { styleUrl } = useMapStyle(canUseMapStyle);
   const { map3DEnabled } = useMap3DMode(canUseMap3D);
   const streak = useStreak(couple, profile?.id ?? user?.id, duoEnabled);
@@ -452,16 +454,30 @@ export function MapPage() {
     navigate("/wishlist");
   }
 
+  const notifyPinCreationBlocked = useCallback(() => {
+    if (PAID_PLANS_ENABLED) {
+      setShowUpgradePrompt(true);
+      return;
+    }
+    showToast({
+      type: "info",
+      title:
+        pins.length >= limits.pins
+          ? t("pin.freeMemoryLimitReached", { count: limits.pins })
+          : t("settings.spaceReadOnlyBannerTitle"),
+    });
+  }, [limits.pins, pins.length, showToast, t]);
+
   const handleLongPress = useCallback(
     (c: { lat: number; lng: number }) => {
       if (!canCreatePin(pins.length)) {
-        setShowUpgradePrompt(true);
+        notifyPinCreationBlocked();
         return;
       }
       addPinGpsRequestRef.current += 1;
       openNewPinSheet(c);
     },
-    [canCreatePin, pins.length],
+    [canCreatePin, notifyPinCreationBlocked, pins.length],
   );
 
   const handlePinClick = useCallback((p: Pin) => {
@@ -497,7 +513,7 @@ export function MapPage() {
 
   function handleFabClick() {
     if (!canCreatePin(pins.length)) {
-      setShowUpgradePrompt(true);
+      notifyPinCreationBlocked();
       return;
     }
 

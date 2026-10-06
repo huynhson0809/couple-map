@@ -62,10 +62,8 @@ import { cx } from "../components/ui/uiClasses";
 import { uploadToCloudinary, getImageUrl } from "../lib/cloudinary";
 import { invalidateApiCacheByPrefix } from "../lib/apiCache";
 import { getMapStylePreviewCenter } from "../lib/mapDefaults";
-import {
-  MULTI_SPACE_ENABLED,
-  YEAR_REPLAY_ENABLED,
-} from "../lib/featureFlags";
+import { PAID_PLANS_ENABLED } from "../config/paidPlans";
+import { MULTI_SPACE_ENABLED, YEAR_REPLAY_ENABLED } from "../lib/featureFlags";
 import "../styles/yearReplayEntry.css";
 
 const BREAKUP_CONFIRM_TEXT = "KET THUC";
@@ -148,6 +146,9 @@ export function SettingsPage() {
       }),
     [initialStyle],
   );
+  const visibleStyles = PAID_PLANS_ENABLED
+    ? sortedStyles
+    : sortedStyles.filter((style) => canUseMapStyle(style.id));
   const [showPricing, setShowPricing] = useState(false);
   const [planActionBusy, setPlanActionBusy] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
@@ -160,7 +161,7 @@ export function SettingsPage() {
   const annivDate =
     anniversaryDraft.spaceId === currentSpaceId
       ? anniversaryDraft.value
-      : couple?.anniversary_date ?? "";
+      : (couple?.anniversary_date ?? "");
   const [anniversaryError, setAnniversaryError] = useState<{
     spaceId: string | null;
     message: string;
@@ -348,88 +349,90 @@ export function SettingsPage() {
       </header>
 
       {/* Subscription section */}
-      <SettingSection
-        title={lang === "vi" ? "Gói của bạn" : "Your Plan"}
-        icon={<Crown size={14} />}
-        className="setting-section-plan"
-      >
-        <div className="setting-plan-overview">
-          <div className="setting-plan-main">
-            <span className="setting-plan-name">{accountPlanName}</span>
-            <div className="setting-plan-actions">
-              {accountPlan === "free" ? (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => void handleManagePlan()}
-                  loading={accountPlanLoading || planActionBusy}
-                  disabled={accountPlanLoading || planActionBusy}
-                  className="setting-plan-upgrade"
-                >
-                  {planActionDisplayLabel}
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => void handleManagePlan()}
-                  loading={accountPlanLoading || planActionBusy}
-                  disabled={accountPlanLoading || planActionBusy}
-                  className="setting-plan-manage"
-                >
-                  {planActionDisplayLabel}
-                </Button>
-              )}
+      {PAID_PLANS_ENABLED && (
+        <SettingSection
+          title={lang === "vi" ? "Gói của bạn" : "Your Plan"}
+          icon={<Crown size={14} />}
+          className="setting-section-plan"
+        >
+          <div className="setting-plan-overview">
+            <div className="setting-plan-main">
+              <span className="setting-plan-name">{accountPlanName}</span>
+              <div className="setting-plan-actions">
+                {accountPlan === "free" ? (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => void handleManagePlan()}
+                    loading={accountPlanLoading || planActionBusy}
+                    disabled={accountPlanLoading || planActionBusy}
+                    className="setting-plan-upgrade"
+                  >
+                    {planActionDisplayLabel}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => void handleManagePlan()}
+                    loading={accountPlanLoading || planActionBusy}
+                    disabled={accountPlanLoading || planActionBusy}
+                    className="setting-plan-manage"
+                  >
+                    {planActionDisplayLabel}
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-          {portalError && (
-            <span className="setting-plan-error">{portalError}</span>
-          )}
-          {accountPlan !== "free" && (
-            <span className="muted setting-plan-meta">
-              {subscription
-                ? `${lang === "vi" ? "Hết hạn" : "Expires"}: ${formatLocalizedDate(subscription.current_period_end, lang)}`
-                : lang === "vi"
-                  ? "Đang hoạt động"
-                  : "Active"}
-            </span>
-          )}
-          {accountPlan !== "free" && planSourceLabel && (
-            <span className="muted setting-plan-meta">{planSourceLabel}</span>
-          )}
-          {accountPlan === "pro" && (
-            <span className="muted setting-plan-meta">
-              {lang === "vi"
-                ? "Bao gồm nhắc chuỗi qua email"
-                : "Includes email streak reminders"}
-            </span>
-          )}
-          {MULTI_SPACE_ENABLED && !subscriptionLoading && (
-            <span className="muted setting-plan-meta">
-              {lang === "vi"
-                ? `Bản đồ đã tạo: ${ownedSpaceCount}/${ownedSpaceLimit}`
-                : `Maps created: ${ownedSpaceCount}/${ownedSpaceLimit}`}
-            </span>
-          )}
-          {!subscriptionLoading &&
-            spacePlan !== accountPlan &&
-            spaceOwnerId && (
+            {portalError && (
+              <span className="setting-plan-error">{portalError}</span>
+            )}
+            {accountPlan !== "free" && (
               <span className="muted setting-plan-meta">
-                {lang === "vi"
-                  ? `Space này dùng gói owner: ${effectiveSpacePlanName}`
-                  : `This space uses owner plan: ${effectiveSpacePlanName}`}
+                {subscription
+                  ? `${lang === "vi" ? "Hết hạn" : "Expires"}: ${formatLocalizedDate(subscription.current_period_end, lang)}`
+                  : lang === "vi"
+                    ? "Đang hoạt động"
+                    : "Active"}
               </span>
             )}
-          {MULTI_SPACE_ENABLED && quotaReached && (
-            <span className="muted setting-plan-meta">
-              {lang === "vi"
-                ? "Bạn đã đạt giới hạn tạo bản đồ của gói hiện tại. Bạn vẫn có thể tham gia bản đồ được mời."
-                : "You have reached the map creation limit for your current plan. You can still join maps you are invited to."}
-            </span>
-          )}
-        </div>
-      </SettingSection>
+            {accountPlan !== "free" && planSourceLabel && (
+              <span className="muted setting-plan-meta">{planSourceLabel}</span>
+            )}
+            {accountPlan === "pro" && (
+              <span className="muted setting-plan-meta">
+                {lang === "vi"
+                  ? "Bao gồm nhắc chuỗi qua email"
+                  : "Includes email streak reminders"}
+              </span>
+            )}
+            {MULTI_SPACE_ENABLED && !subscriptionLoading && (
+              <span className="muted setting-plan-meta">
+                {lang === "vi"
+                  ? `Bản đồ đã tạo: ${ownedSpaceCount}/${ownedSpaceLimit}`
+                  : `Maps created: ${ownedSpaceCount}/${ownedSpaceLimit}`}
+              </span>
+            )}
+            {!subscriptionLoading &&
+              spacePlan !== accountPlan &&
+              spaceOwnerId && (
+                <span className="muted setting-plan-meta">
+                  {lang === "vi"
+                    ? `Space này dùng gói owner: ${effectiveSpacePlanName}`
+                    : `This space uses owner plan: ${effectiveSpacePlanName}`}
+                </span>
+              )}
+            {MULTI_SPACE_ENABLED && quotaReached && (
+              <span className="muted setting-plan-meta">
+                {lang === "vi"
+                  ? "Bạn đã đạt giới hạn tạo bản đồ của gói hiện tại. Bạn vẫn có thể tham gia bản đồ được mời."
+                  : "You have reached the map creation limit for your current plan. You can still join maps you are invited to."}
+              </span>
+            )}
+          </div>
+        </SettingSection>
+      )}
 
       {YEAR_REPLAY_ENABLED && (
         <SettingSection
@@ -508,32 +511,34 @@ export function SettingsPage() {
         title={t("settings.mapStyle")}
         className="setting-section-map-style"
       >
-        <div className="setting-row compact">
-          <span>{t("settings.map3d")}</span>
-          {canUseMap3D ? (
-            <Switch
-              aria-label={t("settings.map3d")}
-              checked={map3DEnabled}
-              onChange={(e) => setMap3DEnabled(e.target.checked)}
-            />
-          ) : (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() =>
-                setUpgradeFeature(lang === "vi" ? "Bản đồ 3D" : "3D map mode")
-              }
-            >
-              {lang === "vi" ? "Nâng cấp" : "Upgrade"}
-            </Button>
-          )}
-        </div>
-        {!canUseMap3D && (
+        {(PAID_PLANS_ENABLED || canUseMap3D) && (
+          <div className="setting-row compact">
+            <span>{t("settings.map3d")}</span>
+            {canUseMap3D ? (
+              <Switch
+                aria-label={t("settings.map3d")}
+                checked={map3DEnabled}
+                onChange={(e) => setMap3DEnabled(e.target.checked)}
+              />
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() =>
+                  setUpgradeFeature(lang === "vi" ? "Bản đồ 3D" : "3D map mode")
+                }
+              >
+                {lang === "vi" ? "Nâng cấp" : "Upgrade"}
+              </Button>
+            )}
+          </div>
+        )}
+        {PAID_PLANS_ENABLED && !canUseMap3D && (
           <p className="muted small">{t("settings.map3dHint")}</p>
         )}
         <div className="map-style-grid">
-          {sortedStyles.map((s) => {
+          {visibleStyles.map((s) => {
             const locked = !canUseMapStyle(s.id);
             const active = styleId === s.id;
             const label = lang === "vi" ? s.labelVi : s.labelEn;
@@ -736,9 +741,7 @@ export function SettingsPage() {
           )}
         </div>
         <div className="notif-pref-list">
-          {push.error && (
-            <p className="error small">{t("notif.pushError")}</p>
-          )}
+          {push.error && <p className="error small">{t("notif.pushError")}</p>}
           {duoFeaturesEnabled && (
             <>
               <div className="notif-pref-row">

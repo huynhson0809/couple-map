@@ -1,8 +1,6 @@
-import {
-  translate,
-  type I18nKey,
-  type Lang,
-} from "../hooks/I18nContext";
+import { translate, type I18nKey, type Lang } from "../hooks/I18nContext";
+import { PLAN_LIMITS } from "../hooks/useSubscription";
+import { PAID_PLANS_ENABLED } from "../config/paidPlans";
 
 function errorText(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -24,7 +22,11 @@ export function localizedMemoryError(
     return translate(lang, "settings.spaceReadOnlyBannerTitle");
   }
   if (message.includes("pin limit reached")) {
-    return translate(lang, "pin.memoryLimitReached");
+    return PAID_PLANS_ENABLED
+      ? translate(lang, "pin.memoryLimitReached")
+      : translate(lang, "pin.freeMemoryLimitReached", {
+          count: PLAN_LIMITS.free.pins,
+        });
   }
   if (message.includes("photo limit reached")) {
     return translate(lang, "pin.mediaPlanLimitReached");

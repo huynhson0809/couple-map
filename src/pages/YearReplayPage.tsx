@@ -52,6 +52,7 @@ import { useI18n } from "../hooks/I18nContext";
 import { useMemoryReplay } from "../hooks/useMemoryReplay";
 import { useSpaceCtx } from "../hooks/SpaceContext";
 import { useSubscription } from "../hooks/useSubscription";
+import { PAID_PLANS_ENABLED } from "../config/paidPlans";
 import { YEAR_REPLAY_ENABLED } from "../lib/featureFlags";
 import { createReplayArchive } from "../lib/replayArchive";
 import {
@@ -178,7 +179,10 @@ function validDate(value: string | null) {
   return Boolean(value && DATE_PATTERN.test(value));
 }
 
-function rangeFromRoute(yearParam: string | undefined, search: URLSearchParams) {
+function rangeFromRoute(
+  yearParam: string | undefined,
+  search: URLSearchParams,
+) {
   const today = new Date();
   const currentYear = today.getFullYear();
   const routeYear = Number(yearParam);
@@ -340,9 +344,7 @@ function ReplaySlidePreview({
             <h2>{slide.title}</h2>
             <p>{slide.subtitle}</p>
             {slide.memory && (
-              <time>
-                {formatLocalizedDate(slide.memory.created_at, lang)}
-              </time>
+              <time>{formatLocalizedDate(slide.memory.created_at, lang)}</time>
             )}
           </div>
         </div>
@@ -405,7 +407,6 @@ function ReplaySlidePreview({
           <small>{replayRangeLabel(snapshot, lang)} · PINLY</small>
         </div>
       )}
-
     </article>
   );
 }
@@ -427,6 +428,7 @@ export function YearReplayPage() {
     canUseAdvancedReplayStyling,
     replayHasWatermark,
   } = useSubscription();
+  const replayEditorAvailable = PAID_PLANS_ENABLED || canCustomizeReplay;
   const { recap, loading, saving, refresh, saveConfig, setTemplate } =
     useMemoryReplay({
       spaceId: activeSpace?.id,
@@ -450,10 +452,7 @@ export function YearReplayPage() {
     [recap?.slide_config_json],
   );
   const slides = useMemo(
-    () =>
-      recap
-        ? buildReplaySlides(recap.snapshot_json, config, lang)
-        : [],
+    () => (recap ? buildReplaySlides(recap.snapshot_json, config, lang) : []),
     [config, lang, recap],
   );
   const allSlides = useMemo(
@@ -467,10 +466,7 @@ export function YearReplayPage() {
         : [],
     [config, lang, recap],
   );
-  const activeIndex = Math.min(
-    requestedIndex,
-    Math.max(0, slides.length - 1),
-  );
+  const activeIndex = Math.min(requestedIndex, Math.max(0, slides.length - 1));
   const slide = slides[activeIndex];
   const mediaOptions = useMemo(
     () => (recap ? replayMediaOptions(recap.snapshot_json) : []),
@@ -579,7 +575,8 @@ export function YearReplayPage() {
       try {
         shared = await shareReplayFiles(files, copy.title);
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         throw error;
       }
       if (!shared) {
@@ -655,7 +652,8 @@ export function YearReplayPage() {
         <div className="replay-header-title">
           <strong>{copy.title}</strong>
           <span>
-            {replayRangeLabel(recap.snapshot_json, lang)} · {recap.status === "draft" ? copy.draft : copy.finalized}
+            {replayRangeLabel(recap.snapshot_json, lang)} ·{" "}
+            {recap.status === "draft" ? copy.draft : copy.finalized}
           </span>
         </div>
         <div className="replay-header-actions">
@@ -668,15 +666,17 @@ export function YearReplayPage() {
           >
             <RefreshCw size={19} />
           </button>
-          <button
-            type="button"
-            className="replay-edit-button"
-            onClick={() => setEditorOpen((open) => !open)}
-            aria-expanded={editorOpen}
-          >
-            {editorOpen ? <X size={18} /> : <SlidersHorizontal size={18} />}
-            <span>{editorOpen ? copy.closeEditor : copy.edit}</span>
-          </button>
+          {replayEditorAvailable && (
+            <button
+              type="button"
+              className="replay-edit-button"
+              onClick={() => setEditorOpen((open) => !open)}
+              aria-expanded={editorOpen}
+            >
+              {editorOpen ? <X size={18} /> : <SlidersHorizontal size={18} />}
+              <span>{editorOpen ? copy.closeEditor : copy.edit}</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -699,7 +699,10 @@ export function YearReplayPage() {
             )}
           </div>
 
-          <div className="replay-progress" aria-label={`${activeIndex + 1}/${slides.length}`}>
+          <div
+            className="replay-progress"
+            aria-label={`${activeIndex + 1}/${slides.length}`}
+          >
             {slides.map((item, index) => (
               <button
                 key={item.id}
@@ -731,8 +734,14 @@ export function YearReplayPage() {
               onClick={() => setPlaying((value) => !value)}
               aria-label={playing ? copy.pause : copy.play}
             >
-              {playing ? <Pause size={18} /> : <Play size={18} fill="currentColor" />}
-              <span>{activeIndex + 1} / {slides.length}</span>
+              {playing ? (
+                <Pause size={18} />
+              ) : (
+                <Play size={18} fill="currentColor" />
+              )}
+              <span>
+                {activeIndex + 1} / {slides.length}
+              </span>
             </button>
             <button
               type="button"
@@ -800,7 +809,9 @@ export function YearReplayPage() {
                       className={active ? "active" : ""}
                       onClick={() => void chooseTemplate(template.id)}
                     >
-                      <span className={`replay-template-swatch ${template.className}`} />
+                      <span
+                        className={`replay-template-swatch ${template.className}`}
+                      />
                       <span>
                         <strong>
                           {template.id === "journey"
@@ -812,7 +823,9 @@ export function YearReplayPage() {
                         {!available && (
                           <small>
                             <LockKeyhole size={12} />
-                            {template.minimumPlan === "pro" ? copy.lockedPro : copy.lockedPlus}
+                            {template.minimumPlan === "pro"
+                              ? copy.lockedPro
+                              : copy.lockedPlus}
                           </small>
                         )}
                       </span>
@@ -897,7 +910,9 @@ export function YearReplayPage() {
                       void commitConfig({
                         ...config,
                         hiddenSlideIds: [
-                          ...config.hiddenSlideIds.filter((id) => id !== slide.id),
+                          ...config.hiddenSlideIds.filter(
+                            (id) => id !== slide.id,
+                          ),
                           slide.id,
                         ],
                       })
@@ -913,7 +928,8 @@ export function YearReplayPage() {
                         void commitConfig({ ...config, hiddenSlideIds: [] })
                       }
                     >
-                      <RotateCcw size={17} /> {copy.restore} ({config.hiddenSlideIds.length})
+                      <RotateCcw size={17} /> {copy.restore} (
+                      {config.hiddenSlideIds.length})
                     </button>
                   )}
                 </div>
@@ -977,7 +993,11 @@ export function YearReplayPage() {
         </aside>
       </div>
 
-      {message && <div className="replay-toast" role="status">{message}</div>}
+      {message && (
+        <div className="replay-toast" role="status">
+          {message}
+        </div>
+      )}
     </main>
   );
 }

@@ -4,6 +4,7 @@ import {
   PUBLIC_CHROME,
   PUBLIC_INFO_PAGE_KEYS,
   PUBLIC_PAGES,
+  PUBLIC_PAGE_KEYS,
   getLocalizedPublicPath,
   getPublicPageSchema,
 } from "../src/content/publicPages.ts";
@@ -440,7 +441,7 @@ function writeLocalizedPage(basePath, language, html) {
 }
 
 for (const language of LANGUAGES) {
-  for (const page of Object.values(PUBLIC_PAGES)) {
+  for (const page of PUBLIC_PAGE_KEYS.map((key) => PUBLIC_PAGES[key])) {
     writeLocalizedPage(page.path, language, buildPageHtml(page, language));
   }
 
@@ -450,5 +451,5 @@ for (const language of LANGUAGES) {
 }
 
 console.log(
-  `Prerendered ${(Object.keys(PUBLIC_PAGES).length + 2) * LANGUAGES.length} localized public Pinly pages.`,
+  `Prerendered ${(PUBLIC_PAGE_KEYS.length + 2) * LANGUAGES.length} localized public Pinly pages.`,
 );

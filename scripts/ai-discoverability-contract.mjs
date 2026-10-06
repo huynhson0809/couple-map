@@ -19,7 +19,6 @@ const packageJson = read("package.json");
 const publicPaths = [
   "/about",
   "/features",
-  "/pricing",
   "/faq",
   "/careers",
   "/guides/memory-map",

@@ -11,7 +11,6 @@ individually or shared with an invited person.
 
 - Product overview: https://pinly.tech/about
 - Features: https://pinly.tech/features
-- Pricing: https://pinly.tech/pricing
 - Frequently asked questions: https://pinly.tech/faq
 - Build Pinly with us: https://pinly.tech/careers
 - How to create a personal memory map: https://pinly.tech/guides/memory-map
@@ -23,7 +22,6 @@ individually or shared with an invited person.
 
 - Pinly là gì: https://pinly.tech/vi/about
 - Tính năng: https://pinly.tech/vi/features
-- Bảng giá: https://pinly.tech/vi/pricing
 - Câu hỏi thường gặp: https://pinly.tech/vi/faq
 - Cùng xây Pinly: https://pinly.tech/vi/careers
 - Hướng dẫn tạo bản đồ kỷ niệm: https://pinly.tech/vi/guides/memory-map
@@ -33,9 +31,7 @@ individually or shared with an invited person.
 
 ## Product facts
 
-- Free: 50 memories, 3 photos per memory, and 3 map styles.
-- Plus ($2.99/month): 300 memories, 5 photos per memory, 10 map styles, and 3D maps.
-- Pro ($4.99/month): 500 memories, photo and video support, 15 map styles, and 3D maps.
+- Pinly is free to use: each map holds up to 50 memories, with up to 3 photos per memory and 3 map styles.
 - Personal memories are private by default.
 - Shared content is available only to invited members.
 - Pinly is a Progressive Web App and can be added to a phone Home Screen.

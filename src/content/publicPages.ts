@@ -1,3 +1,4 @@
+import { PAID_PLANS_ENABLED } from "../config/paidPlans.ts";
 import { formatPublicPlanPrice } from "../lib/pricingCatalog.ts";
 
 export type PublicLanguage = "vi" | "en";
@@ -320,7 +321,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
       socialImage: "/landing/social-preview-vi.jpg",
       sections: [],
       ctaTitle: "Tạo bản đồ kỷ niệm đầu tiên",
-      ctaDescription: "Bắt đầu miễn phí với 50 kỷ niệm.",
+      ctaDescription: "Miễn phí sử dụng, tối đa 50 kỷ niệm cho mỗi bản đồ.",
     },
     en: {
       eyebrow: "Pinly memory map",
@@ -333,7 +334,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
       socialImage: "/landing/social-preview-en.jpg",
       sections: [],
       ctaTitle: "Create your first memory map",
-      ctaDescription: "Start free with 50 memories.",
+      ctaDescription: "Free to use, with up to 50 memories per map.",
     },
   },
   about: {
@@ -441,7 +442,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
           ],
           bullets: [
             "Tìm địa điểm hoặc chọn trực tiếp trên bản đồ",
-            "Lưu ảnh và video tùy theo gói",
+            "Lưu tối đa 3 ảnh cho mỗi kỷ niệm",
             "Tìm lại bằng tiêu đề, địa chỉ, người tạo hoặc khoảng thời gian",
           ],
         },
@@ -484,7 +485,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
           ],
           bullets: [
             "Search for a place or choose it directly on the map",
-            "Save photos and, on supported plans, video",
+            "Save up to 3 photos with each memory",
             "Find memories by title, address, creator, or date range",
           ],
         },
@@ -657,7 +658,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
       eyebrow: "Hỏi đáp",
       title: "Những điều cần biết trước khi bắt đầu với Pinly",
       description:
-        "Câu trả lời ngắn gọn về bản đồ kỷ niệm, quyền riêng tư, chia sẻ, giới hạn gói và cách cài Pinly trên điện thoại.",
+        "Câu trả lời ngắn gọn về bản đồ kỷ niệm, quyền riêng tư, chia sẻ, giới hạn sử dụng và cách cài Pinly trên điện thoại.",
       metaTitle: "Câu hỏi thường gặp về Pinly",
       metaDescription:
         "Pinly là gì, có miễn phí không, ai xem được kỷ niệm, cách mời người khác và cách cài Pinly lên điện thoại.",
@@ -666,12 +667,12 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         {
           question: "Pinly là gì?",
           answer:
-            "Pinly là ứng dụng bản đồ kỷ niệm. Mỗi kỷ niệm có thể gồm địa điểm, tiêu đề, ngày tháng, ghi chú, ảnh hoặc video tùy theo gói. Bạn có thể xem lại chúng trên bản đồ và timeline.",
+            "Pinly là ứng dụng bản đồ kỷ niệm. Mỗi kỷ niệm có thể gồm địa điểm, tiêu đề, ngày tháng, ghi chú và ảnh. Bạn có thể xem lại chúng trên bản đồ và timeline.",
         },
         {
           question: "Pinly có miễn phí không?",
           answer:
-            "Có. Gói Free cho phép lưu tối đa 50 kỷ niệm, 3 ảnh cho mỗi kỷ niệm và sử dụng 3 kiểu bản đồ. Plus và Pro tăng giới hạn và mở thêm tính năng.",
+            "Có. Pinly miễn phí sử dụng. Mỗi bản đồ lưu được tối đa 50 kỷ niệm, mỗi kỷ niệm có tối đa 3 ảnh, và bạn có 3 kiểu bản đồ để lựa chọn.",
         },
         {
           question: "Ai có thể xem kỷ niệm của tôi?",
@@ -694,9 +695,9 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
             "Không. Pinly là Progressive Web App chạy trên trình duyệt. Bạn có thể thêm Pinly vào Màn hình chính từ Safari hoặc Chrome để mở nhanh như một ứng dụng.",
         },
         {
-          question: "Điều gì xảy ra khi tôi vượt giới hạn gói?",
+          question: "Điều gì xảy ra khi bản đồ đạt giới hạn kỷ niệm?",
           answer:
-            "Pinly không tự xóa kỷ niệm đã lưu. Bạn vẫn xem được dữ liệu hiện có, nhưng sẽ không thể thêm kỷ niệm mới cho đến khi giảm số lượng hoặc nâng cấp gói.",
+            "Pinly không tự xóa kỷ niệm đã lưu. Bạn vẫn xem được toàn bộ dữ liệu hiện có; để thêm kỷ niệm mới, hãy xóa bớt một kỷ niệm không còn cần.",
         },
       ],
       ctaTitle: "Vẫn còn điều bạn muốn hỏi?",
@@ -707,7 +708,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
       eyebrow: "FAQ",
       title: "What to know before you start with Pinly",
       description:
-        "Short answers about memory maps, privacy, sharing, plan limits, and installing Pinly on a phone.",
+        "Short answers about memory maps, privacy, sharing, usage limits, and installing Pinly on a phone.",
       metaTitle: "Frequently asked questions about Pinly",
       metaDescription:
         "Learn what Pinly is, whether it is free, who can see memories, how invitations work, and how to install Pinly on a phone.",
@@ -716,12 +717,12 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         {
           question: "What is Pinly?",
           answer:
-            "Pinly is a memory map app. A memory can include a location, title, date, note, photos, or video depending on the plan. Memories can be revisited on the map and timeline.",
+            "Pinly is a memory map app. A memory can include a location, title, date, note, and photos. Memories can be revisited on the map and timeline.",
         },
         {
           question: "Is Pinly free?",
           answer:
-            "Yes. Free includes up to 50 memories, 3 photos per memory, and 3 map styles. Plus and Pro increase limits and unlock additional features.",
+            "Yes. Pinly is free to use. Each map holds up to 50 memories, each memory can include up to 3 photos, and you can choose from 3 map styles.",
         },
         {
           question: "Who can see my memories?",
@@ -744,9 +745,9 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
             "No. Pinly is a Progressive Web App that runs in the browser. Add it to your Home Screen from Safari or Chrome to open it like an app.",
         },
         {
-          question: "What happens when I exceed a plan limit?",
+          question: "What happens when a map reaches its memory limit?",
           answer:
-            "Pinly does not automatically delete existing memories. You can continue viewing them, but cannot add more until usage is reduced or the plan is upgraded.",
+            "Pinly does not automatically delete existing memories. You can keep viewing all of them; to add a new memory, remove one you no longer need.",
         },
       ],
       ctaTitle: "Still have a question?",
@@ -860,11 +861,11 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         "Tạo tài khoản Pinly và mở bản đồ cá nhân.",
         "Chọn nút thêm kỷ niệm, sau đó tìm địa điểm hoặc chọn trực tiếp trên bản đồ.",
         "Đặt tiêu đề rõ ràng, chọn ngày và viết một ghi chú ngắn về điều đã xảy ra.",
-        "Thêm ảnh hoặc video nếu gói hiện tại hỗ trợ, rồi lưu kỷ niệm.",
+        "Thêm tối đa 3 ảnh, rồi lưu kỷ niệm.",
         "Mở Timeline để xem lại câu chuyện theo thời gian hoặc dùng tìm kiếm để tìm bằng tiêu đề và địa chỉ.",
       ],
       ctaTitle: "Tạo dấu ghim đầu tiên",
-      ctaDescription: "Gói Free cho phép bạn bắt đầu với tối đa 50 kỷ niệm.",
+      ctaDescription: "Pinly miễn phí, mỗi bản đồ lưu được tối đa 50 kỷ niệm.",
     },
     en: {
       eyebrow: "Guide",
@@ -892,11 +893,11 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         "Create a Pinly account and open your personal map.",
         "Choose Add memory, then search for a place or select it directly on the map.",
         "Write a clear title, choose the date, and add a short note about what happened.",
-        "Add photos or video when supported by the current plan, then save the memory.",
+        "Add up to 3 photos, then save the memory.",
         "Open Timeline to revisit the story in order, or search by title and address.",
       ],
       ctaTitle: "Create your first pin",
-      ctaDescription: "Free lets you begin with up to 50 memories.",
+      ctaDescription: "Pinly is free, with up to 50 memories per map.",
     },
   },
   travelJournalGuide: {
@@ -971,7 +972,9 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
   },
 };
 
-export const PUBLIC_PAGE_KEYS = Object.keys(PUBLIC_PAGES) as PublicPageKey[];
+export const PUBLIC_PAGE_KEYS = (
+  Object.keys(PUBLIC_PAGES) as PublicPageKey[]
+).filter((key) => key !== "pricing" || PAID_PLANS_ENABLED);
 
 export const PUBLIC_INFO_PAGE_KEYS = PUBLIC_PAGE_KEYS.filter(
   (key) => key !== "home",

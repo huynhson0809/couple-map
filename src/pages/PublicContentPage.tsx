@@ -1,14 +1,10 @@
-import {
-  ArrowRight,
-  Check,
-  CircleHelp,
-  MapPin,
-} from "lucide-react";
+import { ArrowRight, Check, CircleHelp, MapPin } from "lucide-react";
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   PUBLIC_CHROME,
   PUBLIC_PAGES,
+  PUBLIC_PAGE_KEYS,
   getLocalizedPublicPath,
   type PublicLanguage,
   type PublicPageKey,
@@ -21,15 +17,16 @@ import { useI18n } from "../hooks/I18nContext";
 import { usePublicPageSeo } from "../hooks/usePublicPageSeo";
 import "./PublicContentPage.css";
 
+// Ordered by preference; unpublished pages are skipped and the first three remain.
 const FEATURED_RELATED_KEYS: Record<PublicPageKey, PublicPageKey[]> = {
   home: ["about", "features", "faq"],
   about: ["features", "careers", "faq"],
-  features: ["pricing", "memoryMapGuide", "faq"],
+  features: ["pricing", "memoryMapGuide", "faq", "about"],
   pricing: ["features", "faq", "memoryMapGuide"],
-  faq: ["about", "pricing", "memoryMapGuide"],
-  careers: ["about", "features", "pricing"],
+  faq: ["about", "pricing", "memoryMapGuide", "features"],
+  careers: ["about", "features", "pricing", "faq"],
   memoryMapGuide: ["travelJournalGuide", "features", "faq"],
-  travelJournalGuide: ["memoryMapGuide", "features", "pricing"],
+  travelJournalGuide: ["memoryMapGuide", "features", "pricing", "faq"],
 };
 
 export function PublicContentPage({
@@ -44,9 +41,10 @@ export function PublicContentPage({
   const page = PUBLIC_PAGES[pageKey];
   const content = page[lang];
   const chrome = PUBLIC_CHROME[lang];
-  const relatedPages = FEATURED_RELATED_KEYS[pageKey].map(
-    (key) => PUBLIC_PAGES[key],
-  );
+  const relatedPages = FEATURED_RELATED_KEYS[pageKey]
+    .filter((key) => PUBLIC_PAGE_KEYS.includes(key))
+    .slice(0, 3)
+    .map((key) => PUBLIC_PAGES[key]);
 
   usePublicPageSeo(pageKey, lang);
 
@@ -61,7 +59,11 @@ export function PublicContentPage({
       <main>
         <section
           className="public-hero"
-          style={{ "--public-hero-image": `url(${page.image})` } as React.CSSProperties}
+          style={
+            {
+              "--public-hero-image": `url(${page.image})`,
+            } as React.CSSProperties
+          }
         >
           <div className="public-hero-inner">
             <span className="public-eyebrow">
@@ -74,7 +76,10 @@ export function PublicContentPage({
         </section>
 
         {content.plans && (
-          <section className="public-pricing-band" aria-labelledby="plan-heading">
+          <section
+            className="public-pricing-band"
+            aria-labelledby="plan-heading"
+          >
             <div className="public-content-width">
               <h2 id="plan-heading" className="public-visually-hidden">
                 {chrome.pricing}
@@ -107,7 +112,10 @@ export function PublicContentPage({
         )}
 
         {content.steps && (
-          <section className="public-steps-band" aria-labelledby="steps-heading">
+          <section
+            className="public-steps-band"
+            aria-labelledby="steps-heading"
+          >
             <div className="public-content-width">
               <div className="public-section-intro">
                 <span>{content.eyebrow}</span>
@@ -173,7 +181,10 @@ export function PublicContentPage({
           </section>
         )}
 
-        <section className="public-related-band" aria-labelledby="related-heading">
+        <section
+          className="public-related-band"
+          aria-labelledby="related-heading"
+        >
           <div className="public-content-width">
             <h2 id="related-heading">{chrome.related}</h2>
             <div className="public-related-links">

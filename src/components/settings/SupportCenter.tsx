@@ -16,6 +16,7 @@ import {
   type FormEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { PAID_PLANS_ENABLED } from "../../config/paidPlans";
 import { useI18n } from "../../hooks/I18nContext";
 import { supabase } from "../../lib/supabase";
 import { Button } from "../ui/Button";
@@ -60,13 +61,17 @@ interface SupportCenterProps {
   onClose: () => void;
 }
 
-const FAQS = [
-  ["support.faqSpaceLimitQ", "support.faqSpaceLimitA"],
-  ["support.faqInviteQ", "support.faqInviteA"],
-  ["support.faqPlanQ", "support.faqPlanA"],
-  ["support.faqPrivacyQ", "support.faqPrivacyA"],
-  ["support.faqDeleteQ", "support.faqDeleteA"],
-] as const;
+const FAQS = (
+  [
+    ["support.faqSpaceLimitQ", "support.faqSpaceLimitA"],
+    ["support.faqInviteQ", "support.faqInviteA"],
+    ["support.faqPlanQ", "support.faqPlanA"],
+    ["support.faqPrivacyQ", "support.faqPrivacyA"],
+    ["support.faqDeleteQ", "support.faqDeleteA"],
+  ] as const
+).filter(
+  ([questionKey]) => PAID_PLANS_ENABLED || questionKey !== "support.faqPlanQ",
+);
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -159,7 +164,9 @@ export function SupportCenter({
   const [ticketsError, setTicketsError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submittedTicketId, setSubmittedTicketId] = useState<string | null>(null);
+  const [submittedTicketId, setSubmittedTicketId] = useState<string | null>(
+    null,
+  );
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [replyingTicketId, setReplyingTicketId] = useState<string | null>(null);
   const [replyErrors, setReplyErrors] = useState<Record<string, string>>({});
@@ -477,7 +484,9 @@ export function SupportCenter({
                 <span>{t("support.subject")}</span>
                 <input
                   value={activeDraft?.subject ?? ""}
-                  onChange={(event) => updateDraft("subject", event.target.value)}
+                  onChange={(event) =>
+                    updateDraft("subject", event.target.value)
+                  }
                   placeholder={t("support.subjectPlaceholder")}
                   maxLength={120}
                   disabled={submitting}
@@ -489,7 +498,9 @@ export function SupportCenter({
                 <span>{t("support.message")}</span>
                 <textarea
                   value={activeDraft?.message ?? ""}
-                  onChange={(event) => updateDraft("message", event.target.value)}
+                  onChange={(event) =>
+                    updateDraft("message", event.target.value)
+                  }
                   placeholder={
                     view === "bug"
                       ? t("support.bugMessagePlaceholder")
@@ -628,7 +639,10 @@ export function SupportCenter({
                               />
                             </label>
                             {replyErrors[ticket.id] && (
-                              <p className="support-conversation-error" role="alert">
+                              <p
+                                className="support-conversation-error"
+                                role="alert"
+                              >
                                 {replyErrors[ticket.id]}
                               </p>
                             )}
@@ -657,5 +671,7 @@ export function SupportCenter({
     </div>
   );
 
-  return typeof document === "undefined" ? null : createPortal(modal, document.body);
+  return typeof document === "undefined"
+    ? null
+    : createPortal(modal, document.body);
 }

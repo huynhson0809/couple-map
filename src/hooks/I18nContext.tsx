@@ -200,6 +200,8 @@ const dict = {
     "pin.updateFailed": "Could not update this memory. Please try again.",
     "pin.memoryLimitReached":
       "You have reached this plan's memory limit. Upgrade or remove a memory to continue.",
+    "pin.freeMemoryLimitReached":
+      "This map has reached its {{count}}-memory limit. Remove a memory to add a new one.",
     "pin.mediaPlanLimitReached":
       "You have reached this plan's media limit for the memory.",
     "pin.createRateLimited":
@@ -719,7 +721,7 @@ const dict = {
     "landing.installAndroid2": "Tap the menu (⋮) top right",
     "landing.installAndroid3": 'Tap "Add to Home screen"',
     "landing.bottomCtaTitle": "Start with your own space",
-    "landing.bottomCtaDesc": "Free to begin. Invite others when you want.",
+    "landing.bottomCtaDesc": "Free to use. Invite others when you want.",
     "landing.bottomCtaBtn": "Create free account",
     "landing.footerTagline": "Memories, pinned to the places that matter.",
 
@@ -916,6 +918,8 @@ const dict = {
     "pin.updateFailed": "Chưa thể cập nhật kỷ niệm. Vui lòng thử lại.",
     "pin.memoryLimitReached":
       "Bạn đã dùng hết số kỷ niệm của gói hiện tại. Hãy nâng cấp hoặc xóa bớt kỷ niệm để tiếp tục.",
+    "pin.freeMemoryLimitReached":
+      "Bản đồ này đã đạt giới hạn {{count}} kỷ niệm. Hãy xóa bớt một kỷ niệm để thêm kỷ niệm mới.",
     "pin.mediaPlanLimitReached":
       "Kỷ niệm này đã dùng hết số ảnh và video của gói hiện tại.",
     "pin.createRateLimited":
@@ -1432,7 +1436,7 @@ const dict = {
     "landing.installAndroid3": "Chọn “Thêm vào Màn hình chính”",
     "landing.bottomCtaTitle": "Bắt đầu từ nơi bạn muốn nhớ",
     "landing.bottomCtaDesc":
-      "Tạo bản đồ đầu tiên miễn phí. Khi muốn lưu giữ cùng nhau, chỉ cần gửi lời mời.",
+      "Miễn phí sử dụng. Khi muốn lưu giữ cùng nhau, chỉ cần gửi lời mời.",
     "landing.bottomCtaBtn": "Tạo bản đồ đầu tiên",
     "landing.footerTagline": "Mỗi dấu ghim là một câu chuyện bạn muốn giữ lại.",
 

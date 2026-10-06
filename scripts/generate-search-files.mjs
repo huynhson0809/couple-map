@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   PUBLIC_PAGES,
+  PUBLIC_PAGE_KEYS,
   PUBLIC_POLICY_PATHS,
   getLocalizedPublicPath,
 } from "../src/content/publicPages.ts";
@@ -25,7 +26,7 @@ const PRIVATE_ROUTE_PREFIXES = [
 
 const publicBasePaths = [
   ...new Set([
-    ...Object.values(PUBLIC_PAGES).map((page) => page.path),
+    ...PUBLIC_PAGE_KEYS.map((key) => PUBLIC_PAGES[key].path),
     ...PUBLIC_POLICY_PATHS,
   ]),
 ];
@@ -50,7 +51,9 @@ function absoluteUrl(path) {
 
 function renderSitemap() {
   const urls = publicRoutePairs
-    .flatMap((routes) => [routes.en, routes.vi].map((path) => ({ path, routes })))
+    .flatMap((routes) =>
+      [routes.en, routes.vi].map((path) => ({ path, routes })),
+    )
     .map(
       ({ path, routes }) => `  <url>
     <loc>${escapeXml(absoluteUrl(path))}</loc>

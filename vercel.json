@@ -70,13 +70,16 @@
       ]
     }
   ],
+  "redirects": [
+    { "source": "/pricing", "destination": "/", "permanent": false },
+    { "source": "/vi/pricing", "destination": "/vi", "permanent": false }
+  ],
   "rewrites": [
     { "source": "/sitemap.xml", "destination": "/_seo/sitemap.xml" },
     { "source": "/sitemap.xsl", "destination": "/_seo/sitemap.xsl" },
     { "source": "/robots.txt", "destination": "/_seo/robots.txt" },
     { "source": "/about", "destination": "/about/index.html" },
     { "source": "/features", "destination": "/features/index.html" },
-    { "source": "/pricing", "destination": "/pricing/index.html" },
     { "source": "/faq", "destination": "/faq/index.html" },
     { "source": "/careers", "destination": "/careers/index.html" },
     {
@@ -95,7 +98,6 @@
       "source": "/vi/features",
       "destination": "/vi/features/index.html"
     },
-    { "source": "/vi/pricing", "destination": "/vi/pricing/index.html" },
     { "source": "/vi/faq", "destination": "/vi/faq/index.html" },
     {
       "source": "/vi/careers",

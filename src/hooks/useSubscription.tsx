@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { supabase } from "../lib/supabase";
+import { PAID_PLANS_ENABLED } from "../config/paidPlans";
 import type {
   AccountSubscription,
   BillingCycle,
@@ -93,9 +94,7 @@ const PLAN_LIMITS = {
 
 // Free map styles (indices into the styles array)
 const FREE_STYLE_IDS = ["bright", "midnight", "candy"];
-const BILLING_RETURN_POLL_DELAYS_MS = [
-  0, 1000, 2000, 3000, 5000, 8000, 13000,
-];
+const BILLING_RETURN_POLL_DELAYS_MS = [0, 1000, 2000, 3000, 5000, 8000, 13000];
 const ACCOUNT_SUBSCRIPTION_TIMEOUT_MS = 12_000;
 const SPACE_SUBSCRIPTION_TIMEOUT_MS = 6_000;
 const SUBSCRIPTION_CONTEXT_CACHE_VERSION = 1;
@@ -164,7 +163,10 @@ interface SubscriptionContextValue {
     locale: "en" | "vi",
   ) => Promise<void>;
   openCustomerPortal: () => Promise<void>;
-  activateCode: (code: string, locale: Lang) => Promise<{
+  activateCode: (
+    code: string,
+    locale: Lang,
+  ) => Promise<{
     success: boolean;
     message: string;
     plan?: string;
@@ -284,10 +286,7 @@ function normalizeActiveSubscription(
 }
 
 function isCurrentAccountSubscription(subscription: AccountSubscription) {
-  if (
-    subscription.status !== "active" &&
-    subscription.status !== "trialing"
-  ) {
+  if (subscription.status !== "active" && subscription.status !== "trialing") {
     return false;
   }
   if (!subscription.current_period_end) return true;
@@ -299,16 +298,14 @@ function selectBestAccountSubscription(
   subscriptions: AccountSubscription[],
 ): AccountSubscription | null {
   return (
-    subscriptions
-      .filter(isCurrentAccountSubscription)
-      .sort((a, b) => {
-        const planDifference =
-          (b.plan === "pro" ? 2 : 1) - (a.plan === "pro" ? 2 : 1);
-        if (planDifference !== 0) return planDifference;
-        return (
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
-      })[0] ?? null
+    subscriptions.filter(isCurrentAccountSubscription).sort((a, b) => {
+      const planDifference =
+        (b.plan === "pro" ? 2 : 1) - (a.plan === "pro" ? 2 : 1);
+      if (planDifference !== 0) return planDifference;
+      return (
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    })[0] ?? null
   );
 }
 
@@ -349,10 +346,7 @@ async function loadOwnAccountSubscription(userId: string) {
 
   return {
     accountPlan,
-    subscription: normalizeActiveSubscription(
-      activeSubscription,
-      accountPlan,
-    ),
+    subscription: normalizeActiveSubscription(activeSubscription, accountPlan),
   };
 }
 
@@ -379,7 +373,9 @@ function normalizeSubscriptionContext(
     accountPlan,
     spacePlan,
     spaceOwnerId:
-      typeof payload.space_owner_id === "string" ? payload.space_owner_id : null,
+      typeof payload.space_owner_id === "string"
+        ? payload.space_owner_id
+        : null,
     ownedSpaceCount,
     ownedSpaceLimit,
     canCreateSpace:
@@ -392,13 +388,15 @@ function normalizeSubscriptionContext(
     spaceQuotaSelectedIds: readStringArray(quota?.selected_space_ids),
     spaceQuotaRestrictedIds: readStringArray(quota?.restricted_space_ids),
     spaceQuotaResolved: readBoolean(quota?.resolved) ?? false,
-    currentSpaceWritable:
-      readBoolean(payload.current_space_writable) ?? true,
+    currentSpaceWritable: readBoolean(payload.current_space_writable) ?? true,
     spacePlanPeriodEnd:
       typeof payload.space_plan_period_end === "string"
         ? payload.space_plan_period_end
         : null,
-    subscription: normalizeActiveSubscription(payload.subscription, accountPlan),
+    subscription: normalizeActiveSubscription(
+      payload.subscription,
+      accountPlan,
+    ),
     canUseMap3D,
   };
 }
@@ -503,7 +501,8 @@ function createFallbackSubscriptionContext({
     spacePlan,
     spaceOwnerId: spaceOwnerIdHint,
     ownedSpaceLimit,
-    canCreateSpace: DEFAULT_SUBSCRIPTION_CONTEXT.ownedSpaceCount < ownedSpaceLimit,
+    canCreateSpace:
+      DEFAULT_SUBSCRIPTION_CONTEXT.ownedSpaceCount < ownedSpaceLimit,
     subscription: accountContext?.subscription ?? null,
     canUseMap3D: spacePlan !== "free",
   };
@@ -524,8 +523,7 @@ function applyAccountPlanToOwnedSpaceContext(
     spaceOwnerId,
     ownedSpaceLimit,
     canCreateSpace: context.ownedSpaceCount < ownedSpaceLimit,
-    spacePlanPeriodEnd:
-      accountContext.subscription?.current_period_end ?? null,
+    spacePlanPeriodEnd: accountContext.subscription?.current_period_end ?? null,
     subscription: accountContext.subscription,
     canUseMap3D: accountContext.accountPlan !== "free",
   };
@@ -552,7 +550,10 @@ function activationErrorKey(value: unknown): I18nKey {
   const message = typeof value === "string" ? value.trim().toLowerCase() : "";
   if (message.includes("required")) return "activation.codeRequired";
   if (message.includes("too long")) return "activation.codeTooLong";
-  if (message.includes("đã được sử dụng") || message.includes("already been used")) {
+  if (
+    message.includes("đã được sử dụng") ||
+    message.includes("already been used")
+  ) {
     return "activation.used";
   }
   if (message.includes("hết hạn") || message.includes("expired")) {
@@ -653,9 +654,9 @@ export function SubscriptionProvider({
   );
   const activeSpaceContextResolved = Boolean(
     userId &&
-      spaceId &&
-      resolvedUserId === userId &&
-      resolvedSpaceId === spaceId,
+    spaceId &&
+    resolvedUserId === userId &&
+    resolvedSpaceId === spaceId,
   );
 
   useLayoutEffect(() => {
@@ -676,9 +677,7 @@ export function SubscriptionProvider({
     setOwnedSpaceCount(DEFAULT_SUBSCRIPTION_CONTEXT.ownedSpaceCount);
     setOwnedSpaceLimit(DEFAULT_SUBSCRIPTION_CONTEXT.ownedSpaceLimit);
     setCanCreateSpace(DEFAULT_SUBSCRIPTION_CONTEXT.canCreateSpace);
-    setSpaceQuotaOverLimit(
-      DEFAULT_SUBSCRIPTION_CONTEXT.spaceQuotaOverLimit,
-    );
+    setSpaceQuotaOverLimit(DEFAULT_SUBSCRIPTION_CONTEXT.spaceQuotaOverLimit);
     setSpaceQuotaGraceActive(
       DEFAULT_SUBSCRIPTION_CONTEXT.spaceQuotaGraceActive,
     );
@@ -692,9 +691,7 @@ export function SubscriptionProvider({
       DEFAULT_SUBSCRIPTION_CONTEXT.spaceQuotaRestrictedIds,
     );
     setSpaceQuotaResolved(DEFAULT_SUBSCRIPTION_CONTEXT.spaceQuotaResolved);
-    setCurrentSpaceWritable(
-      DEFAULT_SUBSCRIPTION_CONTEXT.currentSpaceWritable,
-    );
+    setCurrentSpaceWritable(DEFAULT_SUBSCRIPTION_CONTEXT.currentSpaceWritable);
     setSpacePlanPeriodEnd(DEFAULT_SUBSCRIPTION_CONTEXT.spacePlanPeriodEnd);
     setMap3dEntitled(DEFAULT_SUBSCRIPTION_CONTEXT.canUseMap3D);
     resolvedSpaceContextRef.current = null;
@@ -760,206 +757,213 @@ export function SubscriptionProvider({
     [],
   );
 
-  const fetchAccountPlan = useCallback(async (scheduledRequestId?: number) => {
-    const requestId =
-      scheduledRequestId ?? ++accountRequestIdRef.current;
-    if (requestId !== accountRequestIdRef.current) return;
+  const fetchAccountPlan = useCallback(
+    async (scheduledRequestId?: number) => {
+      const requestId = scheduledRequestId ?? ++accountRequestIdRef.current;
+      if (requestId !== accountRequestIdRef.current) return;
 
-    const targetUserId = userId;
-    if (!targetUserId) {
-      setAccountPlan(DEFAULT_SUBSCRIPTION_CONTEXT.accountPlan);
-      setSubscription(DEFAULT_SUBSCRIPTION_CONTEXT.subscription);
-      setResolvedAccountUserId(null);
-      resolvedAccountContextRef.current = null;
-      setAccountLoading(false);
-      return;
-    }
-
-    setAccountLoading(true);
-    try {
-      const accountContext = await loadOwnAccountSubscription(targetUserId);
-      if (
-        requestId !== accountRequestIdRef.current ||
-        activeUserIdRef.current !== targetUserId
-      ) {
+      const targetUserId = userId;
+      if (!targetUserId) {
+        setAccountPlan(DEFAULT_SUBSCRIPTION_CONTEXT.accountPlan);
+        setSubscription(DEFAULT_SUBSCRIPTION_CONTEXT.subscription);
+        setResolvedAccountUserId(null);
+        resolvedAccountContextRef.current = null;
+        setAccountLoading(false);
         return;
       }
 
-      setAccountPlan(accountContext.accountPlan);
-      setSubscription(accountContext.subscription);
-      setResolvedAccountUserId(targetUserId);
-      resolvedAccountContextRef.current = {
-        userId: targetUserId,
-        ...accountContext,
-        source: "direct",
-      };
+      setAccountLoading(true);
+      try {
+        const accountContext = await loadOwnAccountSubscription(targetUserId);
+        if (
+          requestId !== accountRequestIdRef.current ||
+          activeUserIdRef.current !== targetUserId
+        ) {
+          return;
+        }
 
-      if (spaceId && spaceOwnerIdHint === targetUserId) {
-        const currentSpaceContext = resolvedSpaceContextRef.current;
-        const currentContextMatches =
-          currentSpaceContext?.userId === targetUserId &&
-          currentSpaceContext.spaceId === spaceId;
-        const baseContext = currentContextMatches
-          ? currentSpaceContext.context
-          : createFallbackSubscriptionContext({
-              accountContext,
-              spaceOwnerIdHint,
-              spacePlanHint,
-              userId: targetUserId,
-            });
-        const ownedSpaceContext = applyAccountPlanToOwnedSpaceContext(
-          baseContext,
-          accountContext,
-          spaceOwnerIdHint,
-        );
+        setAccountPlan(accountContext.accountPlan);
+        setSubscription(accountContext.subscription);
+        setResolvedAccountUserId(targetUserId);
+        resolvedAccountContextRef.current = {
+          userId: targetUserId,
+          ...accountContext,
+          source: "direct",
+        };
+
+        if (spaceId && spaceOwnerIdHint === targetUserId) {
+          const currentSpaceContext = resolvedSpaceContextRef.current;
+          const currentContextMatches =
+            currentSpaceContext?.userId === targetUserId &&
+            currentSpaceContext.spaceId === spaceId;
+          const baseContext = currentContextMatches
+            ? currentSpaceContext.context
+            : createFallbackSubscriptionContext({
+                accountContext,
+                spaceOwnerIdHint,
+                spacePlanHint,
+                userId: targetUserId,
+              });
+          const ownedSpaceContext = applyAccountPlanToOwnedSpaceContext(
+            baseContext,
+            accountContext,
+            spaceOwnerIdHint,
+          );
+          applySubscriptionContext(
+            ownedSpaceContext,
+            spaceId,
+            targetUserId,
+            currentContextMatches ? currentSpaceContext.source : "fallback",
+          );
+          finishPlanLoad();
+        }
+      } catch (error) {
+        if (
+          requestId !== accountRequestIdRef.current ||
+          activeUserIdRef.current !== targetUserId
+        ) {
+          return;
+        }
+        console.error("Could not load account subscription:", error);
+      } finally {
+        if (
+          requestId === accountRequestIdRef.current &&
+          activeUserIdRef.current === targetUserId
+        ) {
+          setAccountLoading(false);
+        }
+      }
+    },
+    [
+      applySubscriptionContext,
+      finishPlanLoad,
+      spaceId,
+      spaceOwnerIdHint,
+      spacePlanHint,
+      userId,
+    ],
+  );
+
+  const fetchPlan = useCallback(
+    async (scheduledRequestId?: number) => {
+      const requestId = scheduledRequestId ?? ++requestIdRef.current;
+
+      if (requestId !== requestIdRef.current) return;
+
+      if (!userId || !spaceId) {
+        resetSubscriptionContext();
+        setResolvedSpaceId(null);
+        setResolvedUserId(null);
+        finishPlanLoad();
+        return;
+      }
+
+      const targetSpaceId = spaceId;
+      const targetUserId = userId;
+      const existingContext = resolvedSpaceContextRef.current;
+      const contextMatchesScope =
+        existingContext?.userId === targetUserId &&
+        existingContext.spaceId === targetSpaceId;
+      const cachedContext = contextMatchesScope
+        ? existingContext.context
+        : readCachedSubscriptionContext(targetUserId, targetSpaceId);
+      const cachedContextSource = contextMatchesScope
+        ? existingContext.source
+        : cachedContext
+          ? "cache"
+          : null;
+
+      if (cachedContext && !contextMatchesScope) {
         applySubscriptionContext(
-          ownedSpaceContext,
-          spaceId,
+          cachedContext,
+          targetSpaceId,
           targetUserId,
-          currentContextMatches ? currentSpaceContext.source : "fallback",
+          "cache",
+          true,
+        );
+        finishPlanLoad();
+      } else if (!hasLoadedPlanOnceRef.current) {
+        setLoading(true);
+      }
+
+      try {
+        const { data, error } = await withTimeout(
+          supabase.rpc("get_subscription_context_for_space", {
+            p_space_id: targetSpaceId,
+          }),
+          SPACE_SUBSCRIPTION_TIMEOUT_MS,
+          "Space subscription request timed out",
+        );
+
+        if (
+          requestId !== requestIdRef.current ||
+          activeUserIdRef.current !== targetUserId
+        )
+          return;
+
+        if (error) throw error;
+
+        const context = normalizeSubscriptionContext(data);
+        applySubscriptionContext(
+          context,
+          targetSpaceId,
+          targetUserId,
+          "remote",
+          true,
+        );
+        writeCachedSubscriptionContext(targetUserId, targetSpaceId, data);
+        finishPlanLoad();
+      } catch (error) {
+        if (
+          requestId !== requestIdRef.current ||
+          activeUserIdRef.current !== targetUserId
+        )
+          return;
+
+        console.error("Could not load subscription context:", error);
+        const accountContext = resolvedAccountContextRef.current;
+        const matchingAccountContext =
+          accountContext?.userId === targetUserId
+            ? {
+                accountPlan: accountContext.accountPlan,
+                subscription: accountContext.subscription,
+              }
+            : null;
+        const latestContext = resolvedSpaceContextRef.current;
+        const latestContextMatches =
+          latestContext?.userId === targetUserId &&
+          latestContext.spaceId === targetSpaceId;
+        const fallbackContext =
+          (latestContextMatches ? latestContext.context : null) ??
+          cachedContext ??
+          createFallbackSubscriptionContext({
+            accountContext: matchingAccountContext,
+            spaceOwnerIdHint,
+            spacePlanHint,
+            userId: targetUserId,
+          });
+        applySubscriptionContext(
+          fallbackContext,
+          targetSpaceId,
+          targetUserId,
+          (latestContextMatches ? latestContext.source : null) ??
+            cachedContextSource ??
+            "fallback",
+          true,
         );
         finishPlanLoad();
       }
-    } catch (error) {
-      if (
-        requestId !== accountRequestIdRef.current ||
-        activeUserIdRef.current !== targetUserId
-      ) {
-        return;
-      }
-      console.error("Could not load account subscription:", error);
-    } finally {
-      if (
-        requestId === accountRequestIdRef.current &&
-        activeUserIdRef.current === targetUserId
-      ) {
-        setAccountLoading(false);
-      }
-    }
-  }, [
-    applySubscriptionContext,
-    finishPlanLoad,
-    spaceId,
-    spaceOwnerIdHint,
-    spacePlanHint,
-    userId,
-  ]);
-
-  const fetchPlan = useCallback(async (scheduledRequestId?: number) => {
-    const requestId = scheduledRequestId ?? ++requestIdRef.current;
-
-    if (requestId !== requestIdRef.current) return;
-
-    if (!userId || !spaceId) {
-      resetSubscriptionContext();
-      setResolvedSpaceId(null);
-      setResolvedUserId(null);
-      finishPlanLoad();
-      return;
-    }
-
-    const targetSpaceId = spaceId;
-    const targetUserId = userId;
-    const existingContext = resolvedSpaceContextRef.current;
-    const contextMatchesScope =
-      existingContext?.userId === targetUserId &&
-      existingContext.spaceId === targetSpaceId;
-    const cachedContext = contextMatchesScope
-      ? existingContext.context
-      : readCachedSubscriptionContext(targetUserId, targetSpaceId);
-    const cachedContextSource = contextMatchesScope
-      ? existingContext.source
-      : cachedContext
-        ? "cache"
-        : null;
-
-    if (cachedContext && !contextMatchesScope) {
-      applySubscriptionContext(
-        cachedContext,
-        targetSpaceId,
-        targetUserId,
-        "cache",
-        true,
-      );
-      finishPlanLoad();
-    } else if (!hasLoadedPlanOnceRef.current) {
-      setLoading(true);
-    }
-
-    try {
-      const { data, error } = await withTimeout(
-        supabase.rpc("get_subscription_context_for_space", {
-          p_space_id: targetSpaceId,
-        }),
-        SPACE_SUBSCRIPTION_TIMEOUT_MS,
-        "Space subscription request timed out",
-      );
-
-      if (
-        requestId !== requestIdRef.current ||
-        activeUserIdRef.current !== targetUserId
-      ) return;
-
-      if (error) throw error;
-
-      const context = normalizeSubscriptionContext(data);
-      applySubscriptionContext(
-        context,
-        targetSpaceId,
-        targetUserId,
-        "remote",
-        true,
-      );
-      writeCachedSubscriptionContext(targetUserId, targetSpaceId, data);
-      finishPlanLoad();
-    } catch (error) {
-      if (
-        requestId !== requestIdRef.current ||
-        activeUserIdRef.current !== targetUserId
-      ) return;
-
-      console.error("Could not load subscription context:", error);
-      const accountContext = resolvedAccountContextRef.current;
-      const matchingAccountContext =
-        accountContext?.userId === targetUserId
-          ? {
-              accountPlan: accountContext.accountPlan,
-              subscription: accountContext.subscription,
-            }
-          : null;
-      const latestContext = resolvedSpaceContextRef.current;
-      const latestContextMatches =
-        latestContext?.userId === targetUserId &&
-        latestContext.spaceId === targetSpaceId;
-      const fallbackContext =
-        (latestContextMatches ? latestContext.context : null) ??
-        cachedContext ??
-        createFallbackSubscriptionContext({
-          accountContext: matchingAccountContext,
-          spaceOwnerIdHint,
-          spacePlanHint,
-          userId: targetUserId,
-        });
-      applySubscriptionContext(
-        fallbackContext,
-        targetSpaceId,
-        targetUserId,
-        (latestContextMatches ? latestContext.source : null) ??
-          cachedContextSource ??
-          "fallback",
-        true,
-      );
-      finishPlanLoad();
-    }
-  }, [
-    applySubscriptionContext,
-    finishPlanLoad,
-    resetSubscriptionContext,
-    spaceId,
-    spaceOwnerIdHint,
-    spacePlanHint,
-    userId,
-  ]);
+    },
+    [
+      applySubscriptionContext,
+      finishPlanLoad,
+      resetSubscriptionContext,
+      spaceId,
+      spaceOwnerIdHint,
+      spacePlanHint,
+      userId,
+    ],
+  );
 
   const refetch = useCallback(async () => {
     await Promise.all([fetchAccountPlan(), fetchPlan()]);
@@ -987,10 +991,7 @@ export function SubscriptionProvider({
         void fetchPlan();
         return;
       }
-      timer = window.setTimeout(
-        schedule,
-        Math.min(remaining, 2_000_000_000),
-      );
+      timer = window.setTimeout(schedule, Math.min(remaining, 2_000_000_000));
     };
     schedule();
 
@@ -1014,10 +1015,7 @@ export function SubscriptionProvider({
         void refetch();
         return;
       }
-      timer = window.setTimeout(
-        schedule,
-        Math.min(remaining, 2_000_000_000),
-      );
+      timer = window.setTimeout(schedule, Math.min(remaining, 2_000_000_000));
     };
     schedule();
 
@@ -1160,7 +1158,7 @@ export function SubscriptionProvider({
   const effectiveSubscription = accountContextResolved
     ? subscription
     : DEFAULT_SUBSCRIPTION_CONTEXT.subscription;
-  const effectiveContext = activeSpaceContextResolved
+  const resolvedContext = activeSpaceContextResolved
     ? {
         plan,
         accountPlan: effectiveAccountPlan,
@@ -1184,10 +1182,23 @@ export function SubscriptionProvider({
         accountPlan: effectiveAccountPlan,
         subscription: effectiveSubscription,
       };
-  const contextLoading = Boolean(userId && spaceId) &&
-    (loading || !activeSpaceContextResolved);
-  const accountContextLoading = Boolean(userId) &&
-    (accountLoading || !accountContextResolved);
+  const effectiveContext = PAID_PLANS_ENABLED
+    ? resolvedContext
+    : {
+        ...resolvedContext,
+        plan: "free" as PlanType,
+        accountPlan: "free" as PlanType,
+        spacePlan: "free" as PlanType,
+        ownedSpaceLimit: PLAN_LIMITS.free.ownedSpaces,
+        canCreateSpace:
+          resolvedContext.ownedSpaceCount < PLAN_LIMITS.free.ownedSpaces,
+        subscription: null,
+        canUseMap3D: false,
+      };
+  const contextLoading =
+    Boolean(userId && spaceId) && (loading || !activeSpaceContextResolved);
+  const accountContextLoading =
+    Boolean(userId) && (accountLoading || !accountContextResolved);
   const limits = PLAN_LIMITS[effectiveContext.plan];
   const accountReplayLimits = PLAN_LIMITS[effectiveContext.accountPlan];
   const activeSpaceWritable =
@@ -1247,18 +1258,18 @@ export function SubscriptionProvider({
 
   const activateCode = useCallback(
     async (code: string, locale: Lang) => {
-      const { data, error } = await supabase.functions.invoke(
-        "activate-code",
-        {
-          body: { code },
-        },
-      );
+      const { data, error } = await supabase.functions.invoke("activate-code", {
+        body: { code },
+      });
 
       if (error) {
         const responseError = await edgeResponseError(error);
         return {
           success: false,
-          message: translate(locale, activationErrorKey(responseError ?? error.message)),
+          message: translate(
+            locale,
+            activationErrorKey(responseError ?? error.message),
+          ),
         };
       }
 
@@ -1290,10 +1301,9 @@ export function SubscriptionProvider({
 
   const saveSpaceQuotaSelection = useCallback(
     async (spaceIds: string[]) => {
-      const { error } = await supabase.rpc(
-        "set_owned_space_quota_selection",
-        { p_space_ids: spaceIds },
-      );
+      const { error } = await supabase.rpc("set_owned_space_quota_selection", {
+        p_space_ids: spaceIds,
+      });
       if (error) throw error;
       await fetchPlan();
     },
@@ -1302,7 +1312,8 @@ export function SubscriptionProvider({
 
   const canUseMapStyle = useCallback(
     (styleId: string) => {
-      if (contextLoading) return true; // Keep the current visual style while entitlements refresh.
+      // Keep the current visual style while paid entitlements refresh.
+      if (PAID_PLANS_ENABLED && contextLoading) return true;
       if (effectiveContext.plan === "pro") return true;
       if (effectiveContext.plan === "plus") {
         const idx = MAP_STYLE_IDS.indexOf(styleId);
@@ -1335,7 +1346,10 @@ export function SubscriptionProvider({
     isPremium: effectiveContext.plan !== "free",
     canUploadVideo: activeSpaceWritable && limits.video,
     canUseMapStyle,
-    canUseMap3D: contextLoading ? true : effectiveContext.canUseMap3D,
+    canUseMap3D:
+      PAID_PLANS_ENABLED && contextLoading
+        ? true
+        : effectiveContext.canUseMap3D,
     canCreatePin: (currentCount: number) =>
       activeSpaceWritable && currentCount < limits.pins,
     canAddPhoto: (currentCount: number) =>

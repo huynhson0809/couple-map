@@ -22,7 +22,6 @@ const EXPECTED_PUBLIC_PATHS = [
   "/",
   "/about",
   "/features",
-  "/pricing",
   "/faq",
   "/careers",
   "/guides/memory-map",
@@ -178,8 +177,8 @@ assert.doesNotMatch(
 );
 assert.match(
   generator,
-  /Object\.values\(PUBLIC_PAGES\)\.map/,
-  "Sitemap generation must derive marketing routes from public page definitions.",
+  /PUBLIC_PAGE_KEYS\.map\(\(key\) => PUBLIC_PAGES\[key\]\.path\)/,
+  "Sitemap generation must derive marketing routes from published public page definitions.",
 );
 assert.match(
   vercel,

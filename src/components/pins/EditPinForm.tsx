@@ -27,6 +27,7 @@ import {
 } from "../../lib/cloudinary-delete";
 import { formatErrorMessage } from "../../lib/errorMessage";
 import { localizedMemoryError } from "../../lib/memoryErrorMessage";
+import { PAID_PLANS_ENABLED } from "../../config/paidPlans";
 import type { Pin, PinImage } from "../../types";
 import { useToast } from "../../hooks/ToastContext";
 
@@ -69,12 +70,16 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
   } = usePinsCtx();
   const {
     allCategories,
+    customCategories,
     getCategory,
     saveCustomCategory,
     deleteCustomCategory,
   } = useCategoriesCtx();
   const { t, lang } = useI18n();
-  const { canUploadVideo, currentSpaceWritable, limits } = useSubscription();
+  const { canUploadVideo, canCreateCategory, currentSpaceWritable, limits } =
+    useSubscription();
+  const canAddCustomCategory =
+    PAID_PLANS_ENABLED || canCreateCategory(customCategories.length);
   const { showToast } = useToast();
   const [title, setTitle] = useState(pin.title);
   const [note, setNote] = useState(pin.note ?? "");
@@ -513,16 +518,18 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
               </div>
             );
           })}
-          <button
-            type="button"
-            className="category-chip"
-            onClick={openCreateCustomTag}
-          >
-            <span className="emoji">
-              <Plus size={14} />
-            </span>
-            <span>{t("pin.addTag")}</span>
-          </button>
+          {canAddCustomCategory && (
+            <button
+              type="button"
+              className="category-chip"
+              onClick={openCreateCustomTag}
+            >
+              <span className="emoji">
+                <Plus size={14} />
+              </span>
+              <span>{t("pin.addTag")}</span>
+            </button>
+          )}
         </div>
         {showCustomTag && (
           <div className="custom-tag-form">
@@ -692,21 +699,23 @@ export function EditPinForm({ pin, onSaved, onCancel }: Props) {
           >
             <ImageUp size={16} /> {t("pin.addPhoto")}
           </button>
-          <button
-            type="button"
-            className="photo-btn small"
-            disabled={!currentSpaceWritable}
-            onClick={() => {
-              if (!canUploadVideo) {
-                setError(t("pin.videoRequiresPro"));
-                return;
-              }
-              if (videoInput.current) videoInput.current.value = "";
-              videoInput.current?.click();
-            }}
-          >
-            <Video size={16} /> {t("pin.addVideo")} {!canUploadVideo && "🔒"}
-          </button>
+          {(PAID_PLANS_ENABLED || canUploadVideo) && (
+            <button
+              type="button"
+              className="photo-btn small"
+              disabled={!currentSpaceWritable}
+              onClick={() => {
+                if (!canUploadVideo) {
+                  setError(t("pin.videoRequiresPro"));
+                  return;
+                }
+                if (videoInput.current) videoInput.current.value = "";
+                videoInput.current?.click();
+              }}
+            >
+              <Video size={16} /> {t("pin.addVideo")} {!canUploadVideo && "🔒"}
+            </button>
+          )}
         </div>
         <input
           ref={mediaInput}

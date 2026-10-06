@@ -45,6 +45,7 @@
     "check:space-downgrade-access": "node scripts/space-downgrade-access-contract.mjs",
     "check:settings-space-switch-flicker": "node scripts/settings-space-switch-flicker-contract.mjs",
     "check:single-space-mode": "node --experimental-strip-types scripts/single-space-mode-contract.mjs",
+    "check:free-mode": "node --experimental-strip-types scripts/free-mode-contract.mjs",
     "check:streak-integrity": "node scripts/streak-integrity-contract.mjs",
     "check:solo-streak-reminders": "node scripts/solo-streak-reminders-contract.mjs",
     "check:resend-email": "node scripts/resend-email-contract.mjs",

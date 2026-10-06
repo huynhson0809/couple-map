@@ -4,6 +4,7 @@ import {
   PUBLIC_CHROME,
   PUBLIC_INFO_PAGE_KEYS,
   PUBLIC_PAGES,
+  PUBLIC_PAGE_KEYS,
   getLocalizedPublicPath,
   getPublicFooterLabel,
   type PublicLanguage,
@@ -66,12 +67,14 @@ export function PublicSiteHeader({
         >
           {chrome.features}
         </Link>
-        <Link
-          to={getLocalizedPublicPath("/pricing", language)}
-          aria-current={activePageKey === "pricing" ? "page" : undefined}
-        >
-          {chrome.pricing}
-        </Link>
+        {PUBLIC_PAGE_KEYS.includes("pricing") && (
+          <Link
+            to={getLocalizedPublicPath("/pricing", language)}
+            aria-current={activePageKey === "pricing" ? "page" : undefined}
+          >
+            {chrome.pricing}
+          </Link>
+        )}
         <Link
           to={getLocalizedPublicPath("/faq", language)}
           aria-current={activePageKey === "faq" ? "page" : undefined}
