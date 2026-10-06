@@ -6,6 +6,7 @@ import {
   PUBLIC_INFO_PAGE_KEYS,
   PUBLIC_PAGES,
   PUBLIC_PAGE_KEYS,
+  SOCIAL_PREVIEW_IMAGE,
   getLocalizedPublicPath,
   getPublicFooterLabel,
   getPublicPageSchema,
@@ -103,6 +104,15 @@ function replaceMeta(html, attribute, key, value) {
 
 function absolutePublicUrl(basePath, language) {
   return `${PRIMARY_ORIGIN}${getLocalizedPublicPath(basePath, language)}`;
+}
+
+function applySocialImage(html, language) {
+  const { path, alt } = SOCIAL_PREVIEW_IMAGE[language];
+  const imageUrl = `${PRIMARY_ORIGIN}${path}`;
+  let localizedHtml = replaceMeta(html, "property", "og:image", imageUrl);
+  localizedHtml = replaceMeta(localizedHtml, "property", "og:image:alt", alt);
+  localizedHtml = replaceMeta(localizedHtml, "name", "twitter:image", imageUrl);
+  return replaceMeta(localizedHtml, "name", "twitter:image:alt", alt);
 }
 
 function applyOrganizationSameAs(html) {
@@ -390,7 +400,6 @@ const fallbackStyles = `
 function buildPageHtml(page, language) {
   const content = page[language];
   const canonicalUrl = absolutePublicUrl(page.path, language);
-  const imageUrl = `${PRIMARY_ORIGIN}${content.socialImage ?? page.image}`;
   let html = applyOrganizationSameAs(
     applyLanguageMetadata(template, page.path, language),
   );
@@ -408,7 +417,6 @@ function buildPageHtml(page, language) {
     "og:description",
     content.metaDescription,
   );
-  html = replaceMeta(html, "property", "og:image", imageUrl);
   html = replaceMeta(html, "name", "twitter:title", content.metaTitle);
   html = replaceMeta(
     html,
@@ -416,7 +424,7 @@ function buildPageHtml(page, language) {
     "twitter:description",
     content.metaDescription,
   );
-  html = replaceMeta(html, "name", "twitter:image", imageUrl);
+  html = applySocialImage(html, language);
   html = html.replace(
     /<link rel="canonical" href="[^"]+" \/>/,
     `<link rel="canonical" href="${canonicalUrl}" />`,
@@ -451,7 +459,6 @@ function buildPolicyHtml(kind, language) {
       : language === "vi"
         ? "Điều khoản sử dụng | Pinly"
         : "Terms of Use | Pinly";
-  const imageUrl = `${PRIMARY_ORIGIN}/landing/da-nang-journey-map.jpg`;
   let html = applyOrganizationSameAs(
     applyLanguageMetadata(template, basePath, language),
   );
@@ -464,10 +471,9 @@ function buildPolicyHtml(kind, language) {
   html = replaceMeta(html, "property", "og:url", canonicalUrl);
   html = replaceMeta(html, "property", "og:title", title);
   html = replaceMeta(html, "property", "og:description", content.summary);
-  html = replaceMeta(html, "property", "og:image", imageUrl);
   html = replaceMeta(html, "name", "twitter:title", title);
   html = replaceMeta(html, "name", "twitter:description", content.summary);
-  html = replaceMeta(html, "name", "twitter:image", imageUrl);
+  html = applySocialImage(html, language);
   html = html.replace(
     /<link rel="canonical" href="[^"]+" \/>/,
     `<link rel="canonical" href="${canonicalUrl}" />`,

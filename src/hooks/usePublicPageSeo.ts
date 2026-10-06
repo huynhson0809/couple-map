@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import {
   PUBLIC_PAGES,
+  SOCIAL_PREVIEW_IMAGE,
   getPublicPageSchema,
   type PublicLanguage,
   type PublicPageKey,
@@ -28,7 +29,8 @@ export function usePublicPageSeo(
     const page = PUBLIC_PAGES[pageKey];
     const content = page[language];
     const canonicalUrl = getAbsolutePublicUrl(page.path, language);
-    const imageUrl = `${PRIMARY_ORIGIN}${content.socialImage ?? page.image}`;
+    const socialImage = SOCIAL_PREVIEW_IMAGE[language];
+    const imageUrl = `${PRIMARY_ORIGIN}${socialImage.path}`;
 
     document.documentElement.lang = language;
     document.title = content.metaTitle;
@@ -42,6 +44,7 @@ export function usePublicPageSeo(
       content.metaDescription,
     );
     setMeta('meta[property="og:image"]', "content", imageUrl);
+    setMeta('meta[property="og:image:alt"]', "content", socialImage.alt);
     setMeta(
       'meta[property="og:locale"]',
       "content",
@@ -59,6 +62,7 @@ export function usePublicPageSeo(
       content.metaDescription,
     );
     setMeta('meta[name="twitter:image"]', "content", imageUrl);
+    setMeta('meta[name="twitter:image:alt"]', "content", socialImage.alt);
 
     const canonical = document.head.querySelector<HTMLLinkElement>(
       'link[rel="canonical"]',

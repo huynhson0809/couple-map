@@ -23,7 +23,7 @@ individually or shared with an invited person.
 - Pinly là gì: https://pinly.tech/vi/about
 - Tính năng: https://pinly.tech/vi/features
 - Câu hỏi thường gặp: https://pinly.tech/vi/faq
-- Cùng xây Pinly: https://pinly.tech/vi/careers
+- Đồng hành cùng Pinly: https://pinly.tech/vi/careers
 - Hướng dẫn tạo bản đồ kỷ niệm: https://pinly.tech/vi/guides/memory-map
 - Hướng dẫn làm nhật ký hành trình: https://pinly.tech/vi/guides/travel-memory-journal
 - Chính sách quyền riêng tư: https://pinly.tech/vi/privacy

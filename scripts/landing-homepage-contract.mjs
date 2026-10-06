@@ -46,6 +46,21 @@ for (const footer of [landingPage, publicChrome]) {
     "Landing and public-page footers must use the same localized link labels.",
   );
 }
+assert.match(
+  landingPage,
+  /<PublicSiteHeader language=\{language\} overlay \/>/,
+  "The homepage must use the shared public header so links, language, and CTA match other pages.",
+);
+assert.doesNotMatch(
+  landingPage,
+  /lp-nav|lp-lang-btn/,
+  "The homepage must not keep a separate header implementation.",
+);
+assert.match(
+  publicChrome,
+  /language === "vi" \? "VI" : "EN"/,
+  "The shared header must label languages with consistent short codes.",
+);
 
 function landingBlock(localeAnchor, fromIndex = 0) {
   const start = i18n.indexOf(localeAnchor, fromIndex);

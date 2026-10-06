@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   ArrowRight,
   Compass,
   Download,
   EllipsisVertical,
-  Globe2,
   LockKeyhole,
   MapPin,
   Share,
@@ -15,6 +14,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { LandingMapScene } from "../components/landing/LandingMapScene";
+import { PublicSiteHeader } from "../components/public/PublicSiteChrome";
 import { PublicSocialLinks } from "../components/public/PublicSocialLinks";
 import { Logo } from "../components/ui/Logo";
 import {
@@ -59,7 +59,6 @@ export function LandingPage({
   language?: PublicLanguage;
 }) {
   const { setLang } = useI18n();
-  const navigate = useNavigate();
   const lang = language;
   const t = (key: I18nKey, values?: Record<string, string | number>) =>
     translate(language, key, values);
@@ -136,40 +135,9 @@ export function LandingPage({
           },
         ];
 
-  const switchLanguage = () => {
-    const nextLanguage = language === "vi" ? "en" : "vi";
-    setLang(nextLanguage);
-    navigate(getLocalizedPublicPath("/", nextLanguage));
-  };
-
   return (
     <div className="lp">
-      <header className="lp-nav">
-        <a className="lp-nav-brand" href="#top" aria-label="Pinly">
-          <Logo size={30} />
-          <span>Pinly</span>
-        </a>
-
-        <nav className="lp-nav-links" aria-label={t("landing.navLabel")}>
-          <a href="#story">{t("landing.navStories")}</a>
-          <a href="#install">{t("landing.ctaInstall")}</a>
-        </nav>
-
-        <div className="lp-nav-actions">
-          <button
-            type="button"
-            className="lp-lang-btn"
-            onClick={switchLanguage}
-            aria-label={t("landing.languageLabel")}
-          >
-            <Globe2 size={16} aria-hidden="true" />
-            <span>{lang === "vi" ? "Tiếng Việt" : "English"}</span>
-          </button>
-          <Link className="lp-nav-cta" to="/register">
-            {t("landing.getStarted")}
-          </Link>
-        </div>
-      </header>
+      <PublicSiteHeader language={language} overlay />
 
       <main>
         <section className="lp-hero" id="top" aria-labelledby="lp-hero-title">

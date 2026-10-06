@@ -88,16 +88,34 @@ assert.match(
 assert.match(
   indexHtml,
   new RegExp(
-    `<meta property="og:image" content="${PRIMARY_ORIGIN}/landing/social-preview-en\\.jpg"\\s*/>`,
+    `<meta property="og:image" content="${PRIMARY_ORIGIN}/landing/social-preview-en\\.jpg\\?v=\\d+"\\s*/>`,
   ),
-  "Open Graph image must be the landing hero preview on the primary Pinly domain.",
+  "Open Graph image must be the versioned landing hero preview on the primary Pinly domain.",
 );
 assert.match(
   indexHtml,
   new RegExp(
-    `<meta name="twitter:image" content="${PRIMARY_ORIGIN}/landing/social-preview-en\\.jpg"\\s*/>`,
+    `<meta name="twitter:image" content="${PRIMARY_ORIGIN}/landing/social-preview-en\\.jpg\\?v=\\d+"\\s*/>`,
   ),
-  "Twitter image must be the landing hero preview on the primary Pinly domain.",
+  "Twitter image must be the versioned landing hero preview on the primary Pinly domain.",
+);
+for (const pattern of [
+  /<meta property="og:image:type" content="image\/jpeg" \/>/,
+  /<meta property="og:image:width" content="1200" \/>/,
+  /<meta property="og:image:height" content="630" \/>/,
+  /<meta property="og:image:alt" content="[^"]+" \/>/,
+  /<meta name="twitter:image:alt" content="[^"]+" \/>/,
+]) {
+  assert.match(
+    indexHtml,
+    pattern,
+    "Social previews must declare image type, size, and alt text for every platform.",
+  );
+}
+assert.match(
+  prerender,
+  /function applySocialImage[\s\S]*buildPageHtml[\s\S]*applySocialImage\(html, language\)[\s\S]*buildPolicyHtml[\s\S]*applySocialImage\(html, language\)/,
+  "Every prerendered public and policy page must use the localized social preview image.",
 );
 for (const language of ["en", "vi"]) {
   assert.ok(

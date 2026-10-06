@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import type { Lang } from "./I18nContext";
+import { SOCIAL_PREVIEW_IMAGE } from "../content/publicPages";
 import { getLegalContent, type PolicyKind } from "../lib/legalContent";
 import {
   getAbsolutePublicUrl,
@@ -8,7 +9,6 @@ import {
 } from "../lib/publicSeo";
 
 const ROUTE_SCHEMA_ID = "pinly-route-schema";
-const SOCIAL_IMAGE = `${PRIMARY_ORIGIN}/landing/da-nang-journey-map.jpg`;
 
 const POLICY_TITLES = {
   vi: {
@@ -33,6 +33,8 @@ export function usePublicPolicySeo(kind: PolicyKind, lang: Lang) {
     const basePath = `/${kind}`;
     const canonicalUrl = getAbsolutePublicUrl(basePath, lang);
     const title = POLICY_TITLES[lang][kind];
+    const socialImage = SOCIAL_PREVIEW_IMAGE[lang];
+    const imageUrl = `${PRIMARY_ORIGIN}${socialImage.path}`;
 
     document.documentElement.lang = lang;
     document.title = title;
@@ -41,18 +43,17 @@ export function usePublicPolicySeo(kind: PolicyKind, lang: Lang) {
     setMeta('meta[property="og:url"]', canonicalUrl);
     setMeta('meta[property="og:title"]', title);
     setMeta('meta[property="og:description"]', content.summary);
-    setMeta('meta[property="og:image"]', SOCIAL_IMAGE);
-    setMeta(
-      'meta[property="og:locale"]',
-      lang === "vi" ? "vi_VN" : "en_US",
-    );
+    setMeta('meta[property="og:image"]', imageUrl);
+    setMeta('meta[property="og:image:alt"]', socialImage.alt);
+    setMeta('meta[property="og:locale"]', lang === "vi" ? "vi_VN" : "en_US");
     setMeta(
       'meta[property="og:locale:alternate"]',
       lang === "vi" ? "en_US" : "vi_VN",
     );
     setMeta('meta[name="twitter:title"]', title);
     setMeta('meta[name="twitter:description"]', content.summary);
-    setMeta('meta[name="twitter:image"]', SOCIAL_IMAGE);
+    setMeta('meta[name="twitter:image"]', imageUrl);
+    setMeta('meta[name="twitter:image:alt"]', socialImage.alt);
 
     document.head
       .querySelector<HTMLLinkElement>('link[rel="canonical"]')

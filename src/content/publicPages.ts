@@ -38,7 +38,6 @@ type LocalizedPublicPage = {
   description: string;
   metaTitle: string;
   metaDescription: string;
-  socialImage?: string;
   sections: PublicSection[];
   questions?: PublicQuestion[];
   steps?: string[];
@@ -56,6 +55,21 @@ export type PublicPageDefinition = {
   en: LocalizedPublicPage;
 };
 
+// Bump ?v= whenever these images change so every social platform fetches the new file.
+export const SOCIAL_PREVIEW_IMAGE: Record<
+  PublicLanguage,
+  { path: string; alt: string }
+> = {
+  vi: {
+    path: "/landing/social-preview-vi.jpg?v=20261006",
+    alt: "Trang chủ Pinly với bản đồ kỷ niệm Đà Nẵng và những kỷ niệm có ảnh",
+  },
+  en: {
+    path: "/landing/social-preview-en.jpg?v=20261006",
+    alt: "Pinly homepage with a Da Nang memory map and saved photo memories",
+  },
+};
+
 export const PUBLIC_CHROME = {
   vi: {
     navLabel: "Điều hướng trang giới thiệu Pinly",
@@ -63,7 +77,7 @@ export const PUBLIC_CHROME = {
     features: "Tính năng",
     pricing: "Bảng giá",
     faq: "Hỏi đáp",
-    careers: "Cùng xây Pinly",
+    careers: "Đồng hành cùng Pinly",
     guides: "Hướng dẫn",
     login: "Đăng nhập",
     register: "Bắt đầu miễn phí",
@@ -131,10 +145,10 @@ export type CareersPageContent = {
 
 export const CAREERS_CONTENT: Record<PublicLanguage, CareersPageContent> = {
   vi: {
-    heroEyebrow: "Cùng xây Pinly",
+    heroEyebrow: "Đồng hành cùng Pinly",
     heroTitle: "Founding Growth Partner tại Pinly",
     heroDescription:
-      "Đồng hành cùng founder để tìm nhóm người dùng đầu tiên và xây con đường tăng trưởng cho một sản phẩm bản đồ kỷ niệm đang hoạt động. Pinly hiện ở giai đoạn pre-revenue và chưa có lương cố định.",
+      "Đồng hành cùng founder để tìm nhóm người dùng đầu tiên và xây dựng con đường tăng trưởng cho một sản phẩm bản đồ kỷ niệm đang hoạt động. Pinly hiện ở giai đoạn pre-revenue và chưa có lương cố định.",
     primaryAction: "Bắt đầu trao đổi",
     secondaryAction: "Tìm hiểu vai trò",
     facts: [
@@ -143,7 +157,8 @@ export const CAREERS_CONTENT: Record<PublicLanguage, CareersPageContent> = {
       { label: "Hiện tại", value: "Chưa có lương cố định" },
     ],
     whyEyebrow: "Vì sao là lúc này",
-    whyTitle: "Không phải một vị trí nhân viên. Đây là lời mời cùng xây.",
+    whyTitle:
+      "Không phải một vị trí nhân viên. Đây là lời mời cùng xây dựng Pinly.",
     whyParagraphs: [
       "Pinly giúp mỗi người lưu địa điểm, ảnh và câu chuyện trên một bản đồ kỷ niệm riêng tư. Sản phẩm đã hoạt động nhưng vẫn đang ở giai đoạn rất sớm: cần hiểu sâu hơn ai thực sự cần Pinly, điều gì khiến họ bắt đầu và vì sao họ quay lại.",
       "Pinly tìm một cộng sự tăng trưởng có thể cùng founder chịu trách nhiệm cho bài toán 0 đến 1. Bạn sẽ trực tiếp trò chuyện với người dùng, thử thông điệp và kênh phân phối, rồi đưa những gì học được trở lại sản phẩm. Đây là sự đồng hành có rủi ro và ảnh hưởng thật, không phải một công việc marketing được giao sẵn.",
@@ -155,7 +170,7 @@ export const CAREERS_CONTENT: Record<PublicLanguage, CareersPageContent> = {
     responsibilities: [
       "Làm rõ định vị và thông điệp cho các nhu cầu dùng Pinly một mình, khi đi du lịch hoặc cùng người được mời.",
       "Thiết kế các thử nghiệm tăng trưởng gọn nhẹ trên SEO, social, video ngắn, cộng đồng và partnership.",
-      "Xây nhịp nội dung có chủ đích, từ ý tưởng đến sản xuất, phân phối và tái sử dụng nội dung hiệu quả.",
+      "Xây dựng nhịp nội dung có chủ đích, từ ý tưởng đến sản xuất, phân phối và tái sử dụng nội dung hiệu quả.",
       "Trao đổi với người dùng, tổng hợp insight và chuyển chúng thành đề xuất cho cả marketing lẫn sản phẩm.",
       "Theo dõi những chỉ số có ý nghĩa như traffic phù hợp, activation, conversion và retention; ghi lại điều đã học sau mỗi thử nghiệm.",
     ],
@@ -177,7 +192,7 @@ export const CAREERS_CONTENT: Record<PublicLanguage, CareersPageContent> = {
     offerItems: [
       "Làm việc trực tiếp với founder và tham gia các quyết định về sản phẩm, định vị và tăng trưởng.",
       "Cộng tác bán thời gian, remote-friendly, không độc quyền và ưu tiên kết quả thay vì giờ làm cố định.",
-      "Cùng xây nền tảng thương hiệu và cách vận hành growth thay vì tiếp quản một quy trình cứng.",
+      "Cùng xây dựng nền tảng thương hiệu và nhịp vận hành growth, thay vì tiếp quản một quy trình cứng nhắc.",
       "Thảo luận rõ cơ chế quyền lợi dài hạn phù hợp với cấu trúc pháp lý của Pinly, chẳng hạn quyền sở hữu hoặc chia sẻ doanh thu.",
       "Ưu tiên xem xét thu nhập bằng tiền khi Pinly đạt mốc doanh thu đã được hai bên thống nhất trước.",
     ],
@@ -194,7 +209,7 @@ export const CAREERS_CONTENT: Record<PublicLanguage, CareersPageContent> = {
       {
         title: "Trò chuyện 30 phút",
         description:
-          "Cùng trao đổi về Pinly, điều bạn muốn xây và kỳ vọng thực tế của hai bên.",
+          "Cùng trao đổi về Pinly, điều bạn muốn xây dựng và kỳ vọng thực tế của hai bên.",
       },
       {
         title: "Cùng giải một tình huống",
@@ -318,7 +333,6 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
       metaTitle: "Pinly - Bản đồ kỷ niệm miễn phí theo từng nơi chốn",
       metaDescription:
         "Lưu địa điểm, ảnh và câu chuyện trên bản đồ kỷ niệm riêng tư, miễn phí. Dùng Pinly một mình hoặc chia sẻ với người bạn tin tưởng.",
-      socialImage: "/landing/social-preview-vi.jpg",
       sections: [],
       ctaTitle: "Tạo bản đồ kỷ niệm đầu tiên",
       ctaDescription: "Miễn phí sử dụng, tối đa 50 kỷ niệm cho mỗi bản đồ.",
@@ -331,7 +345,6 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
       metaTitle: "Pinly - A Free, Private Map for Your Memories",
       metaDescription:
         "Save places, photos, and stories on a free, private memory map. Use Pinly on your own or share it with someone you trust.",
-      socialImage: "/landing/social-preview-en.jpg",
       sections: [],
       ctaTitle: "Create your first memory map",
       ctaDescription: "Free to use, with up to 50 memories per map.",
@@ -361,7 +374,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
         {
           title: "Pinly dành cho ai?",
           paragraphs: [
-            "Pinly phù hợp với người thích ghi lại những ngày bình thường, người đang xây nhật ký hành trình, hoặc hai người muốn cùng lưu những nơi có ý nghĩa.",
+            "Pinly phù hợp với người thích ghi lại những ngày bình thường, người đang viết nhật ký hành trình, hoặc hai người muốn cùng lưu những nơi có ý nghĩa.",
           ],
           bullets: [
             "Dùng riêng như một nhật ký địa điểm cá nhân",
@@ -765,7 +778,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
       title: CAREERS_CONTENT.vi.heroTitle,
       description: CAREERS_CONTENT.vi.heroDescription,
       metaTitle:
-        "Founding Growth Partner tại Pinly | Cùng xây từ giai đoạn đầu",
+        "Founding Growth Partner tại Pinly | Đồng hành từ giai đoạn đầu",
       metaDescription:
         "Pinly tìm Founding Growth Partner đồng hành bán thời gian ở giai đoạn pre-revenue. Hiện chưa có lương cố định; quyền lợi dài hạn được thống nhất trước khi bắt đầu.",
       sections: [

@@ -13,6 +13,7 @@ import {
 import { useI18n } from "../../hooks/I18nContext";
 import { Logo } from "../ui/Logo";
 import { PublicSocialLinks } from "./PublicSocialLinks";
+import "./PublicSiteChrome.css";
 
 const LEGAL_FOOTER_LABELS = {
   vi: {
@@ -28,9 +29,11 @@ const LEGAL_FOOTER_LABELS = {
 export function PublicSiteHeader({
   activePageKey,
   language,
+  overlay = false,
 }: {
   activePageKey?: PublicPageKey;
   language: PublicLanguage;
+  overlay?: boolean;
 }) {
   const { setLang } = useI18n();
   const location = useLocation();
@@ -44,7 +47,9 @@ export function PublicSiteHeader({
   };
 
   return (
-    <header className="public-nav">
+    <header
+      className={overlay ? "public-nav public-nav-overlay" : "public-nav"}
+    >
       <Link
         className="public-brand"
         to={getLocalizedPublicPath("/", language)}
