@@ -36,7 +36,9 @@ function readTranslations() {
   const start = source.indexOf("const dict = {");
   const end = source.indexOf("\n} as const;", start);
   if (start === -1 || end === -1) {
-    throw new Error("Could not find the translation dictionary in I18nContext.tsx.");
+    throw new Error(
+      "Could not find the translation dictionary in I18nContext.tsx.",
+    );
   }
   return runInNewContext(
     `(${source.slice(start + "const dict = ".length, end + 2)})`,
