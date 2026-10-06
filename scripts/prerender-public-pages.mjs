@@ -321,7 +321,7 @@ const fallbackStyles = `
 function buildPageHtml(page, language) {
   const content = page[language];
   const canonicalUrl = absolutePublicUrl(page.path, language);
-  const imageUrl = `${PRIMARY_ORIGIN}${page.image}`;
+  const imageUrl = `${PRIMARY_ORIGIN}${content.socialImage ?? page.image}`;
   let html = applyOrganizationSameAs(
     applyLanguageMetadata(template, page.path, language),
   );

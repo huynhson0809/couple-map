@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import assert from "node:assert/strict";
 
@@ -88,14 +88,24 @@ assert.match(
 );
 assert.match(
   indexHtml,
-  new RegExp(`<meta property="og:image" content="${PRIMARY_ORIGIN}/landing/da-nang-journey-map\\.jpg"\\s*/>`),
-  "Open Graph image must use the primary Pinly domain.",
+  new RegExp(
+    `<meta property="og:image" content="${PRIMARY_ORIGIN}/landing/social-preview-en\\.jpg"\\s*/>`,
+  ),
+  "Open Graph image must be the landing hero preview on the primary Pinly domain.",
 );
 assert.match(
   indexHtml,
-  new RegExp(`<meta name="twitter:image" content="${PRIMARY_ORIGIN}/landing/da-nang-journey-map\\.jpg"\\s*/>`),
-  "Twitter image must use the primary Pinly domain.",
+  new RegExp(
+    `<meta name="twitter:image" content="${PRIMARY_ORIGIN}/landing/social-preview-en\\.jpg"\\s*/>`,
+  ),
+  "Twitter image must be the landing hero preview on the primary Pinly domain.",
 );
+for (const language of ["en", "vi"]) {
+  assert.ok(
+    existsSync(resolve(`public/landing/social-preview-${language}.jpg`)),
+    `Missing ${language} social preview image.`,
+  );
+}
 assert.match(
   indexHtml,
   /"@type": "WebApplication"[\s\S]*"url": "https:\/\/pinly\.tech\/"/,

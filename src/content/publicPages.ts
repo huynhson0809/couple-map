@@ -37,6 +37,7 @@ type LocalizedPublicPage = {
   description: string;
   metaTitle: string;
   metaDescription: string;
+  socialImage?: string;
   sections: PublicSection[];
   questions?: PublicQuestion[];
   steps?: string[];
@@ -316,6 +317,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
       metaTitle: "Pinly - Bản đồ kỷ niệm theo từng nơi chốn",
       metaDescription:
         "Lưu địa điểm, ảnh, video và câu chuyện trên bản đồ kỷ niệm riêng tư. Dùng Pinly một mình hoặc chia sẻ với người bạn tin tưởng.",
+      socialImage: "/landing/social-preview-vi.jpg",
       sections: [],
       ctaTitle: "Tạo bản đồ kỷ niệm đầu tiên",
       ctaDescription: "Bắt đầu miễn phí với 50 kỷ niệm.",
@@ -328,6 +330,7 @@ export const PUBLIC_PAGES: Record<PublicPageKey, PublicPageDefinition> = {
       metaTitle: "Pinly - A Private Map for Your Memories",
       metaDescription:
         "Save places, photos, videos, and stories on a private memory map. Use Pinly on your own or share it with someone you trust.",
+      socialImage: "/landing/social-preview-en.jpg",
       sections: [],
       ctaTitle: "Create your first memory map",
       ctaDescription: "Start free with 50 memories.",

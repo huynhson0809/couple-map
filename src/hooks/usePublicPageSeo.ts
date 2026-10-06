@@ -28,7 +28,7 @@ export function usePublicPageSeo(
     const page = PUBLIC_PAGES[pageKey];
     const content = page[language];
     const canonicalUrl = getAbsolutePublicUrl(page.path, language);
-    const imageUrl = `${PRIMARY_ORIGIN}${page.image}`;
+    const imageUrl = `${PRIMARY_ORIGIN}${content.socialImage ?? page.image}`;
 
     document.documentElement.lang = language;
     document.title = content.metaTitle;
