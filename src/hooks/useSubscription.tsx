@@ -9,7 +9,6 @@ import {
   type ReactNode,
 } from "react";
 import { supabase } from "../lib/supabase";
-import { PAID_PLANS_ENABLED } from "../config/paidPlans";
 import type {
   AccountSubscription,
   BillingCycle,
@@ -1158,7 +1157,7 @@ export function SubscriptionProvider({
   const effectiveSubscription = accountContextResolved
     ? subscription
     : DEFAULT_SUBSCRIPTION_CONTEXT.subscription;
-  const resolvedContext = activeSpaceContextResolved
+  const effectiveContext = activeSpaceContextResolved
     ? {
         plan,
         accountPlan: effectiveAccountPlan,
@@ -1181,19 +1180,6 @@ export function SubscriptionProvider({
         ...DEFAULT_SUBSCRIPTION_CONTEXT,
         accountPlan: effectiveAccountPlan,
         subscription: effectiveSubscription,
-      };
-  const effectiveContext = PAID_PLANS_ENABLED
-    ? resolvedContext
-    : {
-        ...resolvedContext,
-        plan: "free" as PlanType,
-        accountPlan: "free" as PlanType,
-        spacePlan: "free" as PlanType,
-        ownedSpaceLimit: PLAN_LIMITS.free.ownedSpaces,
-        canCreateSpace:
-          resolvedContext.ownedSpaceCount < PLAN_LIMITS.free.ownedSpaces,
-        subscription: null,
-        canUseMap3D: false,
       };
   const contextLoading =
     Boolean(userId && spaceId) && (loading || !activeSpaceContextResolved);
@@ -1312,8 +1298,7 @@ export function SubscriptionProvider({
 
   const canUseMapStyle = useCallback(
     (styleId: string) => {
-      // Keep the current visual style while paid entitlements refresh.
-      if (PAID_PLANS_ENABLED && contextLoading) return true;
+      if (contextLoading) return true; // Keep the current visual style while entitlements refresh.
       if (effectiveContext.plan === "pro") return true;
       if (effectiveContext.plan === "plus") {
         const idx = MAP_STYLE_IDS.indexOf(styleId);
@@ -1346,10 +1331,7 @@ export function SubscriptionProvider({
     isPremium: effectiveContext.plan !== "free",
     canUploadVideo: activeSpaceWritable && limits.video,
     canUseMapStyle,
-    canUseMap3D:
-      PAID_PLANS_ENABLED && contextLoading
-        ? true
-        : effectiveContext.canUseMap3D,
+    canUseMap3D: contextLoading ? true : effectiveContext.canUseMap3D,
     canCreatePin: (currentCount: number) =>
       activeSpaceWritable && currentCount < limits.pins,
     canAddPhoto: (currentCount: number) =>

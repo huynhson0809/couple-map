@@ -303,6 +303,10 @@ export function SettingsPage() {
     spacePlan === "free" ? "FREE" : spacePlan === "plus" ? "PLUS" : "PRO";
   const quotaReached = !subscriptionLoading && !canCreateSpace;
   const planManagedByPolar = subscriptionSource === "polar";
+  // While paid plans are hidden, existing paid plans keep their card but lose upgrade/renew CTAs.
+  const showPlanSection =
+    PAID_PLANS_ENABLED || accountPlan !== "free" || spacePlan !== "free";
+  const showPlanAction = PAID_PLANS_ENABLED || planManagedByPolar;
   const planActionLabel =
     accountPlan === "free"
       ? lang === "vi"
@@ -349,7 +353,7 @@ export function SettingsPage() {
       </header>
 
       {/* Subscription section */}
-      {PAID_PLANS_ENABLED && (
+      {showPlanSection && (
         <SettingSection
           title={lang === "vi" ? "Gói của bạn" : "Your Plan"}
           icon={<Crown size={14} />}
@@ -358,32 +362,34 @@ export function SettingsPage() {
           <div className="setting-plan-overview">
             <div className="setting-plan-main">
               <span className="setting-plan-name">{accountPlanName}</span>
-              <div className="setting-plan-actions">
-                {accountPlan === "free" ? (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => void handleManagePlan()}
-                    loading={accountPlanLoading || planActionBusy}
-                    disabled={accountPlanLoading || planActionBusy}
-                    className="setting-plan-upgrade"
-                  >
-                    {planActionDisplayLabel}
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => void handleManagePlan()}
-                    loading={accountPlanLoading || planActionBusy}
-                    disabled={accountPlanLoading || planActionBusy}
-                    className="setting-plan-manage"
-                  >
-                    {planActionDisplayLabel}
-                  </Button>
-                )}
-              </div>
+              {showPlanAction && (
+                <div className="setting-plan-actions">
+                  {accountPlan === "free" ? (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => void handleManagePlan()}
+                      loading={accountPlanLoading || planActionBusy}
+                      disabled={accountPlanLoading || planActionBusy}
+                      className="setting-plan-upgrade"
+                    >
+                      {planActionDisplayLabel}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => void handleManagePlan()}
+                      loading={accountPlanLoading || planActionBusy}
+                      disabled={accountPlanLoading || planActionBusy}
+                      className="setting-plan-manage"
+                    >
+                      {planActionDisplayLabel}
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
             {portalError && (
               <span className="setting-plan-error">{portalError}</span>

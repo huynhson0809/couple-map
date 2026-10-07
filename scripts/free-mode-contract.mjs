@@ -91,22 +91,32 @@ assert.match(
   "The public nav must hide the pricing link with the page.",
 );
 
-assert.match(
+assert.doesNotMatch(
   read("src/hooks/useSubscription.tsx"),
-  /const effectiveContext = PAID_PLANS_ENABLED\s*\?\s*resolvedContext\s*:\s*\{[\s\S]*?plan: "free"[\s\S]*?accountPlan: "free"[\s\S]*?spacePlan: "free"[\s\S]*?subscription: null,\s*canUseMap3D: false,/,
-  "Every account must receive Free plan entitlements while paid plans are disabled.",
+  /PAID_PLANS_ENABLED/,
+  "Existing paid plans and Pro-space members must keep their entitlements while upgrades are hidden.",
 );
 
 const settings = read("src/pages/SettingsPage.tsx");
 assert.match(
   settings,
-  /\{PAID_PLANS_ENABLED && \(\s*<SettingSection[\s\S]{0,160}className="setting-section-plan"/,
-  "Settings must hide the plan and upgrade card.",
+  /showPlanSection =\s*PAID_PLANS_ENABLED \|\| accountPlan !== "free" \|\| spacePlan !== "free"/,
+  "Settings must keep the plan card only for existing paid plans or Pro spaces.",
+);
+assert.match(
+  settings,
+  /showPlanAction = PAID_PLANS_ENABLED \|\| planManagedByPolar/,
+  "Settings must only offer Polar subscription management, not upgrades or renewals.",
+);
+assert.match(
+  settings,
+  /\{showPlanSection && \(\s*<SettingSection[\s\S]{0,160}className="setting-section-plan"[\s\S]*?\{showPlanAction && \(/,
+  "The plan card must hide its upgrade action for non-Polar plans.",
 );
 assert.match(
   settings,
   /visibleStyles = PAID_PLANS_ENABLED\s*\?\s*sortedStyles\s*:\s*sortedStyles\.filter\(\(style\) => canUseMapStyle\(style\.id\)\)/,
-  "Settings must list only map styles included in the Free plan.",
+  "Settings must list only the map styles the current plan includes.",
 );
 assert.match(
   settings,
@@ -116,8 +126,8 @@ assert.match(
 
 assert.match(
   read("src/pages/MapPage.tsx"),
-  /if \(PAID_PLANS_ENABLED\) \{\s*setShowUpgradePrompt\(true\);\s*return;\s*\}[\s\S]{0,200}pin\.freeMemoryLimitReached/,
-  "Reaching the memory limit must explain the Free limit instead of offering an upgrade.",
+  /if \(PAID_PLANS_ENABLED\) \{\s*setShowUpgradePrompt\(true\);\s*return;\s*\}[\s\S]{0,200}pin\.mapMemoryLimitReached/,
+  "Reaching the memory limit must explain the limit instead of offering an upgrade.",
 );
 
 for (const path of [
@@ -137,17 +147,28 @@ for (const path of [
   );
 }
 
+const replay = read("src/pages/YearReplayPage.tsx");
 assert.match(
-  read("src/pages/YearReplayPage.tsx"),
+  replay,
   /replayEditorAvailable = PAID_PLANS_ENABLED \|\| canCustomizeReplay/,
   "Replay must not show locked paid customization.",
 );
+assert.match(
+  replay,
+  /REPLAY_TEMPLATES\.filter\(\s*\(template\) =>\s*PAID_PLANS_ENABLED \|\| canUseReplayTemplate\(template\.id\)/,
+  "Replay must hide templates the current plan does not include.",
+);
+assert.match(
+  replay,
+  /\{\(PAID_PLANS_ENABLED \|\| canUseAdvancedReplayStyling\) && \(/,
+  "Replay must hide the Pro-only styling upsell.",
+);
 
 assert.equal(
-  read("src/hooks/I18nContext.tsx").split('"pin.freeMemoryLimitReached"')
+  read("src/hooks/I18nContext.tsx").split('"pin.mapMemoryLimitReached"')
     .length - 1,
   2,
-  "The Free memory limit message must exist in both languages.",
+  "The no-upgrade memory limit message must exist in both languages.",
 );
 
 console.log("free mode contract: ok");

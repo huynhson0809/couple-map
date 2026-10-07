@@ -799,7 +799,10 @@ export function YearReplayPage() {
             <section className="replay-editor-section">
               <h2>{copy.template}</h2>
               <div className="replay-template-options">
-                {REPLAY_TEMPLATES.map((template) => {
+                {REPLAY_TEMPLATES.filter(
+                  (template) =>
+                    PAID_PLANS_ENABLED || canUseReplayTemplate(template.id),
+                ).map((template) => {
                   const available = canUseReplayTemplate(template.id);
                   const active = recap.template_id === template.id;
                   return (
@@ -944,47 +947,49 @@ export function YearReplayPage() {
               )}
             </section>
 
-            <section className="replay-editor-section">
-              <h2>{copy.colors}</h2>
-              {canUseAdvancedReplayStyling ? (
-                <>
-                  <div className="replay-color-options">
-                    {REPLAY_ACCENTS.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        className={config.accent === color ? "active" : ""}
-                        style={{ backgroundColor: color }}
-                        onClick={() =>
-                          void commitConfig({ ...config, accent: color })
-                        }
-                        aria-label={color}
-                      >
-                        {config.accent === color && <Check size={15} />}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="replay-font-options">
-                    {(["soft", "editorial"] as const).map((font) => (
-                      <button
-                        key={font}
-                        type="button"
-                        className={config.fontStyle === font ? "active" : ""}
-                        onClick={() =>
-                          void commitConfig({ ...config, fontStyle: font })
-                        }
-                      >
-                        {font === "soft" ? copy.soft : copy.editorial}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <p className="replay-pro-note">
-                  <LockKeyhole size={15} /> {copy.proOnly}
-                </p>
-              )}
-            </section>
+            {(PAID_PLANS_ENABLED || canUseAdvancedReplayStyling) && (
+              <section className="replay-editor-section">
+                <h2>{copy.colors}</h2>
+                {canUseAdvancedReplayStyling ? (
+                  <>
+                    <div className="replay-color-options">
+                      {REPLAY_ACCENTS.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          className={config.accent === color ? "active" : ""}
+                          style={{ backgroundColor: color }}
+                          onClick={() =>
+                            void commitConfig({ ...config, accent: color })
+                          }
+                          aria-label={color}
+                        >
+                          {config.accent === color && <Check size={15} />}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="replay-font-options">
+                      {(["soft", "editorial"] as const).map((font) => (
+                        <button
+                          key={font}
+                          type="button"
+                          className={config.fontStyle === font ? "active" : ""}
+                          onClick={() =>
+                            void commitConfig({ ...config, fontStyle: font })
+                          }
+                        >
+                          {font === "soft" ? copy.soft : copy.editorial}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="replay-pro-note">
+                    <LockKeyhole size={15} /> {copy.proOnly}
+                  </p>
+                )}
+              </section>
+            )}
 
             {replayHasWatermark && (
               <p className="replay-watermark-note">{copy.watermark}</p>

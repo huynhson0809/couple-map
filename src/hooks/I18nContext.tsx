@@ -200,8 +200,8 @@ const dict = {
     "pin.updateFailed": "Could not update this memory. Please try again.",
     "pin.memoryLimitReached":
       "You have reached this plan's memory limit. Upgrade or remove a memory to continue.",
-    "pin.freeMemoryLimitReached":
-      "This map has reached its {{count}}-memory limit. Remove a memory to add a new one.",
+    "pin.mapMemoryLimitReached":
+      "This map has reached its memory limit. Remove a memory to add a new one.",
     "pin.mediaPlanLimitReached":
       "You have reached this plan's media limit for the memory.",
     "pin.createRateLimited":
@@ -918,8 +918,8 @@ const dict = {
     "pin.updateFailed": "Chưa thể cập nhật kỷ niệm. Vui lòng thử lại.",
     "pin.memoryLimitReached":
       "Bạn đã dùng hết số kỷ niệm của gói hiện tại. Hãy nâng cấp hoặc xóa bớt kỷ niệm để tiếp tục.",
-    "pin.freeMemoryLimitReached":
-      "Bản đồ này đã đạt giới hạn {{count}} kỷ niệm. Hãy xóa bớt một kỷ niệm để thêm kỷ niệm mới.",
+    "pin.mapMemoryLimitReached":
+      "Bản đồ này đã đạt giới hạn kỷ niệm. Hãy xóa bớt một kỷ niệm để thêm kỷ niệm mới.",
     "pin.mediaPlanLimitReached":
       "Kỷ niệm này đã dùng hết số ảnh và video của gói hiện tại.",
     "pin.createRateLimited":

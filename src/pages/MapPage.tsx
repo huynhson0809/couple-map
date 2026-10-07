@@ -463,7 +463,7 @@ export function MapPage() {
       type: "info",
       title:
         pins.length >= limits.pins
-          ? t("pin.freeMemoryLimitReached", { count: limits.pins })
+          ? t("pin.mapMemoryLimitReached")
           : t("settings.spaceReadOnlyBannerTitle"),
     });
   }, [limits.pins, pins.length, showToast, t]);
